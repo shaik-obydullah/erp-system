@@ -35,6 +35,17 @@ services:
     volumes:
       - erp_db_data:/var/lib/mysql
 
+  erp_react:
+    image: node:22-alpine
+    container_name: erp_react
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    ports:
+      - "3060:3060"
+    volumes:
+      - ./react-app:/app
+
   erp_phpmyadmin:
     image: phpmyadmin/phpmyadmin
     container_name: erp_phpmyadmin

@@ -1,5 +1,7 @@
 laravel/vendor/
 laravel/node_modules/
+react-app/node_modules/
+react-app/dist/
 laravel/.env
 laravel/public/build/
 laravel/storage/*.key
