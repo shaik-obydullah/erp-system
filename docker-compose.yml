@@ -46,6 +46,19 @@ services:
     volumes:
       - ./react-app:/app
 
+  erp_ollama:
+    image: ollama/ollama
+    container_name: erp_ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+
   erp_phpmyadmin:
     image: phpmyadmin/phpmyadmin
     container_name: erp_phpmyadmin
@@ -60,3 +73,4 @@ services:
 
 volumes:
   erp_db_data:
+  ollama_data:
