@@ -1,0 +1,51 @@
+services:
+  erp_laravel:
+    build:
+      context: php
+    container_name: erp_laravel
+    restart: unless-stopped
+    volumes:
+      - ./laravel:/var/www/html
+    depends_on:
+      - erp_db
+
+  erp_nginx:
+    image: nginx:stable-alpine
+    container_name: erp_nginx
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    volumes:
+      - ./laravel:/var/www/html
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - erp_laravel
+
+  erp_db:
+    image: mariadb:10.6
+    container_name: erp_mariadb
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: laravel_db
+      MYSQL_USER: laravel
+      MYSQL_PASSWORD: secret
+    volumes:
+      - erp_db_data:/var/lib/mysql
+
+  erp_phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: erp_phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8083:80"
+    environment:
+      PMA_HOST: erp_db
+      MYSQL_ROOT_PASSWORD: root
+    depends_on:
+      - erp_db
+
+volumes:
+  erp_db_data:

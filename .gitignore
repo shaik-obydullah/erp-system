@@ -1,0 +1,15 @@
+laravel/vendor/
+laravel/node_modules/
+laravel/.env
+laravel/public/build/
+laravel/storage/*.key
+laravel/storage/framework/cache/data/
+laravel/storage/framework/sessions/
+laravel/storage/framework/views/
+laravel/storage/logs/
+laravel/storage/debugbar/
+
+*.log
+.DS_Store
+.idea/
+.vscode/
