@@ -1,10 +1,11 @@
 <?php
 
+use App\Migrations\AuditableMigration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use App\Migrations\AuditableMigration;
 
-return new class extends AuditableMigration {
+return new class extends AuditableMigration
+{
     /**
      * Run the migrations.
      */

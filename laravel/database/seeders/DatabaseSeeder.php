@@ -2,24 +2,46 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
+use App\Models\Admin;
+use App\Models\Role;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Create default role
+        $adminRole = Role::firstOrCreate(
+            ['name' => 'super-admin'],
+            ['description' => 'Super Administrator with full access']
+        );
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        $managerRole = Role::firstOrCreate(
+            ['name' => 'manager'],
+            ['description' => 'Manager with limited access']
+        );
+
+        $cashierRole = Role::firstOrCreate(
+            ['name' => 'cashier'],
+            ['description' => 'Cashier with POS access only']
+        );
+
+        // Create default super admin
+        $admin = Admin::firstOrCreate(
+            ['email' => 'admin@erp.com'],
+            [
+                'first_name' => 'Super',
+                'last_name' => 'Admin',
+                'email' => 'admin@erp.com',
+                'password' => Hash::make('password'),
+                'status' => 'active',
+            ]
+        );
+
+        $admin->roles()->syncWithoutDetaching([$adminRole->id]);
     }
 }

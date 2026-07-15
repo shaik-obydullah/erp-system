@@ -23,8 +23,8 @@ class CreateActivitiesTable extends Migration
             $table->string('visitor_state', 100)->nullable();
             $table->string('visitor_city', 100)->nullable();
             $table->string('visitor_address', 150)->nullable();
-            $table->dateTime('created_at')->nullable(); 
-            $table->dateTime('updated_at')->nullable(); 
+            $table->dateTime('created_at')->nullable();
+            $table->dateTime('updated_at')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->softDeletes();
         });

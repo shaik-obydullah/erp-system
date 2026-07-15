@@ -1,8 +1,8 @@
 <?php
 
+use App\Migrations\AuditableMigration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use App\Migrations\AuditableMigration;
 
 class CreateSalesTable extends AuditableMigration
 {
@@ -15,7 +15,7 @@ class CreateSalesTable extends AuditableMigration
     {
         Schema::create('sales', function (Blueprint $table) {
             $table->bigIncrements('id');
-            $table->string('table_name', 30)->nullable();;
+            $table->string('table_name', 30)->nullable();
             $table->unsignedBigInteger('fk_user_id')->nullable();
             $table->string('invoice_id', 30)->nullable()->unique();
             $table->enum('type', ['POS', 'Ecommerce']);

@@ -1,8 +1,8 @@
 <?php
 
+use App\Migrations\AuditableMigration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use App\Migrations\AuditableMigration;
 
 class CreatePurchaseOrdersTable extends AuditableMigration
 {
@@ -16,7 +16,7 @@ class CreatePurchaseOrdersTable extends AuditableMigration
         Schema::create('purchase_orders', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('fk_need_id');
-            $table->unsignedBigInteger('fk_supplier_id'); 
+            $table->unsignedBigInteger('fk_supplier_id');
             $table->string('order_number', 50)->unique();
             $table->decimal('total_amount', 10, 2);
             $table->text('remarks')->nullable();

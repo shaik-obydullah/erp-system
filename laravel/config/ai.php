@@ -118,11 +118,11 @@ return [
             'key' => env('OLLAMA_API_KEY', ''),
             'url' => env('OLLAMA_URL', 'http://localhost:11434'),
 
-        'models' => [
-            'text' => [
-                'default' => env('AI_MODEL', 'qwen2:0.5b'),
+            'models' => [
+                'text' => [
+                    'default' => env('AI_MODEL', 'qwen2:0.5b'),
+                ],
             ],
-        ],
         ],
 
         'openai' => [

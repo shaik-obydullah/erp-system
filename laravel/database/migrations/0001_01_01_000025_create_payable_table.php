@@ -1,8 +1,8 @@
 <?php
 
+use App\Migrations\AuditableMigration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use App\Migrations\AuditableMigration;
 
 class CreatePayableTable extends AuditableMigration
 {
@@ -16,8 +16,8 @@ class CreatePayableTable extends AuditableMigration
         Schema::create('payable', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->string('table_name', 100)->nullable();
-            $table->unsignedBigInteger('fk_reference_id')->nullable();;
-            $table->text('description')->nullable();;
+            $table->unsignedBigInteger('fk_reference_id')->nullable();
+            $table->text('description')->nullable();
             $table->decimal('amount', 10, 2)->default(0.00);
             $this->addAuditColumns($table);
             $table->softDeletes();
