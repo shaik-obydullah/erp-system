@@ -3,16 +3,18 @@ services:
     build:
       context: php
     container_name: erp_laravel
-    restart: unless-stopped
+    command: sh -c "npm install && npm run build && npm run dev & php-fpm"
     volumes:
       - ./laravel:/var/www/html
+    ports:
+      - "5173:5173"
     depends_on:
       - erp_db
 
   erp_nginx:
     image: nginx:stable-alpine
     container_name: erp_nginx
-    restart: unless-stopped
+    restart: "no"
     ports:
       - "8082:80"
     volumes:
@@ -24,7 +26,6 @@ services:
   erp_db:
     image: mariadb:10.6
     container_name: erp_mariadb
-    restart: unless-stopped
     ports:
       - "3307:3306"
     environment:
@@ -38,7 +39,6 @@ services:
   erp_react:
     image: node:22-alpine
     container_name: erp_react
-    restart: unless-stopped
     working_dir: /app
     command: sh -c "npm install && npm run dev"
     ports:
@@ -49,7 +49,6 @@ services:
   erp_ollama:
     image: ollama/ollama
     container_name: erp_ollama
-    restart: unless-stopped
     ports:
       - "11434:11434"
     volumes:
@@ -57,12 +56,12 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
+          cpus: "2"
 
   erp_phpmyadmin:
     image: phpmyadmin/phpmyadmin
     container_name: erp_phpmyadmin
-    restart: unless-stopped
+    restart: "no"
     ports:
       - "8083:80"
     environment:

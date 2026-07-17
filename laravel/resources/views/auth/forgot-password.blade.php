@@ -1,25 +1,106 @@
 <x-guest-layout>
-    <div class="mb-4 text-sm text-gray-600">
-        {{ __('Forgot your password? No problem. Just let us know your email address and we will email you a password reset link that will allow you to choose a new one.') }}
+    <div x-data="forgotPasswordForm()" x-init="init()">
+        <!-- Title -->
+        <h1 class="login-title">Reset your password</h1>
+        <p class="login-subtitle">We'll send you a code to reset your password.</p>
+
+        <!-- Session Status -->
+        @if (session('status'))
+            <div class="alert alert-success show">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <span>{{ session('status') }}</span>
+            </div>
+        @endif
+
+        <!-- Server Error -->
+        <div x-show="errorMessage" x-cloak class="alert alert-error show">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+            <span x-text="errorMessage"></span>
+        </div>
+
+        <form method="POST" action="{{ route('password.email') }}" @submit.prevent="submit()">
+            @csrf
+
+            <!-- Email -->
+            <div class="input-group" :class="{ 'error': errors.email }">
+                <input type="email" id="email" x-model="form.email" placeholder=" " required autofocus>
+                <label for="email">Email</label>
+                <div class="input-border"></div>
+                <span class="error-message" x-text="errors.email"></span>
+            </div>
+
+            <!-- Submit -->
+            <button type="submit" class="login-btn" :class="{ 'loading': submitting }" :disabled="submitting">
+                <span class="btn-text">Continue</span>
+                <div class="spinner"></div>
+            </button>
+        </form>
+
+        <!-- Back to Login -->
+        <div class="forgot-password back-link-wrapper">
+            <a href="{{ route('login') }}" class="back-link">Sign in</a>
+        </div>
     </div>
 
-    <!-- Session Status -->
-    <x-auth-session-status class="mb-4" :status="session('status')" />
+    <script>
+        function forgotPasswordForm() {
+            return {
+                form: {
+                    email: '{{ old('email') }}',
+                },
+                errors: {
+                    email: '',
+                },
+                errorMessage: '',
+                submitting: false,
+                csrfToken: '',
+                init() {
+                    this.csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                },
+                async submit() {
+                    this.errors = { email: '' };
+                    this.errorMessage = '';
+                    this.submitting = true;
 
-    <form method="POST" action="{{ route('password.email') }}">
-        @csrf
+                    try {
+                        const response = await fetch('{{ route('password.email') }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': this.csrfToken,
+                                'Accept': 'application/json',
+                            },
+                            body: JSON.stringify(this.form),
+                        });
 
-        <!-- Email Address -->
-        <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autofocus />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
-        </div>
+                        const data = await response.json();
 
-        <div class="flex items-center justify-end mt-4">
-            <x-primary-button>
-                {{ __('Email Password Reset Link') }}
-            </x-primary-button>
-        </div>
-    </form>
+                        if (response.ok) {
+                            window.location.href = data.redirect || '/forgot-password';
+                            return;
+                        }
+
+                        if (data.errors) {
+                            this.errors = {
+                                email: data.errors.email ? data.errors.email[0] : '',
+                            };
+                        } else if (data.message) {
+                            this.errorMessage = data.message;
+                        }
+                    } catch (e) {
+                        this.errorMessage = 'An unexpected error occurred. Please try again.';
+                    } finally {
+                        this.submitting = false;
+                    }
+                },
+            };
+        }
+    </script>
 </x-guest-layout>

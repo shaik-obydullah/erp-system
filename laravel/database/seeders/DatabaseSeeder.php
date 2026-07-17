@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Admin;
-use App\Models\Role;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -14,24 +13,8 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        // Create default role
-        $adminRole = Role::firstOrCreate(
-            ['name' => 'super-admin'],
-            ['description' => 'Super Administrator with full access']
-        );
-
-        $managerRole = Role::firstOrCreate(
-            ['name' => 'manager'],
-            ['description' => 'Manager with limited access']
-        );
-
-        $cashierRole = Role::firstOrCreate(
-            ['name' => 'cashier'],
-            ['description' => 'Cashier with POS access only']
-        );
-
-        // Create default super admin
-        $admin = Admin::firstOrCreate(
+        // Create default super admin first (so seeder can assign role)
+        Admin::firstOrCreate(
             ['email' => 'admin@erp.com'],
             [
                 'first_name' => 'Super',
@@ -42,6 +25,19 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $admin->roles()->syncWithoutDetaching([$adminRole->id]);
+        // Seed permissions, roles, and assign super-admin to admin
+        $this->call(PermissionSeeder::class);
+
+        // Seed configurations
+        $this->call(ConfigurationSeeder::class);
+
+        // Seed customers and suppliers
+        $this->call([
+            CustomerSeeder::class,
+            SupplierSeeder::class,
+        ]);
+
+        // Seed ecommerce data (categories, brands, products, etc.)
+        $this->call(EcommerceSeeder::class);
     }
 }

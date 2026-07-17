@@ -1,47 +1,121 @@
 <x-guest-layout>
-    <!-- Session Status -->
-    <x-auth-session-status class="mb-4" :status="session('status')" />
+    <div x-data="loginForm()" x-init="init()">
+        <!-- Title -->
+        <h1 class="login-title">Sign in</h1>
+        <p class="login-subtitle">Use your ERP Admin Account</p>
 
-    <form method="POST" action="{{ route('login') }}">
-        @csrf
+        <!-- Session Status -->
+        @if (session('status'))
+            <div class="alert alert-success show">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <span>{{ session('status') }}</span>
+            </div>
+        @endif
 
-        <!-- Email Address -->
-        <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autofocus autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+        <!-- Server Error -->
+        <div x-show="errorMessage" x-cloak class="alert alert-error show">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+            <span x-text="errorMessage"></span>
         </div>
 
-        <!-- Password -->
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
+        <form method="POST" action="{{ route('login') }}" @submit.prevent="submit()">
+            @csrf
 
-            <x-text-input id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="current-password" />
+            <!-- Email -->
+            <div class="input-group" :class="{ 'error': errors.email }">
+                <input type="email" id="email" x-model="form.email" placeholder=" " required autofocus autocomplete="username">
+                <label for="email">Email</label>
+                <div class="input-border"></div>
+                <span class="error-message" x-text="errors.email"></span>
+            </div>
 
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
-        </div>
+            <!-- Password -->
+            <div class="input-group" :class="{ 'error': errors.password }">
+                <input :type="showPassword ? 'text' : 'password'" id="password" x-model="form.password" placeholder=" " required autocomplete="current-password">
+                <label for="password">Password</label>
+                <div class="input-border"></div>
+                <button type="button" class="password-toggle" @click="showPassword = !showPassword" x-text="showPassword ? 'Hide' : 'Show'"></button>
+                <span class="error-message" x-text="errors.password"></span>
+            </div>
 
-        <!-- Remember Me -->
-        <div class="block mt-4">
-            <label for="remember_me" class="inline-flex items-center">
-                <input id="remember_me" type="checkbox" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" name="remember">
-                <span class="ms-2 text-sm text-gray-600">{{ __('Remember me') }}</span>
-            </label>
-        </div>
+            <!-- Forgot Password -->
+            <div class="forgot-password">
+                @if (Route::has('password.request'))
+                    <a href="{{ route('password.request') }}">Forgot password?</a>
+                @endif
+            </div>
 
-        <div class="flex items-center justify-end mt-4">
-            @if (Route::has('password.request'))
-                <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" href="{{ route('password.request') }}">
-                    {{ __('Forgot your password?') }}
-                </a>
-            @endif
+            <!-- Submit -->
+            <button type="submit" class="login-btn" :class="{ 'loading': submitting }" :disabled="submitting">
+                <span class="btn-text">Sign in</span>
+                <div class="spinner"></div>
+            </button>
+        </form>
+    </div>
 
-            <x-primary-button class="ms-3">
-                {{ __('Log in') }}
-            </x-primary-button>
-        </div>
-    </form>
+    <script>
+        function loginForm() {
+            return {
+                form: {
+                    email: '{{ old('email') }}',
+                    password: '',
+                },
+                errors: {
+                    email: '',
+                    password: '',
+                },
+                errorMessage: '',
+                showPassword: false,
+                submitting: false,
+                csrfToken: '',
+                init() {
+                    this.csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                },
+                async submit() {
+                    this.errors = { email: '', password: '' };
+                    this.errorMessage = '';
+                    this.submitting = true;
+
+                    try {
+                        const response = await fetch('{{ route('login') }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': this.csrfToken,
+                                'Accept': 'application/json',
+                            },
+                            body: JSON.stringify(this.form),
+                        });
+
+                        const data = await response.json();
+
+                        if (response.ok) {
+                            window.location.href = data.redirect || '/dashboard';
+                            return;
+                        }
+
+                        if (data.errors) {
+                            this.errors = {
+                                email: data.errors.email ? data.errors.email[0] : '',
+                                password: data.errors.password ? data.errors.password[0] : '',
+                            };
+                        } else if (data.message) {
+                            this.errorMessage = data.message;
+                        }
+                    } catch (e) {
+                        this.errorMessage = 'An unexpected error occurred. Please try again.';
+                    } finally {
+                        this.submitting = false;
+                    }
+                },
+            };
+        }
+    </script>
 </x-guest-layout>

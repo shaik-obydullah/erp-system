@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Admin;
+use App\Models\Customer;
+use App\Models\Supplier;
 use App\Models\User;
 
 return [
@@ -21,6 +23,16 @@ return [
             'provider' => 'admins',
         ],
 
+        'customer' => [
+            'driver' => 'session',
+            'provider' => 'customers',
+        ],
+
+        'supplier' => [
+            'driver' => 'session',
+            'provider' => 'suppliers',
+        ],
+
         'sanctum' => [
             'driver' => 'sanctum',
             'provider' => 'admins',
@@ -37,6 +49,16 @@ return [
             'driver' => 'eloquent',
             'model' => Admin::class,
         ],
+
+        'customers' => [
+            'driver' => 'eloquent',
+            'model' => Customer::class,
+        ],
+
+        'suppliers' => [
+            'driver' => 'eloquent',
+            'model' => Supplier::class,
+        ],
     ],
 
     'passwords' => [
@@ -50,6 +72,20 @@ return [
         'admins' => [
             'provider' => 'admins',
             'table' => 'admin_password_reset_tokens',
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+
+        'customers' => [
+            'provider' => 'customers',
+            'table' => 'customer_password_reset_tokens',
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+
+        'suppliers' => [
+            'provider' => 'suppliers',
+            'table' => 'supplier_password_reset_tokens',
             'expire' => 60,
             'throttle' => 60,
         ],

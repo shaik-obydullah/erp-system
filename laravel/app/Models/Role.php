@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Role extends Model
@@ -27,9 +26,9 @@ class Role extends Model
         return $this->belongsToMany(Admin::class, 'role_relations', 'fk_role_id', 'fk_admin_id');
     }
 
-    public function permissions(): HasMany
+    public function permissions(): BelongsToMany
     {
-        return $this->hasMany(Permission::class, 'fk_role_id');
+        return $this->belongsToMany(Permission::class, 'role_permissions', 'fk_role_id', 'fk_permission_id');
     }
 
     public function getPermissionNames(): array

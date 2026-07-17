@@ -6,9 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends AuditableMigration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('contents', function (Blueprint $table) {
@@ -16,13 +13,17 @@ return new class extends AuditableMigration
             $table->string('name')->nullable();
             $table->string('attribute')->nullable();
             $table->string('media')->nullable();
-            $table->string('content')->nullable();
+            $table->text('content')->nullable();
+            $table->string('type', 50)->default('page');
+            $table->string('slug')->nullable()->unique();
+            $table->enum('status', ['active', 'inactive'])->default('active');
+            $table->integer('sort_order')->default(0);
+            $table->timestamps();
+            $this->addAuditColumns($table);
+            $table->softDeletes();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('contents');
