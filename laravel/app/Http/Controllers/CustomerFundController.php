@@ -15,7 +15,7 @@ class CustomerFundController extends Controller
     public function index(Request $request)
     {
         $query = Cashbook::where('table_name', 'customers')
-            ->with('reference');
+            ->with('customer');
 
         if ($customerId = $request->input('customer_id')) {
             $query->where('fk_reference_id', $customerId);
@@ -76,8 +76,8 @@ class CustomerFundController extends Controller
                 'description' => $validated['description'] ?? "Fund added to {$customer->name}",
                 'in_amount' => $amount,
                 'out_amount' => 0,
-                'amount_payable' => 0,
-                'amount_receivable' => $amount,
+                'amount_payable' => $amount,
+                'amount_receivable' => 0,
                 'created_by' => $adminId,
             ]);
 

@@ -40,7 +40,7 @@
                 @forelse($transactions as $transaction)
                     <tr>
                         <td>{{ $transaction->id }}</td>
-                        <td>{{ $transaction->created_at->format('d M Y H:i') }}</td>
+                        <td>{{ $transaction->date ? \Carbon\Carbon::parse($transaction->date)->format('d M Y') : '—' }}</td>
                         <td><span class="badge badge-orange">{{ ucfirst($transaction->type) }}</span></td>
                         <td>{{ $currencySymbol }}{{ number_format($transaction->amount, 2) }}</td>
                         <td>{{ $currencySymbol }}{{ number_format($transaction->paid_amount, 2) }}</td>

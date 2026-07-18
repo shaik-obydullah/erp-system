@@ -30,4 +30,15 @@ class Sale extends Model
     {
         return $this->hasMany(SaleDetail::class, 'fk_sale_id');
     }
+
+    public function saleItems()
+    {
+        return $this->details();
+    }
+
+    public function transaction()
+    {
+        return $this->hasOne(Transaction::class, 'fk_reference_id')
+            ->where('type', Transaction::TYPE_SALE_INCOME);
+    }
 }

@@ -5,53 +5,142 @@
 @section('content')
 <div x-data="homePage()">
 
-    <!-- Hero Section -->
-    @if($heroContent->count())
-    <section class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 text-white">
-        <div class="max-w-7xl mx-auto px-4 py-16 md:py-24">
-            <div class="max-w-2xl">
-                @php $hero = $heroContent->first(); @endphp
-                <h1 class="text-4xl md:text-5xl font-bold leading-tight mb-4">
-                    {!! nl2br(e($hero->name)) !!}
-                </h1>
-                @if($hero->attribute)
-                <p class="text-lg text-primary-100 mb-2">{{ $hero->attribute }}</p>
+    <!-- Hero Carousel -->
+    <section class="relative overflow-hidden text-white"
+        x-data="{
+            currentSlide: 0,
+            totalSlides: {{ $heroContent->count() ? 5 : 4 }},
+            autoplayTimer: null,
+            slides: [
+                @if($heroContent->count())
+                {
+                    bg: 'from-primary-600 via-primary-700 to-primary-900',
+                    title: '{!! nl2br(e($heroContent->first()->name)) !!}',
+                    subtitle: '{{ $heroContent->first()->attribute ?? "" }}',
+                    description: '{!! nl2br(e($heroContent->first()->content ?? "")) !!}',
+                    buttons: [
+                        { text: 'Shop Now', href: '{{ route("store.products") }}', style: 'bg-white text-primary-700 hover:bg-gray-100' },
+                        { text: 'Browse Vendors', href: '{{ route("store.vendors") }}', style: 'border-2 border-white/40 text-white hover:bg-white/10' }
+                    ]
+                },
                 @endif
-                @if($hero->content)
-                <p class="text-primary-100 mb-8">{!! nl2br(e($hero->content)) !!}</p>
-                @endif
-                <div class="flex flex-wrap gap-3">
-                    <a href="{{ route('store.products') }}" class="px-6 py-3 bg-white text-primary-700 font-semibold rounded-lg hover:bg-gray-100 transition shadow-lg">
-                        Shop Now
-                    </a>
-                    <a href="{{ route('store.vendors') }}" class="px-6 py-3 border-2 border-white/40 text-white font-semibold rounded-lg hover:bg-white/10 transition">
-                        Browse Vendors
-                    </a>
+                {
+                    bg: 'from-primary-600 via-primary-700 to-primary-900',
+                    title: 'Discover. Shop. From Multiple Vendors.',
+                    subtitle: '',
+                    description: 'Explore thousands of products from verified sellers. Quality guaranteed, fast shipping, and unbeatable prices.',
+                    buttons: [
+                        { text: 'Shop Now', href: '{{ route("store.products") }}', style: 'bg-white text-primary-700 hover:bg-gray-100' },
+                        { text: 'Browse Vendors', href: '{{ route("store.vendors") }}', style: 'border-2 border-white/40 text-white hover:bg-white/10' }
+                    ]
+                },
+                {
+                    bg: 'from-purple-600 via-purple-700 to-purple-900',
+                    title: 'New Season Collection',
+                    subtitle: '',
+                    description: 'Fresh styles just arrived. Be the first to rock the latest trends this season.',
+                    buttons: [
+                        { text: 'Shop Now', href: '{{ route("store.products") }}', style: 'bg-white text-purple-700 hover:bg-gray-100' }
+                    ]
+                },
+                {
+                    bg: 'from-orange-500 via-amber-500 to-yellow-600',
+                    title: 'Flash Deals - Up to 50% Off',
+                    subtitle: '',
+                    description: 'Limited time offers on top products. Grab them before they are gone!',
+                    buttons: [
+                        { text: 'Shop Now', href: '{{ route("store.products") }}', style: 'bg-white text-orange-700 hover:bg-gray-100' }
+                    ]
+                },
+                {
+                    bg: 'from-teal-600 via-teal-700 to-teal-900',
+                    title: 'Sell on ShopHub',
+                    subtitle: '',
+                    description: 'Join thousands of vendors. Set up your store and start selling today.',
+                    buttons: [
+                        { text: 'Become a Vendor', href: '{{ route("store.vendors") }}', style: 'bg-white text-teal-700 hover:bg-gray-100' }
+                    ]
+                }
+            ],
+            init() {
+                this.startAutoplay();
+            },
+            startAutoplay() {
+                this.stopAutoplay();
+                this.autoplayTimer = setInterval(() => {
+                    this.next();
+                }, 5000);
+            },
+            stopAutoplay() {
+                if (this.autoplayTimer) {
+                    clearInterval(this.autoplayTimer);
+                    this.autoplayTimer = null;
+                }
+            },
+            next() {
+                this.currentSlide = (this.currentSlide + 1) % this.totalSlides;
+            },
+            prev() {
+                this.currentSlide = (this.currentSlide - 1 + this.totalSlides) % this.totalSlides;
+            },
+            goTo(index) {
+                this.currentSlide = index;
+                this.startAutoplay();
+            }
+        }"
+        @mouseenter="stopAutoplay()"
+        @mouseleave="startAutoplay()">
+
+        <!-- Slides -->
+        <template x-for="(slide, index) in slides" :key="index">
+            <div class="absolute inset-0 transition-opacity duration-700 ease-in-out"
+                :class="{ 'opacity-100 z-10': currentSlide === index, 'opacity-0 z-0': currentSlide !== index }">
+                <div class="absolute inset-0 bg-gradient-to-br" :class="slide.bg"></div>
+                <div class="relative max-w-7xl mx-auto px-4 py-16 md:py-24">
+                    <div class="max-w-2xl">
+                        <h1 class="text-4xl md:text-5xl font-bold leading-tight mb-4" x-html="slide.title"></h1>
+                        <template x-if="slide.subtitle">
+                            <p class="text-lg text-white/80 mb-2" x-text="slide.subtitle"></p>
+                        </template>
+                        <template x-if="slide.description">
+                            <p class="text-white/70 mb-8" x-text="slide.description"></p>
+                        </template>
+                        <div class="flex flex-wrap gap-3">
+                            <template x-for="(btn, bIndex) in slide.buttons" :key="bIndex">
+                                <a :href="btn.href"
+                                    class="px-6 py-3 font-semibold rounded-lg transition shadow-lg"
+                                    :class="btn.style"
+                                    x-text="btn.text"></a>
+                            </template>
+                        </div>
+                    </div>
                 </div>
             </div>
+        </template>
+
+        <!-- Arrow Navigation -->
+        <button class="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-white/20 hover:bg-white/40 backdrop-blur-sm rounded-full flex items-center justify-center transition opacity-0 group-hover:opacity-100 md:opacity-0"
+            @click="prev(); startAutoplay()">
+            <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path d="M15 19l-7-7 7-7"/>
+            </svg>
+        </button>
+        <button class="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-white/20 hover:bg-white/40 backdrop-blur-sm rounded-full flex items-center justify-center transition opacity-0 group-hover:opacity-100 md:opacity-0"
+            @click="next(); startAutoplay()">
+            <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path d="M9 5l7 7-7 7"/>
+            </svg>
+        </button>
+
+        <!-- Dots Navigation -->
+        <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+            <template x-for="(slide, index) in slides" :key="index">
+                <button class="w-2.5 h-2.5 rounded-full transition-all duration-300"
+                    :class="currentSlide === index ? 'bg-white w-6' : 'bg-white/40 hover:bg-white/60'"
+                    @click="goTo(index)"></button>
+            </template>
         </div>
     </section>
-    @else
-    <section class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 text-white">
-        <div class="max-w-7xl mx-auto px-4 py-16 md:py-24">
-            <div class="max-w-2xl">
-                <h1 class="text-4xl md:text-5xl font-bold leading-tight mb-4">
-                    Discover. Shop.<br>
-                    <span class="text-accent-500">From Multiple Vendors.</span>
-                </h1>
-                <p class="text-lg text-primary-100 mb-8">Explore thousands of products from verified sellers. Quality guaranteed, fast shipping, and unbeatable prices.</p>
-                <div class="flex flex-wrap gap-3">
-                    <a href="{{ route('store.products') }}" class="px-6 py-3 bg-white text-primary-700 font-semibold rounded-lg hover:bg-gray-100 transition shadow-lg">
-                        Shop Now
-                    </a>
-                    <a href="{{ route('store.vendors') }}"" class="px-6 py-3 border-2 border-white/40 text-white font-semibold rounded-lg hover:bg-white/10 transition">
-                        Browse Vendors
-                    </a>
-                </div>
-            </div>
-        </div>
-    </section>
-    @endif
 
     <!-- Stats -->
     <section class="bg-white border-b">

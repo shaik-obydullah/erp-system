@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Configuration;
 use App\Models\PurchaseOrder;
 use App\Models\ShipmentReturn;
 use App\Services\ActivityLogger;
@@ -27,7 +28,9 @@ class ShipmentReturnController extends Controller
             return response()->json($returns);
         }
 
-        return view('shipment-returns.index', compact('returns'));
+        $currencySymbol = Configuration::get('currency_symbol', '$');
+
+        return view('shipment-returns.index', compact('returns', 'currencySymbol'));
     }
 
     public function create()
@@ -56,7 +59,7 @@ class ShipmentReturnController extends Controller
             'created_by' => auth('admin')->id(),
         ]);
 
-        ActivityLogger::created('Shipment Return', ShipmentReturn::latest()->first());
+        ActivityLogger::created('Shipment Return', ShipmentReturn::latest('id')->first());
 
         return redirect()->route('shipment-returns.index')
             ->with('success', 'Shipment return created successfully.');

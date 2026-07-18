@@ -107,7 +107,7 @@
                     <select x-model="customer_id" class="form-input">
                         <option value="">Walk-in Customer</option>
                         @foreach($customers as $customer)
-                            <option value="{{ $customer->id }}">{{ $customer->first_name }} {{ $customer->last_name }}</option>
+                            <option value="{{ $customer->id }}">{{ $customer->name }}</option>
                         @endforeach
                     </select>
                 </div>

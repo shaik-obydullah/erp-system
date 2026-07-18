@@ -75,7 +75,7 @@ class StockController extends Controller
             'created_by' => auth('admin')->id(),
         ]);
 
-        ActivityLogger::created('Stock', Stock::latest()->first());
+        ActivityLogger::created('Stock', Stock::latest('id')->first());
 
         if ($request->expectsJson()) {
             return response()->json([

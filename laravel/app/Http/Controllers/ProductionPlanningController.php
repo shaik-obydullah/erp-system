@@ -50,7 +50,7 @@ class ProductionPlanningController extends Controller
             'created_by' => auth('admin')->id(),
         ]);
 
-        ActivityLogger::created('Production Planning', ProductionPlanning::latest()->first());
+        ActivityLogger::created('Production Planning', ProductionPlanning::latest('id')->first());
 
         return redirect()->route('production-plannings.index')
             ->with('success', 'Production planning created successfully.');

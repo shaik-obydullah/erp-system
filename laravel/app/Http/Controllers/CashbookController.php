@@ -18,8 +18,11 @@ class CashbookController extends Controller
 
         $entries = $query->orderBy('id', 'desc')->paginate(15)->withQueryString();
 
-        $totalIn = (clone $entries)->sum('in_amount');
-        $totalOut = (clone $entries)->sum('out_amount');
+        $allEntries = Cashbook::query()->get();
+        $totalIn = $allEntries->sum('in_amount');
+        $totalOut = $allEntries->sum('out_amount');
+        $totalPayable = $allEntries->sum('amount_payable');
+        $totalReceivable = $allEntries->sum('amount_receivable');
 
         if ($request->expectsJson()) {
             return response()->json($entries);
@@ -27,6 +30,6 @@ class CashbookController extends Controller
 
         $currencySymbol = Configuration::get('currency_symbol', '$');
 
-        return view('cashbook.index', compact('entries', 'totalIn', 'totalOut', 'currencySymbol'));
+        return view('cashbook.index', compact('entries', 'totalIn', 'totalOut', 'totalPayable', 'totalReceivable', 'currencySymbol'));
     }
 }

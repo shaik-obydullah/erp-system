@@ -43,7 +43,7 @@ class NeedController extends Controller
             'created_by' => auth('admin')->id(),
         ]);
 
-        ActivityLogger::created('Procurement Need', Need::latest()->first());
+        ActivityLogger::created('Procurement Need', Need::latest('id')->first());
 
         return redirect()->route('needs.index')
             ->with('success', 'Procurement need created successfully.');

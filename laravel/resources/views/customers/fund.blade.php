@@ -61,11 +61,11 @@
                         <td>
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <div style="width: 32px; height: 32px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; flex-shrink: 0;">
-                                    {{ $fund->reference ? substr($fund->reference->name, 0, 1) : '?' }}
+                                    {{ $fund->customer ? substr($fund->customer->name, 0, 1) : '?' }}
                                 </div>
                                 <div>
-                                    <strong>{{ $fund->reference->name ?? 'N/A' }}</strong>
-                                    <div style="font-size: 12px; color: var(--text-muted);">{{ $fund->reference->email ?? '' }}</div>
+                                    <strong>{{ $fund->customer->name ?? 'N/A' }}</strong>
+                                    <div style="font-size: 12px; color: var(--text-muted);">{{ $fund->customer->email ?? '' }}</div>
                                 </div>
                             </div>
                         </td>

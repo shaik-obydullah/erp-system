@@ -75,6 +75,13 @@ class CustomerController extends Controller
             ->with('success', 'Customer created successfully.');
     }
 
+    public function show(Customer $customer)
+    {
+        $currencySymbol = Configuration::get('currency_symbol', '$');
+
+        return view('customers.show', compact('customer', 'currencySymbol'));
+    }
+
     public function edit(Customer $customer)
     {
         return view('customers.edit', compact('customer'));

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Configuration;
 use App\Models\Employee;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
@@ -30,7 +31,9 @@ class EmployeeController extends Controller
             return response()->json($employees);
         }
 
-        return view('employees.index', compact('employees'));
+        $currencySymbol = Configuration::get('currency_symbol', '$');
+
+        return view('employees.index', compact('employees', 'currencySymbol'));
     }
 
     public function create()
@@ -63,7 +66,7 @@ class EmployeeController extends Controller
             'created_by' => auth('admin')->id(),
         ]);
 
-        ActivityLogger::created('Employee', Employee::latest()->first());
+        ActivityLogger::created('Employee', Employee::latest('id')->first());
 
         return redirect()->route('employees.index')
             ->with('success', 'Employee created successfully.');

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Campaign;
+use App\Models\Configuration;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 
@@ -26,7 +27,9 @@ class CampaignController extends Controller
             return response()->json($campaigns);
         }
 
-        return view('campaigns.index', compact('campaigns'));
+        $currencySymbol = Configuration::get('currency_symbol', '$');
+
+        return view('campaigns.index', compact('campaigns', 'currencySymbol'));
     }
 
     public function create()
@@ -55,7 +58,7 @@ class CampaignController extends Controller
             'created_by' => auth('admin')->id(),
         ]);
 
-        ActivityLogger::created('Campaign', Campaign::latest()->first());
+        ActivityLogger::created('Campaign', Campaign::latest('id')->first());
 
         return redirect()->route('campaigns.index')
             ->with('success', 'Campaign created successfully.');

@@ -27,7 +27,7 @@
                         <td>{{ $income->id }}</td>
                         <td>{{ $income->description }}</td>
                         <td style="color: var(--success, #22c55e); font-weight: 600;">{{ $currencySymbol }}{{ number_format($income->amount, 2) }}</td>
-                        <td>{{ $income->created_at->format('d M Y') }}</td>
+                        <td>{{ $income->transaction->date ?? '—' }}</td>
                     </tr>
                 @empty
                     <tr>

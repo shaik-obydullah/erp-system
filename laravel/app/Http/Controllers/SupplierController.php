@@ -77,6 +77,13 @@ class SupplierController extends Controller
             ->with('success', 'Supplier created successfully.');
     }
 
+    public function show(Supplier $supplier)
+    {
+        $currencySymbol = Configuration::get('currency_symbol', '$');
+
+        return view('suppliers.show', compact('supplier', 'currencySymbol'));
+    }
+
     public function edit(Supplier $supplier)
     {
         return view('suppliers.edit', compact('supplier'));

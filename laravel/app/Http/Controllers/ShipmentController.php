@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Configuration;
 use App\Models\PurchaseOrder;
 use App\Models\Shipment;
 use App\Models\Warehouse;
@@ -28,7 +29,9 @@ class ShipmentController extends Controller
             return response()->json($shipments);
         }
 
-        return view('shipments.index', compact('shipments'));
+        $currencySymbol = Configuration::get('currency_symbol', '$');
+
+        return view('shipments.index', compact('shipments', 'currencySymbol'));
     }
 
     public function create()
@@ -60,7 +63,7 @@ class ShipmentController extends Controller
             'created_by' => auth('admin')->id(),
         ]);
 
-        ActivityLogger::created('Shipment', Shipment::latest()->first());
+        ActivityLogger::created('Shipment', Shipment::latest('id')->first());
 
         return redirect()->route('shipments.index')
             ->with('success', 'Shipment created successfully.');

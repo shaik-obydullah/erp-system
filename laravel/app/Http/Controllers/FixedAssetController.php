@@ -17,15 +17,15 @@ class FixedAssetController extends Controller
             $query->where('name', 'like', "%{$search}%");
         }
 
-        $assets = $query->orderBy('id', 'desc')->paginate(15)->withQueryString();
+        $fixedAssets = $query->orderBy('id', 'desc')->paginate(15)->withQueryString();
 
         if ($request->expectsJson()) {
-            return response()->json($assets);
+            return response()->json($fixedAssets);
         }
 
         $currencySymbol = Configuration::get('currency_symbol', '$');
 
-        return view('fixed-assets.index', compact('assets', 'currencySymbol'));
+        return view('fixed-assets.index', compact('fixedAssets', 'currencySymbol'));
     }
 
     public function create()
@@ -48,7 +48,7 @@ class FixedAssetController extends Controller
             'created_by' => auth('admin')->id(),
         ]);
 
-        ActivityLogger::created('Fixed Asset', FixedAsset::latest()->first());
+        ActivityLogger::created('Fixed Asset', FixedAsset::latest('id')->first());
 
         return redirect()->route('fixed-assets.index')
             ->with('success', 'Fixed asset created successfully.');

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BillOfMaterial;
 use App\Models\Product;
+use App\Models\Unit;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 
@@ -29,8 +30,9 @@ class BillOfMaterialController extends Controller
     public function create()
     {
         $products = Product::where('status', 'active')->orderBy('name')->get();
+        $units = Unit::orderBy('name')->get();
 
-        return view('bill-of-materials.create', compact('products'));
+        return view('bill-of-materials.create', compact('products', 'units'));
     }
 
     public function store(Request $request)
@@ -52,7 +54,7 @@ class BillOfMaterialController extends Controller
             'created_by' => auth('admin')->id(),
         ]);
 
-        ActivityLogger::created('Bill of Material', BillOfMaterial::latest()->first());
+        ActivityLogger::created('Bill of Material', BillOfMaterial::latest('id')->first());
 
         return redirect()->route('bill-of-materials.index')
             ->with('success', 'Bill of materials created successfully.');
@@ -61,8 +63,9 @@ class BillOfMaterialController extends Controller
     public function edit(BillOfMaterial $billOfMaterial)
     {
         $products = Product::where('status', 'active')->orderBy('name')->get();
+        $units = Unit::orderBy('name')->get();
 
-        return view('bill-of-materials.edit', compact('billOfMaterial', 'products'));
+        return view('bill-of-materials.edit', compact('billOfMaterial', 'products', 'units'));
     }
 
     public function update(Request $request, BillOfMaterial $billOfMaterial)

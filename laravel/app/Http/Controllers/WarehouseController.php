@@ -50,7 +50,7 @@ class WarehouseController extends Controller
             'created_by' => auth('admin')->id(),
         ]);
 
-        ActivityLogger::created('Warehouse', Warehouse::latest()->first());
+        ActivityLogger::created('Warehouse', Warehouse::latest('id')->first());
 
         return redirect()->route('warehouses.index')
             ->with('success', 'Warehouse created successfully.');

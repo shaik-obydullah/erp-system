@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Cashbook extends Model
 {
@@ -40,5 +41,30 @@ class Cashbook extends Model
     public function reference()
     {
         return $this->morphTo('reference', 'fk_reference_id', 'table_name');
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class, 'fk_reference_id');
+    }
+
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class, 'fk_reference_id');
+    }
+
+    public function sale()
+    {
+        return $this->belongsTo(Sale::class, 'fk_reference_id');
+    }
+
+    public function income()
+    {
+        return $this->belongsTo(Income::class, 'fk_reference_id');
+    }
+
+    public function expense()
+    {
+        return $this->belongsTo(Expense::class, 'fk_reference_id');
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BillOfMaterial;
+use App\Models\Configuration;
 use App\Models\Production;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
@@ -19,7 +20,9 @@ class ProductionController extends Controller
             return response()->json($productions);
         }
 
-        return view('productions.index', compact('productions'));
+        $currencySymbol = Configuration::get('currency_symbol', '$');
+
+        return view('productions.index', compact('productions', 'currencySymbol'));
     }
 
     public function create()
@@ -48,7 +51,7 @@ class ProductionController extends Controller
             'created_by' => auth('admin')->id(),
         ]);
 
-        ActivityLogger::created('Production', Production::latest()->first());
+        ActivityLogger::created('Production', Production::latest('id')->first());
 
         return redirect()->route('productions.index')
             ->with('success', 'Production entry created successfully.');

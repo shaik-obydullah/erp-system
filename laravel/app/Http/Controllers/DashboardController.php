@@ -33,7 +33,7 @@ class DashboardController extends Controller
         $totalOrders = Sale::count();
         $completedOrders = Sale::where('status', 'completed')->count();
         $pendingOrders = Sale::where('status', 'orderPlaced')->count();
-        $totalDue = Sale::sum('sale_due');
+        $totalDue = Sale::where('sale_due', '>', 0)->sum('sale_due');
 
         $recentSales = Sale::orderBy('id', 'desc')->limit(5)->get();
 

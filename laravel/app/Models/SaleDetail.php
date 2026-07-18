@@ -21,4 +21,21 @@ class SaleDetail extends Model
     protected $casts = [
         'subtotal' => 'decimal:2',
     ];
+
+    public function stock()
+    {
+        return $this->belongsTo(Stock::class, 'fk_stock_id');
+    }
+
+    public function product()
+    {
+        return $this->hasOneThrough(
+            Product::class,
+            Stock::class,
+            'id',
+            'id',
+            'fk_stock_id',
+            'fk_product_id'
+        );
+    }
 }

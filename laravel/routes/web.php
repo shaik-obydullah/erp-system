@@ -25,6 +25,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\StockAdjustmentController;
 use App\Http\Controllers\SaleController;
+use App\Http\Controllers\SaleReturnController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\NeedController;
 use App\Http\Controllers\PurchaseOrderController;
@@ -47,6 +48,10 @@ use App\Http\Controllers\ProductionPlanningController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CmsController;
+use App\Http\Controllers\CurrencyController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\CustomerPortalController;
+use App\Http\Controllers\SupplierPortalController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -112,15 +117,6 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     Route::post('/customers', [CustomerController::class, 'store'])
         ->middleware('permission:customers.save')
         ->name('customers.store');
-    Route::get('/customers/{customer}/edit', [CustomerController::class, 'edit'])
-        ->middleware('permission:customers.edit')
-        ->name('customers.edit');
-    Route::put('/customers/{customer}', [CustomerController::class, 'update'])
-        ->middleware('permission:customers.edit')
-        ->name('customers.update');
-    Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])
-        ->middleware('permission:customers.delete')
-        ->name('customers.destroy');
 
     // Customer Fund
     Route::get('/customers/fund', [CustomerFundController::class, 'index'])
@@ -142,6 +138,12 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     Route::get('/customers/transactions', [CustomerTransactionController::class, 'index'])
         ->middleware('permission:customers.view')
         ->name('customers.transaction.index');
+    Route::get('/customers/transactions/export', [CustomerTransactionController::class, 'export'])
+        ->middleware('permission:customers.view')
+        ->name('customers.transaction.export');
+    Route::post('/customers/transactions/import', [CustomerTransactionController::class, 'import'])
+        ->middleware('permission:customers.save')
+        ->name('customers.transaction.import');
 
     // Customer Import/Export
     Route::get('/customers/export', [CustomerController::class, 'export'])
@@ -150,6 +152,20 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     Route::post('/customers/import', [CustomerController::class, 'import'])
         ->middleware('permission:customers.save')
         ->name('customers.import');
+
+    // Customer wildcard routes (after all static /customers/* routes)
+    Route::get('/customers/{customer}', [CustomerController::class, 'show'])
+        ->middleware('permission:customers.view')
+        ->name('customers.show');
+    Route::get('/customers/{customer}/edit', [CustomerController::class, 'edit'])
+        ->middleware('permission:customers.edit')
+        ->name('customers.edit');
+    Route::put('/customers/{customer}', [CustomerController::class, 'update'])
+        ->middleware('permission:customers.edit')
+        ->name('customers.update');
+    Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])
+        ->middleware('permission:customers.delete')
+        ->name('customers.destroy');
 
     // Suppliers
     Route::get('/suppliers', [SupplierController::class, 'index'])
@@ -161,15 +177,6 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     Route::post('/suppliers', [SupplierController::class, 'store'])
         ->middleware('permission:suppliers.save')
         ->name('suppliers.store');
-    Route::get('/suppliers/{supplier}/edit', [SupplierController::class, 'edit'])
-        ->middleware('permission:suppliers.edit')
-        ->name('suppliers.edit');
-    Route::put('/suppliers/{supplier}', [SupplierController::class, 'update'])
-        ->middleware('permission:suppliers.edit')
-        ->name('suppliers.update');
-    Route::delete('/suppliers/{supplier}', [SupplierController::class, 'destroy'])
-        ->middleware('permission:suppliers.delete')
-        ->name('suppliers.destroy');
 
     // Supplier Fund
     Route::get('/suppliers/fund', [SupplierFundController::class, 'index'])
@@ -191,6 +198,12 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     Route::get('/suppliers/transactions', [SupplierTransactionController::class, 'index'])
         ->middleware('permission:suppliers.view')
         ->name('suppliers.transaction.index');
+    Route::get('/suppliers/transactions/export', [SupplierTransactionController::class, 'export'])
+        ->middleware('permission:suppliers.view')
+        ->name('suppliers.transaction.export');
+    Route::post('/suppliers/transactions/import', [SupplierTransactionController::class, 'import'])
+        ->middleware('permission:suppliers.save')
+        ->name('suppliers.transaction.import');
 
     // Supplier Import/Export
     Route::get('/suppliers/export', [SupplierController::class, 'export'])
@@ -200,23 +213,84 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
         ->middleware('permission:suppliers.save')
         ->name('suppliers.import');
 
+    // Supplier wildcard routes (after all static /suppliers/* routes)
+    Route::get('/suppliers/{supplier}', [SupplierController::class, 'show'])
+        ->middleware('permission:suppliers.view')
+        ->name('suppliers.show');
+    Route::get('/suppliers/{supplier}/edit', [SupplierController::class, 'edit'])
+        ->middleware('permission:suppliers.edit')
+        ->name('suppliers.edit');
+    Route::put('/suppliers/{supplier}', [SupplierController::class, 'update'])
+        ->middleware('permission:suppliers.edit')
+        ->name('suppliers.update');
+    Route::delete('/suppliers/{supplier}', [SupplierController::class, 'destroy'])
+        ->middleware('permission:suppliers.delete')
+        ->name('suppliers.destroy');
+
     // Brands
     Route::resource('brands', BrandController::class)->except(['show']);
+    Route::get('/brands/export', [BrandController::class, 'export'])
+        ->middleware('permission:brands.view')
+        ->name('brands.export');
+    Route::post('/brands/import', [BrandController::class, 'import'])
+        ->middleware('permission:brands.save')
+        ->name('brands.import');
 
     // Categories
     Route::resource('categories', CategoryController::class)->except(['show']);
+    Route::get('/categories/export', [CategoryController::class, 'export'])
+        ->middleware('permission:categories.view')
+        ->name('categories.export');
+    Route::post('/categories/import', [CategoryController::class, 'import'])
+        ->middleware('permission:categories.save')
+        ->name('categories.import');
 
     // Units
     Route::resource('units', UnitController::class)->except(['show']);
+    Route::get('/units/export', [UnitController::class, 'export'])
+        ->middleware('permission:units.view')
+        ->name('units.export');
+    Route::post('/units/import', [UnitController::class, 'import'])
+        ->middleware('permission:units.save')
+        ->name('units.import');
 
     // Sizes
     Route::resource('sizes', SizeController::class)->except(['show']);
+    Route::get('/sizes/export', [SizeController::class, 'export'])
+        ->middleware('permission:sizes.view')
+        ->name('sizes.export');
+    Route::post('/sizes/import', [SizeController::class, 'import'])
+        ->middleware('permission:sizes.save')
+        ->name('sizes.import');
 
     // Colors
     Route::resource('colors', ColorController::class)->except(['show']);
+    Route::get('/colors/export', [ColorController::class, 'export'])
+        ->middleware('permission:colors.view')
+        ->name('colors.export');
+    Route::post('/colors/import', [ColorController::class, 'import'])
+        ->middleware('permission:colors.save')
+        ->name('colors.import');
 
     // Products
     Route::resource('products', ProductController::class)->except(['show']);
+
+    // Product Barcodes
+    Route::get('/products/barcodes', [ProductController::class, 'barcodes'])
+        ->middleware('permission:products.view')
+        ->name('products.barcodes');
+
+    // Product Import/Export
+    Route::get('/products/export', [ProductController::class, 'export'])
+        ->middleware('permission:products.view')
+        ->name('products.export');
+    Route::post('/products/import', [ProductController::class, 'import'])
+        ->middleware('permission:products.save')
+        ->name('products.import');
+
+    // Product Media Upload (no extra permission middleware — page access already controls this)
+    Route::post('/products/upload-media', [ProductController::class, 'uploadMedia'])
+        ->name('products.upload-media');
 
     // Stocks
     Route::get('/stocks', [StockController::class, 'index'])
@@ -271,6 +345,35 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     Route::get('/sales/{sale}/invoice', [SaleController::class, 'invoice'])
         ->middleware('permission:sales.view')
         ->name('sales.invoice');
+    Route::post('/sales/{sale}/receive-due', [SaleController::class, 'receiveDue'])
+        ->middleware('permission:sales.edit')
+        ->name('sales.receive-due');
+
+    // Sale Returns
+    Route::get('/sale-returns', [SaleReturnController::class, 'index'])
+        ->middleware('permission:sales.view')
+        ->name('sale-returns.index');
+    Route::get('/sale-returns/create', [SaleReturnController::class, 'create'])
+        ->middleware('permission:sales.save')
+        ->name('sale-returns.create');
+    Route::post('/sale-returns', [SaleReturnController::class, 'store'])
+        ->middleware('permission:sales.save')
+        ->name('sale-returns.store');
+    Route::get('/sale-returns/{saleReturn}/edit', [SaleReturnController::class, 'edit'])
+        ->middleware('permission:sales.edit')
+        ->name('sale-returns.edit');
+    Route::put('/sale-returns/{saleReturn}', [SaleReturnController::class, 'update'])
+        ->middleware('permission:sales.edit')
+        ->name('sale-returns.update');
+    Route::delete('/sale-returns/{saleReturn}', [SaleReturnController::class, 'destroy'])
+        ->middleware('permission:sales.delete')
+        ->name('sale-returns.destroy');
+    Route::post('/sale-returns/{saleReturn}/approve', [SaleReturnController::class, 'approve'])
+        ->middleware('permission:sales.edit')
+        ->name('sale-returns.approve');
+    Route::post('/sale-returns/{saleReturn}/reject', [SaleReturnController::class, 'reject'])
+        ->middleware('permission:sales.edit')
+        ->name('sale-returns.reject');
 
     // Procurement - Needs
     Route::resource('needs', NeedController::class)->except(['show']);
@@ -323,6 +426,12 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
         ->middleware('permission:transactions.view')
         ->name('transactions.index');
 
+    // Finance - Currencies
+    Route::resource('currencies', CurrencyController::class)->except(['show']);
+    Route::post('/currencies/{currency}/set-base', [CurrencyController::class, 'setBase'])
+        ->middleware('permission:settings.save')
+        ->name('currencies.set-base');
+
     // HRM - Employees
     Route::resource('employees', EmployeeController::class)->except(['show']);
 
@@ -339,7 +448,7 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     Route::resource('warehouses', WarehouseController::class)->except(['show']);
 
     // Logistics - Shipments
-    Route::resource('shipments', ShipmentController::class)->except(['show']);
+    Route::resource('shipments', ShipmentController::class);
 
     // Logistics - Shipment Returns
     Route::resource('shipment-returns', ShipmentReturnController::class)->except(['show']);
@@ -351,10 +460,33 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     Route::resource('production-plannings', ProductionPlanningController::class)->except(['show']);
 
     // Manufacturing - Production
-    Route::resource('productions', ProductionController::class)->except(['show']);
+    Route::resource('productions', ProductionController::class);
 
     // CMS Content
     Route::resource('cms', CmsController::class)->except(['show']);
+
+    // Reports
+    Route::get('/reports', [ReportController::class, 'index'])
+        ->middleware('permission:dashboard.view')
+        ->name('reports.index');
+    Route::get('/reports/sales', [ReportController::class, 'sales'])
+        ->middleware('permission:dashboard.view')
+        ->name('reports.sales');
+    Route::get('/reports/income', [ReportController::class, 'income'])
+        ->middleware('permission:dashboard.view')
+        ->name('reports.income');
+    Route::get('/reports/expense', [ReportController::class, 'expense'])
+        ->middleware('permission:dashboard.view')
+        ->name('reports.expense');
+    Route::get('/reports/stock', [ReportController::class, 'stock'])
+        ->middleware('permission:dashboard.view')
+        ->name('reports.stock');
+    Route::get('/reports/customers', [ReportController::class, 'customer'])
+        ->middleware('permission:dashboard.view')
+        ->name('reports.customers');
+    Route::get('/reports/suppliers', [ReportController::class, 'supplier'])
+        ->middleware('permission:dashboard.view')
+        ->name('reports.suppliers');
 
     // Permissions
     Route::get('/permissions', [PermissionController::class, 'index'])
@@ -390,6 +522,25 @@ Route::get('/vendors', [StorefrontController::class, 'vendorList'])->name('store
 Route::get('/vendor/{slug}', [StorefrontController::class, 'vendorStore'])->name('store.vendor');
 Route::get('/cart', [StorefrontController::class, 'cart'])->name('store.cart');
 Route::get('/checkout', [StorefrontController::class, 'checkout'])->name('store.checkout');
+
+// Customer Portal
+Route::middleware(['auth:customer'])->prefix('portal')->group(function () {
+    Route::get('/', [CustomerPortalController::class, 'dashboard'])->name('portal.dashboard');
+    Route::get('/orders', [CustomerPortalController::class, 'orders'])->name('portal.orders');
+    Route::get('/orders/{id}', [CustomerPortalController::class, 'orderDetail'])->name('portal.order');
+    Route::get('/profile', [CustomerPortalController::class, 'profile'])->name('portal.profile');
+    Route::put('/profile', [CustomerPortalController::class, 'updateProfile'])->name('portal.profile.update');
+});
+
+// Supplier Portal
+Route::middleware(['auth:supplier'])->prefix('supplier-portal')->group(function () {
+    Route::get('/', [SupplierPortalController::class, 'dashboard'])->name('supplier-portal.dashboard');
+    Route::get('/purchase-orders', [SupplierPortalController::class, 'purchaseOrders'])->name('supplier-portal.orders');
+    Route::get('/purchase-orders/{id}', [SupplierPortalController::class, 'poDetail'])->name('supplier-portal.order');
+    Route::get('/products', [SupplierPortalController::class, 'products'])->name('supplier-portal.products');
+    Route::get('/profile', [SupplierPortalController::class, 'profile'])->name('supplier-portal.profile');
+    Route::put('/profile', [SupplierPortalController::class, 'updateProfile'])->name('supplier-portal.profile.update');
+});
 
 // API routes (Vue components)
 Route::middleware(['auth:admin', 'active.admin'])->prefix('api')->group(function () {

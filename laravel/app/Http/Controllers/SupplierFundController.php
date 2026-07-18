@@ -14,7 +14,7 @@ class SupplierFundController extends Controller
     public function index(Request $request)
     {
         $query = Cashbook::where('table_name', 'suppliers')
-            ->with('reference');
+            ->with('supplier');
 
         if ($supplierId = $request->input('supplier_id')) {
             $query->where('fk_reference_id', $supplierId);
@@ -70,8 +70,8 @@ class SupplierFundController extends Controller
                 'table_name' => 'suppliers',
                 'fk_reference_id' => $supplier->id,
                 'description' => $validated['description'] ?? "Fund added to {$supplier->name}",
-                'in_amount' => $amount,
-                'out_amount' => 0,
+                'in_amount' => 0,
+                'out_amount' => $amount,
                 'amount_payable' => 0,
                 'amount_receivable' => $amount,
                 'created_by' => $adminId,

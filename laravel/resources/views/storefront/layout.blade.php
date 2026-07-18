@@ -42,7 +42,7 @@
     </div>
 
     <!-- Navbar -->
-    <nav class="bg-white shadow-sm sticky top-0 z-50">
+    <nav class="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-100">
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex items-center justify-between h-16">
                 <!-- Logo -->
@@ -87,19 +87,165 @@
                     <button class="px-4 bg-primary-600 text-white rounded-r-lg text-sm">Search</button>
                 </form>
                 <a href="{{ route('store.home') }}" class="block py-2 text-sm font-medium hover:text-primary-600">Home</a>
-                <a href="{{ route('store.products') }}" class="block py-2 text-sm font-medium hover:text-primary-600">All Products</a>
+                <a href="{{ route('store.products') }}" class="block py-2 text-sm font-medium hover:text-primary-600">Shop All</a>
+                <a href="{{ route('store.products') }}?category=electronics" class="block py-2 text-sm font-medium hover:text-primary-600 pl-4">Electronics</a>
+                <a href="{{ route('store.products') }}?category=fashion" class="block py-2 text-sm font-medium hover:text-primary-600 pl-4">Fashion</a>
+                <a href="{{ route('store.products') }}?category=home" class="block py-2 text-sm font-medium hover:text-primary-600 pl-4">Home & Living</a>
+                <a href="{{ route('store.products') }}?category=sports" class="block py-2 text-sm font-medium hover:text-primary-600 pl-4">Sports</a>
+                <a href="{{ route('store.products') }}?category=beauty" class="block py-2 text-sm font-medium hover:text-primary-600 pl-4">Beauty</a>
+                <a href="{{ route('store.products') }}?category=books" class="block py-2 text-sm font-medium hover:text-primary-600 pl-4">Books</a>
+                <div class="border-t my-2"></div>
+                <a href="{{ route('store.products') }}?sort=newest" class="block py-2 text-sm font-medium hover:text-primary-600">New Arrivals</a>
                 <a href="{{ route('store.vendors') }}" class="block py-2 text-sm font-medium hover:text-primary-600">Vendors</a>
+                <a href="{{ route('store.products') }}" class="block py-2 text-sm font-medium hover:text-primary-600">Blog</a>
             </div>
         </div>
     </nav>
 
-    <!-- Desktop Nav Links -->
-    <div class="hidden md:block bg-white border-b">
+    <!-- Desktop Mega Menu Nav -->
+    <div class="hidden md:block bg-white border-b" x-data="megaMenu()" x-cloak>
         <div class="max-w-7xl mx-auto px-4">
-            <div class="flex items-center gap-8 h-10 text-sm font-medium">
-                <a href="{{ route('store.home') }}" class="{{ request()->routeIs('store.home') ? 'text-primary-600' : 'text-gray-600 hover:text-primary-600' }} transition">Home</a>
-                <a href="{{ route('store.products') }}" class="{{ request()->routeIs('store.products') || request()->routeIs('store.product') ? 'text-primary-600' : 'text-gray-600 hover:text-primary-600' }} transition">All Products</a>
-                <a href="{{ route('store.vendors') }}" class="{{ request()->routeIs('store.vendors') || request()->routeIs('store.vendor') ? 'text-primary-600' : 'text-gray-600 hover:text-primary-600' }} transition">Vendors</a>
+            <div class="flex items-center gap-1 h-11 text-sm font-medium">
+
+                <!-- Shop with mega dropdown -->
+                <div class="relative"
+                    @mouseenter="openMega('shop')" @mouseleave="closeMega('shop')">
+                    <a href="{{ route('store.products') }}"
+                        :class="activeMega === 'shop' ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50'"
+                        class="flex items-center gap-1 px-4 py-2.5 rounded-lg transition-all duration-200">
+                        Shop
+                        <svg class="w-3.5 h-3.5 transition-transform duration-200" :class="activeMega === 'shop' ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M19 9l-7 7-7-7"/></svg>
+                    </a>
+
+                    <!-- Shop Mega Panel -->
+                    <div x-show="activeMega === 'shop'" x-transition:enter="transition ease-out duration-200"
+                        x-transition:enter-start="opacity-0 translate-y-1" x-transition:enter-end="opacity-100 translate-y-0"
+                        x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0"
+                        x-transition:leave-end="opacity-0 translate-y-1"
+                        class="absolute top-full left-1/2 -translate-x-1/2 w-[780px] bg-white rounded-xl shadow-2xl border border-gray-100 mt-2 p-6"
+                        @mouseenter="keepOpen('shop')" @mouseleave="closeMega('shop')">
+                        <div class="grid grid-cols-3 gap-6">
+                            <!-- Left: Category Grid -->
+                            <div class="col-span-2">
+                                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Categories</p>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <a href="{{ route('store.products') }}?category=electronics"
+                                        class="flex items-center gap-3 p-3 rounded-lg hover:bg-primary-50 hover:text-primary-700 transition group">
+                                        <span class="text-2xl">🔌</span>
+                                        <div>
+                                            <p class="text-sm font-semibold text-gray-800 group-hover:text-primary-700">Electronics</p>
+                                            <p class="text-xs text-gray-400">Gadgets & Devices</p>
+                                        </div>
+                                    </a>
+                                    <a href="{{ route('store.products') }}?category=fashion"
+                                        class="flex items-center gap-3 p-3 rounded-lg hover:bg-primary-50 hover:text-primary-700 transition group">
+                                        <span class="text-2xl">👗</span>
+                                        <div>
+                                            <p class="text-sm font-semibold text-gray-800 group-hover:text-primary-700">Fashion</p>
+                                            <p class="text-xs text-gray-400">Clothing & Accessories</p>
+                                        </div>
+                                    </a>
+                                    <a href="{{ route('store.products') }}?category=home"
+                                        class="flex items-center gap-3 p-3 rounded-lg hover:bg-primary-50 hover:text-primary-700 transition group">
+                                        <span class="text-2xl">🏠</span>
+                                        <div>
+                                            <p class="text-sm font-semibold text-gray-800 group-hover:text-primary-700">Home & Living</p>
+                                            <p class="text-xs text-gray-400">Furniture & Decor</p>
+                                        </div>
+                                    </a>
+                                    <a href="{{ route('store.products') }}?category=sports"
+                                        class="flex items-center gap-3 p-3 rounded-lg hover:bg-primary-50 hover:text-primary-700 transition group">
+                                        <span class="text-2xl">⚽</span>
+                                        <div>
+                                            <p class="text-sm font-semibold text-gray-800 group-hover:text-primary-700">Sports</p>
+                                            <p class="text-xs text-gray-400">Fitness & Outdoors</p>
+                                        </div>
+                                    </a>
+                                    <a href="{{ route('store.products') }}?category=beauty"
+                                        class="flex items-center gap-3 p-3 rounded-lg hover:bg-primary-50 hover:text-primary-700 transition group">
+                                        <span class="text-2xl">💄</span>
+                                        <div>
+                                            <p class="text-sm font-semibold text-gray-800 group-hover:text-primary-700">Beauty</p>
+                                            <p class="text-xs text-gray-400">Skincare & Makeup</p>
+                                        </div>
+                                    </a>
+                                    <a href="{{ route('store.products') }}?category=books"
+                                        class="flex items-center gap-3 p-3 rounded-lg hover:bg-primary-50 hover:text-primary-700 transition group">
+                                        <span class="text-2xl">📚</span>
+                                        <div>
+                                            <p class="text-sm font-semibold text-gray-800 group-hover:text-primary-700">Books</p>
+                                            <p class="text-xs text-gray-400">All Genres</p>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                            <!-- Right: Quick Links -->
+                            <div class="space-y-4">
+                                <div>
+                                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Featured</p>
+                                    <ul class="space-y-1">
+                                        <li><a href="{{ route('store.products') }}?sort=newest" class="flex items-center gap-2 text-sm text-gray-600 hover:text-primary-600 transition py-1">
+                                            <svg class="w-4 h-4 text-accent-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                                            New Arrivals
+                                        </a></li>
+                                        <li><a href="{{ route('store.products') }}?sort=price_asc" class="flex items-center gap-2 text-sm text-gray-600 hover:text-primary-600 transition py-1">
+                                            <svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-14a1 1 0 10-2 0v2a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 5.586V4z" clip-rule="evenodd"/></svg>
+                                            On Sale
+                                        </a></li>
+                                        <li><a href="{{ route('store.products') }}?sort=price_desc" class="flex items-center gap-2 text-sm text-gray-600 hover:text-primary-600 transition py-1">
+                                            <svg class="w-4 h-4 text-purple-500" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4a1 1 0 00-2 0v7.268a2 2 0 000 3.464V16a1 1 0 102 0v-1.268a2 2 0 000-3.464V4zM11 4a1 1 0 10-2 0v1.268a2 2 0 000 3.464V16a1 1 0 102 0V8.732a2 2 0 000-3.464V4zM16 3a1 1 0 011 1v7.268a2 2 0 010 3.464V16a1 1 0 11-2 0v-1.268a2 2 0 010-3.464V4a1 1 0 011-1z"/></svg>
+                                            Top Rated
+                                        </a></li>
+                                    </ul>
+                                </div>
+                                <div class="border-t pt-3">
+                                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Popular Products</p>
+                                    <ul class="space-y-1">
+                                        <li><a href="{{ route('store.products') }}?search=bestseller" class="text-sm text-gray-600 hover:text-primary-600 transition py-1 block">Best Sellers</a></li>
+                                        <li><a href="{{ route('store.products') }}?search=trending" class="text-sm text-gray-600 hover:text-primary-600 transition py-1 block">Trending Now</a></li>
+                                        <li><a href="{{ route('store.products') }}?search=deal" class="text-sm text-gray-600 hover:text-primary-600 transition py-1 block">Daily Deals</a></li>
+                                    </ul>
+                                </div>
+                                <div class="border-t pt-3">
+                                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Brands</p>
+                                    <ul class="space-y-1">
+                                        <li><a href="{{ route('store.products') }}?search=nike" class="text-sm text-gray-600 hover:text-primary-600 transition py-1 block">Nike</a></li>
+                                        <li><a href="{{ route('store.products') }}?search=samsung" class="text-sm text-gray-600 hover:text-primary-600 transition py-1 block">Samsung</a></li>
+                                        <li><a href="{{ route('store.products') }}?search=sony" class="text-sm text-gray-600 hover:text-primary-600 transition py-1 block">Sony</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="border-t mt-4 pt-4 flex items-center justify-between">
+                            <a href="{{ route('store.products') }}" class="text-sm font-semibold text-primary-600 hover:text-primary-700 transition">View All Products &rarr;</a>
+                            <a href="{{ route('store.vendors') }}" class="text-sm text-gray-500 hover:text-primary-600 transition">Browse Vendors</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Deals -->
+                <a href="{{ route('store.products') }}?sort=price_asc"
+                    class="{{ request('sort') === 'price_asc' ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50' }} px-4 py-2.5 rounded-lg transition-all duration-200">
+                    Deals
+                </a>
+
+                <!-- New Arrivals -->
+                <a href="{{ route('store.products') }}?sort=newest"
+                    class="{{ request('sort') === 'newest' ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50' }} px-4 py-2.5 rounded-lg transition-all duration-200">
+                    New Arrivals
+                </a>
+
+                <!-- Vendors -->
+                <a href="{{ route('store.vendors') }}"
+                    class="{{ request()->routeIs('store.vendors') || request()->routeIs('store.vendor') ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50' }} px-4 py-2.5 rounded-lg transition-all duration-200">
+                    Vendors
+                </a>
+
+                <!-- Blog -->
+                <a href="{{ route('store.products') }}"
+                    class="text-gray-700 hover:text-primary-600 hover:bg-gray-50 px-4 py-2.5 rounded-lg transition-all duration-200">
+                    Blog
+                </a>
             </div>
         </div>
     </div>
@@ -165,6 +311,33 @@
             return {
                 mobileMenu: false,
                 cartCount: parseInt(localStorage.getItem('cartCount') || '0'),
+            }
+        }
+
+        function megaMenu() {
+            return {
+                activeMega: null,
+                megaTimeout: null,
+
+                openMega(menu) {
+                    clearTimeout(this.megaTimeout);
+                    this.megaTimeout = setTimeout(() => {
+                        this.activeMega = menu;
+                    }, 80);
+                },
+
+                closeMega(menu) {
+                    clearTimeout(this.megaTimeout);
+                    this.megaTimeout = setTimeout(() => {
+                        if (this.activeMega === menu) {
+                            this.activeMega = null;
+                        }
+                    }, 150);
+                },
+
+                keepOpen(menu) {
+                    clearTimeout(this.megaTimeout);
+                }
             }
         }
     </script>

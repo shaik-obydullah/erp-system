@@ -58,7 +58,7 @@ class TaskController extends Controller
             'created_by' => auth('admin')->id(),
         ]);
 
-        ActivityLogger::created('Task', TaskManagement::latest()->first());
+        ActivityLogger::created('Task', TaskManagement::latest('id')->first());
 
         return redirect()->route('tasks.index')
             ->with('success', 'Task created successfully.');

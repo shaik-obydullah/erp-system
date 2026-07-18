@@ -18,7 +18,7 @@ class ReceivableController extends Controller
 
         $receivables = $query->orderBy('id', 'desc')->paginate(15)->withQueryString();
 
-        $totalAmount = (clone $receivables)->sum('amount');
+        $totalReceivable = (clone $receivables)->sum('amount');
 
         if ($request->expectsJson()) {
             return response()->json($receivables);
@@ -26,6 +26,6 @@ class ReceivableController extends Controller
 
         $currencySymbol = Configuration::get('currency_symbol', '$');
 
-        return view('receivables.index', compact('receivables', 'totalAmount', 'currencySymbol'));
+        return view('receivables.index', compact('receivables', 'totalReceivable', 'currencySymbol'));
     }
 }

@@ -18,13 +18,14 @@ class PurchaseOrderController extends Controller
             $query->where('order_number', 'like', "%{$search}%");
         }
 
-        $orders = $query->orderBy('id', 'desc')->paginate(15)->withQueryString();
+        $purchaseOrders = $query->orderBy('id', 'desc')->paginate(15)->withQueryString();
+        $currencySymbol = \App\Models\Configuration::get('currency_symbol', '$');
 
         if ($request->expectsJson()) {
-            return response()->json($orders);
+            return response()->json($purchaseOrders);
         }
 
-        return view('purchase-orders.index', compact('orders'));
+        return view('purchase-orders.index', compact('purchaseOrders', 'currencySymbol'));
     }
 
     public function create()
@@ -56,7 +57,7 @@ class PurchaseOrderController extends Controller
             'created_by' => auth('admin')->id(),
         ]);
 
-        ActivityLogger::created('Purchase Order', PurchaseOrder::latest()->first());
+        ActivityLogger::created('Purchase Order', PurchaseOrder::latest('id')->first());
 
         return redirect()->route('purchase-orders.index')
             ->with('success', 'Purchase order created successfully.');

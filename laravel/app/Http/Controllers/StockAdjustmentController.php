@@ -78,7 +78,7 @@ class StockAdjustmentController extends Controller
             'created_by' => auth('admin')->id(),
         ]);
 
-        ActivityLogger::created('Stock Adjustment', StockAdjustment::latest()->first());
+        ActivityLogger::created('Stock Adjustment', StockAdjustment::latest('id')->first());
 
         if ($request->expectsJson()) {
             return response()->json([

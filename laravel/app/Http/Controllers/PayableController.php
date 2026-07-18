@@ -18,7 +18,7 @@ class PayableController extends Controller
 
         $payables = $query->orderBy('id', 'desc')->paginate(15)->withQueryString();
 
-        $totalAmount = (clone $payables)->sum('amount');
+        $totalPayable = (clone $payables)->sum('amount');
 
         if ($request->expectsJson()) {
             return response()->json($payables);
@@ -26,6 +26,6 @@ class PayableController extends Controller
 
         $currencySymbol = Configuration::get('currency_symbol', '$');
 
-        return view('payables.index', compact('payables', 'totalAmount', 'currencySymbol'));
+        return view('payables.index', compact('payables', 'totalPayable', 'currencySymbol'));
     }
 }

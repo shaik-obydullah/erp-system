@@ -74,8 +74,9 @@
                 <svg class="dropdown-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
             <div class="nav-dropdown-menu">
-                <a href="{{ route('products.index') }}" class="nav-dropdown-item {{ request()->routeIs('products.*') ? 'active' : '' }}">All Products</a>
+                <a href="{{ route('products.index') }}" class="nav-dropdown-item {{ request()->routeIs('products.index') ? 'active' : '' }}">All Products</a>
                 <a href="{{ route('products.create') }}" class="nav-dropdown-item {{ request()->routeIs('products.create') ? 'active' : '' }}">Add Product</a>
+                <a href="{{ route('products.barcodes') }}" class="nav-dropdown-item {{ request()->routeIs('products.barcodes') ? 'active' : '' }}">Barcodes</a>
                 <div style="border-top: 1px solid var(--border); margin: 4px 0;"></div>
                 <a href="{{ route('brands.index') }}" class="nav-dropdown-item {{ request()->routeIs('brands.*') ? 'active' : '' }}">Brands</a>
                 <a href="{{ route('categories.index') }}" class="nav-dropdown-item {{ request()->routeIs('categories.*') ? 'active' : '' }}">Categories</a>
@@ -101,7 +102,7 @@
         </div>
 
         <!-- Sales & POS Dropdown -->
-        <div class="nav-dropdown" x-data="{ open: {{ request()->routeIs('pos.*') || request()->routeIs('sales.*') ? 'true' : 'false' }} }" :class="{ 'open': open }">
+        <div class="nav-dropdown" x-data="{ open: {{ request()->routeIs('pos.*') || request()->routeIs('sales.*') || request()->routeIs('sale-returns.*') ? 'true' : 'false' }} }" :class="{ 'open': open }">
             <button class="nav-item nav-dropdown-toggle" @click="open = !open">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
                 Sales & POS
@@ -110,6 +111,7 @@
             <div class="nav-dropdown-menu">
                 <a href="{{ route('pos.index') }}" class="nav-dropdown-item {{ request()->routeIs('pos.*') ? 'active' : '' }}">POS Terminal</a>
                 <a href="{{ route('sales.index') }}" class="nav-dropdown-item {{ request()->routeIs('sales.*') ? 'active' : '' }}">All Sales</a>
+                <a href="{{ route('sale-returns.index') }}" class="nav-dropdown-item {{ request()->routeIs('sale-returns.*') ? 'active' : '' }}">Sale Returns</a>
             </div>
         </div>
 
@@ -127,7 +129,7 @@
         </div>
 
         <!-- Finance Dropdown -->
-        <div class="nav-dropdown" x-data="{ open: {{ request()->routeIs('cashbook.*') || request()->routeIs('incomes.*') || request()->routeIs('expenses.*') || request()->routeIs('payables.*') || request()->routeIs('receivables.*') || request()->routeIs('fixed-assets.*') || request()->routeIs('transactions.*') ? 'true' : 'false' }} }" :class="{ 'open': open }">
+        <div class="nav-dropdown" x-data="{ open: {{ request()->routeIs('cashbook.*') || request()->routeIs('incomes.*') || request()->routeIs('expenses.*') || request()->routeIs('payables.*') || request()->routeIs('receivables.*') || request()->routeIs('fixed-assets.*') || request()->routeIs('transactions.*') || request()->routeIs('currencies.*') ? 'true' : 'false' }} }" :class="{ 'open': open }">
             <button class="nav-item nav-dropdown-toggle" @click="open = !open">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                 Finance
@@ -140,6 +142,7 @@
                 <a href="{{ route('payables.index') }}" class="nav-dropdown-item {{ request()->routeIs('payables.*') ? 'active' : '' }}">Accounts Payable</a>
                 <a href="{{ route('receivables.index') }}" class="nav-dropdown-item {{ request()->routeIs('receivables.*') ? 'active' : '' }}">Accounts Receivable</a>
                 <a href="{{ route('fixed-assets.index') }}" class="nav-dropdown-item {{ request()->routeIs('fixed-assets.*') ? 'active' : '' }}">Fixed Assets</a>
+                <a href="{{ route('currencies.index') }}" class="nav-dropdown-item {{ request()->routeIs('currencies.*') ? 'active' : '' }}">Currencies</a>
                 <a href="{{ route('transactions.index') }}" class="nav-dropdown-item {{ request()->routeIs('transactions.*') ? 'active' : '' }}">Transaction Log</a>
             </div>
         </div>
@@ -198,6 +201,24 @@
             <div class="nav-dropdown-menu">
                 <a href="{{ route('cms.index') }}" class="nav-dropdown-item {{ request()->routeIs('cms.*') ? 'active' : '' }}">All Content</a>
                 <a href="{{ route('cms.create') }}" class="nav-dropdown-item {{ request()->routeIs('cms.create') ? 'active' : '' }}">Add Content</a>
+            </div>
+        </div>
+
+        <!-- Reports Dropdown -->
+        <div class="nav-dropdown" x-data="{ open: {{ request()->routeIs('reports.*') ? 'true' : 'false' }} }" :class="{ 'open': open }">
+            <button class="nav-item nav-dropdown-toggle" @click="open = !open">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                Reports
+                <svg class="dropdown-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="nav-dropdown-menu">
+                <a href="{{ route('reports.index') }}" class="nav-dropdown-item {{ request()->routeIs('reports.index') ? 'active' : '' }}">Overview</a>
+                <a href="{{ route('reports.sales') }}" class="nav-dropdown-item {{ request()->routeIs('reports.sales') ? 'active' : '' }}">Sales Report</a>
+                <a href="{{ route('reports.income') }}" class="nav-dropdown-item {{ request()->routeIs('reports.income') ? 'active' : '' }}">Income Report</a>
+                <a href="{{ route('reports.expense') }}" class="nav-dropdown-item {{ request()->routeIs('reports.expense') ? 'active' : '' }}">Expense Report</a>
+                <a href="{{ route('reports.stock') }}" class="nav-dropdown-item {{ request()->routeIs('reports.stock') ? 'active' : '' }}">Stock Report</a>
+                <a href="{{ route('reports.customers') }}" class="nav-dropdown-item {{ request()->routeIs('reports.customers') ? 'active' : '' }}">Customer Report</a>
+                <a href="{{ route('reports.suppliers') }}" class="nav-dropdown-item {{ request()->routeIs('reports.suppliers') ? 'active' : '' }}">Supplier Report</a>
             </div>
         </div>
     </nav>

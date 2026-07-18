@@ -63,7 +63,7 @@ class PayrollController extends Controller
             'created_by' => auth('admin')->id(),
         ]);
 
-        ActivityLogger::created('Payroll', Payroll::latest()->first());
+        ActivityLogger::created('Payroll', Payroll::latest('id')->first());
 
         return redirect()->route('payrolls.index')
             ->with('success', 'Payroll entry created successfully.');

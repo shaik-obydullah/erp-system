@@ -10,6 +10,7 @@
         <link rel="stylesheet" href="/css/app.css?v={{ md5_file(public_path('css/app.css')) }}">
         <script src="/js/app.js"></script>
         <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+        @stack('head')
     </head>
     <body>
         <div class="sidebar-overlay" id="sidebarOverlay"></div>
@@ -75,5 +76,6 @@
                 });
             });
         </script>
+        @stack('scripts')
     </body>
 </html>

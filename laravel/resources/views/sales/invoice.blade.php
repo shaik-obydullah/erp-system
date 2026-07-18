@@ -41,7 +41,7 @@
                 <div class="invoice-title">INVOICE</div>
                 <div class="invoice-meta">
                     <div><strong>#{{ $sale->invoice_id }}</strong></div>
-                    <div>{{ $sale->created_at->format('d M Y') }}</div>
+                    <div>{{ $sale->transaction ? \Carbon\Carbon::parse($sale->transaction->date)->format('d M Y') : '—' }}</div>
                 </div>
             </div>
         </div>
@@ -85,10 +85,10 @@
                 @foreach($sale->saleItems as $index => $item)
                     <tr>
                         <td>{{ $index + 1 }}</td>
-                        <td>{{ $item->product->name ?? '—' }}</td>
-                        <td style="text-align: right;">{{ $item->quantity }}</td>
-                        <td style="text-align: right;">{{ $currencySymbol }}{{ number_format($item->unit_price, 2) }}</td>
-                        <td style="text-align: right;">{{ $currencySymbol }}{{ number_format($item->total, 2) }}</td>
+                        <td>{{ $item->stock_name ?? '—' }}</td>
+                        <td style="text-align: right;">{{ $item->sale_stock }}</td>
+                        <td style="text-align: right;">{{ $currencySymbol }}{{ number_format($item->sale_stock > 0 ? $item->subtotal / $item->sale_stock : 0, 2) }}</td>
+                        <td style="text-align: right;">{{ $currencySymbol }}{{ number_format($item->subtotal, 2) }}</td>
                     </tr>
                 @endforeach
             </tbody>
@@ -98,18 +98,18 @@
             <div class="totals-table">
                 <div class="totals-row">
                     <span>Subtotal:</span>
-                    <span>{{ $currencySymbol }}{{ number_format($sale->subtotal ?? $sale->grand_total - $sale->shipping + $sale->discount, 2) }}</span>
+                    <span>{{ $currencySymbol }}{{ number_format($sale->grand_total - $sale->shipping_cost + $sale->discount_amount, 2) }}</span>
                 </div>
-                @if($sale->discount > 0)
+                @if($sale->discount_amount > 0)
                 <div class="totals-row">
                     <span>Discount:</span>
-                    <span>-{{ $currencySymbol }}{{ number_format($sale->discount, 2) }}</span>
+                    <span>-{{ $currencySymbol }}{{ number_format($sale->discount_amount, 2) }}</span>
                 </div>
                 @endif
-                @if($sale->shipping > 0)
+                @if($sale->shipping_cost > 0)
                 <div class="totals-row">
                     <span>Shipping:</span>
-                    <span>{{ $currencySymbol }}{{ number_format($sale->shipping, 2) }}</span>
+                    <span>{{ $currencySymbol }}{{ number_format($sale->shipping_cost, 2) }}</span>
                 </div>
                 @endif
                 <div class="totals-row">

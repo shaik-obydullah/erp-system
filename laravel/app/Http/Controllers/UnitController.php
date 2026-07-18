@@ -104,4 +104,92 @@ class UnitController extends Controller
         return redirect()->route('units.index')
             ->with('success', 'Unit deleted successfully.');
     }
+
+    public function export()
+    {
+        $units = Unit::orderBy('name')->get();
+
+        $filename = 'units_' . now()->format('Y-m-d_His') . '.csv';
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ];
+
+        $callback = function () use ($units) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, ['Name', 'Status']);
+
+            foreach ($units as $unit) {
+                fputcsv($file, [
+                    $unit->name,
+                    $unit->status,
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'csv_file' => 'required|file|mimes:csv,txt|max:5120',
+        ]);
+
+        $file = fopen($request->file('csv_file')->getPathname(), 'r');
+        $header = fgetcsv($file);
+
+        $imported = 0;
+        $skipped = 0;
+        $errors = [];
+
+        while (($row = fgetcsv($file)) !== false) {
+            if (count($row) < 1) {
+                $skipped++;
+                continue;
+            }
+
+            $data = array_combine(array_slice($header, 0, count($row)), $row);
+
+            $name = trim($data['Name'] ?? '');
+
+            if (empty($name)) {
+                $skipped++;
+                continue;
+            }
+
+            if (Unit::where('name', $name)->exists()) {
+                $errors[] = "{$name} already exists";
+                $skipped++;
+                continue;
+            }
+
+            try {
+                Unit::create([
+                    'name' => $name,
+                    'status' => strtolower(trim($data['Status'] ?? 'active')) === 'inactive' ? 'inactive' : 'active',
+                    'created_by' => auth('admin')->id(),
+                ]);
+                $imported++;
+            } catch (\Exception $e) {
+                $errors[] = "{$name}: " . $e->getMessage();
+                $skipped++;
+            }
+        }
+
+        fclose($file);
+
+        $message = "{$imported} units imported.";
+        if ($skipped > 0) {
+            $message .= " {$skipped} skipped.";
+        }
+        if (!empty($errors)) {
+            $message .= " Errors: " . implode('; ', array_slice($errors, 0, 5));
+        }
+
+        return redirect()->route('units.index')
+            ->with($imported > 0 ? 'success' : 'error', $message);
+    }
 }

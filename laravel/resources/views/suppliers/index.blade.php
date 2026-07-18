@@ -4,6 +4,7 @@
 
 @section('content')
 <div x-data="deleteHandler()" x-init="init()">
+<div x-data="{ showImportModal: false, closeImportModal() { this.showImportModal = false; } }">
     <div class="card">
         <div class="card-header">
             <h2 class="card-title">All Suppliers</h2>
@@ -21,11 +22,11 @@
             <span x-text="successMessage"></span>
         </div>
 
-        <!-- Filters -->
+        <!-- Filters & Actions -->
         <div style="padding: 16px;">
             <form method="GET" action="{{ route('suppliers.index') }}" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-                <input type="text" name="search" value="{{ request('search') }}" class="form-input" placeholder="Search by name, email, or mobile..." style="flex: 1; min-width: 200px;">
-                <select name="status" class="form-input" style="max-width: 180px;">
+                <input type="text" name="search" value="{{ request('search') }}" class="form-input" placeholder="Search by name, email, or mobile..." style="flex: 1; min-width: 180px;">
+                <select name="status" class="form-input" style="max-width: 160px;">
                     <option value="">All Status</option>
                     <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Active</option>
                     <option value="inactive" {{ request('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
@@ -34,6 +35,17 @@
                 @if(request()->hasAny(['search', 'status']))
                     <a href="{{ route('suppliers.index') }}" class="btn btn-ghost">Clear</a>
                 @endif
+
+                <div style="margin-left: auto; display: flex; gap: 8px;">
+                    <a href="{{ route('suppliers.export') }}" class="btn btn-secondary">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Export
+                    </a>
+                    <button type="button" class="btn btn-secondary" @click="showImportModal = true">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Import
+                    </button>
+                </div>
             </form>
         </div>
 
@@ -120,5 +132,37 @@
             </div>
         </div>
     </div>
+
+    <!-- Import CSV Modal -->
+    <div x-show="showImportModal" x-cloak :class="{ 'show': showImportModal }" class="modal-overlay" @click.self="closeImportModal()">
+        <div class="modal" @click.stop>
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--primary-bg); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <div>
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Import Suppliers</h3>
+                    <p style="margin: 2px 0 0; font-size: 13px; color: var(--text-secondary);">Upload a CSV file with columns: Name, Email, Mobile, Address, Balance, Status</p>
+                </div>
+            </div>
+            <form action="{{ route('suppliers.import') }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div style="margin-bottom: 20px;">
+                    <label for="csv_file" style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px;">CSV File</label>
+                    <input type="file" name="csv_file" id="csv_file" accept=".csv,.txt" required
+                        style="width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: var(--bg); color: var(--text);">
+                    <p style="margin: 6px 0 0; font-size: 12px; color: var(--text-secondary);">Max file size: 5MB. Accepted formats: .csv, .txt</p>
+                </div>
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" @click="closeImportModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Import
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 </div>
 @endsection

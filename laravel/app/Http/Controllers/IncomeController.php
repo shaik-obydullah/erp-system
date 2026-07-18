@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Cashbook;
 use App\Models\Configuration;
 use App\Models\Income;
 use App\Models\Transaction;
@@ -41,13 +42,16 @@ class IncomeController extends Controller
             'amount' => 'required|numeric|min:0.01',
         ]);
 
+        $adminId = auth('admin')->id();
+
         $transaction = Transaction::create([
             'date' => now(),
             'type' => Transaction::TYPE_INCOME,
+            'fk_reference_id' => null,
             'amount' => $validated['amount'],
             'paid_amount' => $validated['amount'],
             'due_amount' => 0,
-            'created_by' => auth('admin')->id(),
+            'created_by' => $adminId,
         ]);
 
         Income::create([
@@ -55,10 +59,21 @@ class IncomeController extends Controller
             'fk_transaction_id' => $transaction->id,
             'description' => $validated['description'],
             'amount' => $validated['amount'],
-            'created_by' => auth('admin')->id(),
+            'created_by' => $adminId,
         ]);
 
-        ActivityLogger::created('Income', Income::latest()->first());
+        Cashbook::create([
+            'table_name' => 'incomes',
+            'fk_reference_id' => $transaction->id,
+            'description' => $validated['description'],
+            'in_amount' => $validated['amount'],
+            'out_amount' => 0,
+            'amount_payable' => 0,
+            'amount_receivable' => 0,
+            'created_by' => $adminId,
+        ]);
+
+        ActivityLogger::created('Income', Income::latest('id')->first());
 
         return redirect()->route('incomes.index')
             ->with('success', 'Income recorded successfully.');

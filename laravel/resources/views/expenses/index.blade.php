@@ -27,7 +27,7 @@
                         <td>{{ $expense->id }}</td>
                         <td>{{ $expense->description }}</td>
                         <td style="color: var(--error); font-weight: 600;">{{ $currencySymbol }}{{ number_format($expense->amount, 2) }}</td>
-                        <td>{{ $expense->created_at->format('d M Y') }}</td>
+                        <td>{{ $expense->transaction->date ?? '—' }}</td>
                     </tr>
                 @empty
                     <tr>
