@@ -341,6 +341,10 @@
             }
         }
     </script>
+
+    <!-- AI Chat Assistant -->
+    @include('storefront.partials.ai-chat')
+
     @yield('scripts')
 </body>
 </html>

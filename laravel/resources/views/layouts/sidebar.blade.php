@@ -221,5 +221,23 @@
                 <a href="{{ route('reports.suppliers') }}" class="nav-dropdown-item {{ request()->routeIs('reports.suppliers') ? 'active' : '' }}">Supplier Report</a>
             </div>
         </div>
+
+        <!-- BI Dropdown -->
+        <div class="nav-dropdown" x-data="{ open: {{ request()->routeIs('bi.*') ? 'true' : 'false' }} }" :class="{ 'open': open }">
+            <button class="nav-item nav-dropdown-toggle" @click="open = !open">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                Business Intelligence
+                <svg class="dropdown-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="nav-dropdown-menu">
+                <a href="{{ route('bi.dashboard') }}" class="nav-dropdown-item {{ request()->routeIs('bi.dashboard') ? 'active' : '' }}">Overview</a>
+                <a href="{{ route('bi.employees') }}" class="nav-dropdown-item {{ request()->routeIs('bi.employees') ? 'active' : '' }}">Employee Performance</a>
+                <a href="{{ route('bi.products') }}" class="nav-dropdown-item {{ request()->routeIs('bi.products') ? 'active' : '' }}">Product Analytics</a>
+                <a href="{{ route('bi.recommendations') }}" class="nav-dropdown-item {{ request()->routeIs('bi.recommendations') ? 'active' : '' }}">Recommendations</a>
+                <a href="{{ route('bi.forecast') }}" class="nav-dropdown-item {{ request()->routeIs('bi.forecast') ? 'active' : '' }}">Sales Forecast (Linear)</a>
+                <a href="{{ route('bi.prophet-forecast') }}" class="nav-dropdown-item {{ request()->routeIs('bi.prophet-forecast') ? 'active' : '' }}">Sales Forecast (Prophet)</a>
+                <a href="{{ route('bi.combos') }}" class="nav-dropdown-item {{ request()->routeIs('bi.combos') ? 'active' : '' }}">Product Combos</a>
+            </div>
+        </div>
     </nav>
 </aside>

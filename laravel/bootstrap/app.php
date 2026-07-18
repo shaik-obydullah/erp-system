@@ -23,6 +23,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
             Route::middleware('web')
                 ->group(base_path('routes/supplier.php'));
+
+            Route::prefix('api/v1')
+                ->middleware('api')
+                ->group(base_path('routes/api.php'));
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {

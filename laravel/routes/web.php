@@ -50,6 +50,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CmsController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\BiController;
 use App\Http\Controllers\CustomerPortalController;
 use App\Http\Controllers\SupplierPortalController;
 use Illuminate\Support\Facades\Route;
@@ -501,6 +502,15 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index'])
         ->name('notifications.index');
+
+    // Business Intelligence
+    Route::get('/bi', [BiController::class, 'dashboard'])->name('bi.dashboard');
+    Route::get('/bi/employees', [BiController::class, 'employees'])->name('bi.employees');
+    Route::get('/bi/products', [BiController::class, 'products'])->name('bi.products');
+    Route::get('/bi/recommendations', [BiController::class, 'recommendations'])->name('bi.recommendations');
+    Route::get('/bi/forecast', [BiController::class, 'forecast'])->name('bi.forecast');
+    Route::get('/bi/prophet-forecast', [BiController::class, 'prophetForecast'])->name('bi.prophet-forecast');
+    Route::get('/bi/combos', [BiController::class, 'combos'])->name('bi.combos');
 
     // ERP Settings
     Route::get('/settings', [ConfigController::class, 'settings'])
