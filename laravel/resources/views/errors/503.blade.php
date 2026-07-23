@@ -6,7 +6,7 @@
         <title>Maintenance - {{ config('app.name', 'ERP Admin') }}</title>
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
-        <link rel="stylesheet" href="/css/app.css">
+        <link rel="stylesheet" href="/css/app.css?v={{ md5_file(public_path('css/app.css')) }}">
         @php
             $maintenanceMessage = \App\Models\Configuration::get('maintenance_message', 'We are currently performing scheduled maintenance. Please try again later.');
         @endphp

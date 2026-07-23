@@ -103,9 +103,9 @@ class Product extends Model
         }
         $first = $images[0];
         if (str_starts_with($first, 'http')) {
-            return $first;
+            return $first . '?v=' . $this->id;
         }
         $cleanPath = preg_replace('#^products/#', '', $first);
-        return asset('uploads/products/' . $cleanPath);
+        return asset('uploads/products/' . $cleanPath) . '?v=' . $this->id;
     }
 }

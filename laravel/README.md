@@ -1,58 +1,199 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# ERP System — Laravel Backend
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A comprehensive Enterprise Resource Planning (ERP) system built with Laravel 13, featuring full accounting, inventory management, POS, HRM, procurement, manufacturing, and an AI-powered ecommerce storefront.
 
-## About Laravel
+## Features
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+### Core ERP
+- **Multi-User Authentication** — Triple guard system (Admin, Customer, Supplier) with full auth flows
+- **Role-Based Access Control** — Custom RBAC with 70+ granular permissions across 20 groups
+- **Product Catalog** — Hierarchical categories, brands, units, sizes, colors, multi-image support
+- **Inventory Management** — Multi-warehouse stock tracking with batch/lot numbers and adjustments
+- **Point of Sale** — Full POS with cart, VAT/tax, discounts, due tracking, and checkout
+- **Sales Management** — Invoices, sale returns with approval workflow, automatic stock restocking
+- **Full Accounting** — Double-entry transactions, cashbook, income/expense, receivables/payables, fixed assets
+- **Multi-Currency** — Currency management with exchange rates and base currency conversion
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+### Supply Chain & Manufacturing
+- **Procurement Pipeline** — Need identification → Purchase Order → Shipment → Returns
+- **Bill of Materials** — BOM management linked to products
+- **Production Planning** — Planning with finalize workflow and cost tracking
+- **Warehouse Management** — Warehouse CRUD with capacity and location info
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### HRM
+- **Employee Management** — Full employee CRUD with job titles and hire dates
+- **Payroll** — Salary calculation (basic + allowances - deductions = net)
+- **Task Management** — Task assignment with due dates and status tracking
 
-## Learning Laravel
+### Ecommerce Storefront
+- **Public Storefront** — Product listings, search/filter/sort, category and brand browsing
+- **Multi-Vendor Marketplace** — Supplier storefronts with vendor pages
+- **Shopping Cart & Checkout** — Full cart with Vue.js-powered checkout
+- **Customer Portal** — Order history, profile management
+- **Supplier Portal** — Purchase order viewing, product listing
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### AI & BI
+- **Ollama AI Integration** — Self-hosted LLM (llama3.2) for:
+  - Product description generation
+  - Natural language product search
+  - Inventory insights and stockout risk analysis
+  - 3-month sales forecasting
+  - AI pricing optimization
+  - Customer support chatbot
+- **BI Dashboard** — Integration with Flask microservice for employee analysis, product analysis, Prophet forecasting, and combo analysis
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### System
+- **Activity Logging** — Full audit trail with IP tracking, geolocation, old/new data diffs
+- **Notification System** — In-app notifications with seen/unseen tracking per admin
+- **CSV Import/Export** — For customers, suppliers, transactions, categories, brands, units, sizes, colors
+- **Reporting** — Sales, income, expense, stock, customer, supplier reports with Chart.js
+- **CMS** — Content management with hero, page, and FAQ types
+- **Maintenance Mode** — Database-stored toggle with super-admin bypass
+- **Configurable Settings** — Company info, currency, timezone, tax rates, invoice prefixes
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+## Tech Stack
 
-## Agentic Development
+| Component | Technology |
+|-----------|-----------|
+| Framework | Laravel 13 |
+| Language | PHP 8.3+ |
+| Database | MySQL / SQLite |
+| Auth | Laravel Sanctum |
+| AI | Ollama (llama3.2) |
+| BI | Flask microservice |
+| Frontend | Vue.js 3, Alpine.js, Tailwind CSS, Vite |
+| Queue | Database driver |
+| Cache | Database driver |
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Project Structure
 
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```
+laravel/
+├── app/
+│   ├── Http/
+│   │   ├── Controllers/
+│   │   │   ├── Auth/              # Admin authentication (8 controllers)
+│   │   │   ├── Api/               # REST API + AI endpoints
+│   │   │   ├── Customer/          # Customer auth + portal
+│   │   │   ├── Supplier/          # Supplier auth + portal
+│   │   │   ├── DashboardController.php
+│   │   │   ├── ProductController.php
+│   │   │   ├── SaleController.php
+│   │   │   ├── PosController.php
+│   │   │   ├── ReportController.php
+│   │   │   ├── BiController.php
+│   │   │   ├── StorefrontController.php
+│   │   │   └── ...                # 67 controllers total
+│   │   └── Middleware/
+│   │       ├── RoleMiddleware.php
+│   │       ├── PermissionMiddleware.php
+│   │       ├── ActiveAdminMiddleware.php
+│   │       └── MaintenanceModeMiddleware.php
+│   ├── Models/                    # 45 Eloquent models
+│   ├── Services/
+│   │   ├── OllamaService.php      # AI integration
+│   │   ├── ActivityLogger.php     # Audit logging
+│   │   └── NotificationHelper.php # In-app notifications
+│   └── View/                      # View composers
+├── database/
+│   ├── migrations/                # 67 migrations (~55 tables)
+│   └── seeders/                   # EcommerceSeeder (35 products)
+├── public/
+│   ├── uploads/products/          # Product images
+│   ├── css/                       # Compiled Tailwind
+│   └── js/                        # Compiled Vue/Alpine
+├── resources/
+│   ├── views/
+│   │   ├── layouts/               # Admin sidebar, header, pagination
+│   │   ├── storefront/            # Public ecommerce pages
+│   │   ├── products/              # Admin product views
+│   │   └── vendor/                # Published pagination views
+│   └── css/                       # Source Tailwind
+├── routes/
+│   ├── web.php                    # Admin + storefront routes
+│   ├── api.php                    # REST API endpoints
+│   ├── customer.php               # Customer auth routes
+│   └── supplier.php               # Supplier auth routes
+└── config/                        # Laravel + custom configs
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+## Database Schema
 
-## Contributing
+55+ tables across these modules:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+| Module | Tables |
+|--------|--------|
+| Auth | `admins`, `users`, `customers`, `suppliers`, `roles`, `permissions`, `role_relations`, `role_permissions` |
+| Catalog | `products`, `categories`, `brands`, `units`, `sizes`, `colors`, `reviews` |
+| Inventory | `stocks`, `inventory`, `warehouses`, `stock_adjustments` |
+| Sales | `sales`, `sale_details`, `sale_returns`, `cart`, `cart_details` |
+| Finance | `transactions`, `cashbook`, `incomes`, `expenses`, `payable`, `receivable`, `balances`, `currencies` |
+| Procurement | `needs`, `purchase_orders`, `shipments`, `shipment_returns` |
+| Manufacturing | `bill_of_materials`, `production_plannings`, `productions` |
+| HRM | `employees`, `payrolls`, `task_management` |
+| System | `activities`, `notifications`, `configurations`, `contents`, `campaigns`, `fixed_assets` |
 
-## Code of Conduct
+## API Endpoints
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+All API routes are prefixed with `/api/v1/`. Authentication uses Bearer tokens via Laravel Sanctum.
 
-## Security Vulnerabilities
+### Public
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/login` | Admin authentication |
+| GET | `/configuration` | ERP settings |
+| POST | `/ai/customer-support` | AI chatbot |
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### Protected (`auth:sanctum`)
+| Module | Endpoints |
+|--------|-----------|
+| Customers | `customer`, `save-customer`, `update-customer/{id}`, `delete-customer/{id}` |
+| Categories | `category`, `save-category`, `update-category/{id}`, `delete-category/{id}` |
+| Products | `product`, `save-product`, `update-product/{id}`, `delete-product/{id}` |
+| Stocks | `stock`, `save-stock` |
+| Sales | `sale`, `select-sale/{id}`, `save-sale`, `delete-sale/{id}` |
+| Finance | `income`, `save-income`, `expense`, `save-expense`, `report` |
+| AI | `ai/product-description`, `ai/product-search`, `ai/inventory-insights`, `ai/sales-forecast`, `ai/price-suggestion` |
+
+## Setup
+
+### Prerequisites
+- PHP 8.3+
+- Composer
+- Node.js 18+
+- MySQL or SQLite
+
+### Installation
+```bash
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan db:seed          # Seeds 35 products with images
+npm install && npm run build
+```
+
+### Docker (Development)
+```bash
+docker compose up -d
+```
+- Laravel: `http://localhost:8082`
+- React POS: `http://localhost:3060`
+
+### Default Credentials
+```
+Email:    admin@erp.com
+Password: password
+```
+
+### Production Deployment
+```bash
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+php artisan migrate --force
+```
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Private use.

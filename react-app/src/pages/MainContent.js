@@ -21,6 +21,13 @@ import {
 } from "../api/axios";
 import { useConfig } from "../contexts/ConfigContext";
 
+const API_BASE = (import.meta.env.VITE_API_URL || "https://erp.obydullah.com").replace(/\/api\/v1$/, "");
+const getImageUrl = (image) => {
+  if (!image) return null;
+  if (image.startsWith("http")) return image;
+  return `${API_BASE}/uploads/products/${image.replace("products/", "")}`;
+};
+
 const CART_KEY = "pos_cart";
 
 const loadCart = () => {
@@ -319,9 +326,7 @@ export default function MainContent({ onCartUpdate }) {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {filteredProducts.map((stock) => {
-                const imgUrl = stock.product?.image
-                  ? (stock.product.image.startsWith("http") ? stock.product.image : `/uploads/products/${stock.product.image.replace("products/", "")}`)
-                  : null;
+                const imgUrl = getImageUrl(stock.product?.image);
                 return (
                   <button
                     key={stock.id}
@@ -410,11 +415,7 @@ export default function MainContent({ onCartUpdate }) {
                   <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
                     {item.image ? (
                       <img
-                        src={
-                          item.image.startsWith("http")
-                            ? item.image
-                            : `/uploads/products/${item.image.replace("products/", "")}`
-                        }
+                        src={getImageUrl(item.image)}
                         alt={item.name}
                         className="w-full h-full object-cover"
                         onError={(e) => {

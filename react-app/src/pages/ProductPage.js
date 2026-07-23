@@ -110,7 +110,7 @@ export default function ProductPage() {
   const handleEdit = (product) => {
     setEditData({ id: product.id, name: product.name, fk_category_id: product.fk_category_id || product.category?.id || "", sku: product.sku, status: product.status });
     setEditImage(null);
-    setEditImagePreview(product.image ? (product.image.startsWith("http") ? product.image : `${import.meta.env.VITE_API_URL || "https://erp.obydullah.com"}/storage/${product.image}`) : "");
+    setEditImagePreview(product.image ? (product.image.startsWith("http") ? product.image : `${(import.meta.env.VITE_API_URL || "https://erp.obydullah.com").replace(/\/api\/v1$/, "")}/uploads/products/${product.image.replace("products/", "")}`) : "");
     setEditModal(true);
   };
 

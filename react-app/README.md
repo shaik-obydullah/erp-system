@@ -1,109 +1,97 @@
-# React POS
+# React POS — Point of Sale System
 
-A modern, full-featured Point of Sale (POS) system built with React, Tailwind CSS, and a Laravel API backend. Designed for retail and small business inventory and sales management.
+A modern, full-featured Point of Sale (POS) system built with React 19, Tailwind CSS, and a Laravel API backend. Designed for retail and small business inventory and sales management.
 
 ## Features
 
-- **Dashboard** — Sales overview with category cards, monthly/yearly charts, and real-time stats
-- **POS Terminal** — Category-based product browsing, stock search, cart with discounts/VAT/tax, and one-click checkout
-- **Customer Management** — CRUD operations with search and pagination
-- **Category Management** — CRUD with parent-child relationships
-- **Product Management** — CRUD with image upload, inline edit modal, AI-powered descriptions
-- **Stock Management** — Batch/lot tracking, SKU, barcode, buy/sale pricing, quantity control
-- **Sales** — Paginated list, detail modal, PDF invoice generation, delete
-- **Incomes & Expenses** — Track financial transactions with date filtering
-- **Reports** — Monthly sales, growth %, stock value, cart totals
-- **AI Features** — Product descriptions, inventory insights, sales forecasts, price suggestions (via Ollama)
-- **Auth** — Token-based login (Laravel Sanctum), protected routes
-- **Responsive** — Mobile-friendly collapsible sidebar
-- **Toast Notifications** — Non-intrusive success/error feedback via react-toastify
+### POS Terminal
+- **Category-Based Browsing** — Horizontal scrollable category tabs with product grid
+- **Stock Search** — Debounced search across product name, batch, lot, SKU, barcode
+- **Shopping Cart** — Add/remove items, quantity controls, cart persistence via localStorage
+- **Checkout** — Customer assignment, discount, VAT, tax calculation, one-click checkout
+- **Image Display** — Product images with emoji fallbacks
+
+### CRUD Management
+- **Customers** — Create, list, search, edit (modal), delete (confirmation)
+- **Categories** — Create, list, search, edit (modal), delete (confirmation)
+- **Products** — Create with image upload, list, search, edit (modal with preview), delete
+- **Stocks** — Create with infinite-scroll product search, list with pagination
+- **Sales** — List with summary cards, detail modal, PDF invoice download, delete
+
+### Finance
+- **Income Tracking** — Create, list with date range filtering, running totals
+- **Expense Tracking** — Create, list with date range filtering, running totals
+
+### Reporting
+- **Overview** — Total customers, stock value, cart total, sales growth
+- **Sales Charts** — Sales trend (line), income vs expenses (bar), profit analysis
+- **Financial Charts** — Income by month (pie), expenses by month (pie)
+- **Annual Performance** — Yearly revenue, expenses, profit, year-over-year change
+
+### AI Features
+- Product description generation
+- Natural language product search
+- Inventory insights and stockout risk analysis
+- Sales forecasting
+- Price optimization
+- Customer support chatbot
+
+### System
+- **Authentication** — Token-based login via Laravel Sanctum
+- **Protected Routes** — Auth guard redirects to login
+- **Toast Notifications** — Success/error feedback via react-toastify
+- **Responsive Design** — Mobile-friendly collapsible sidebar
+- **PDF Generation** — Invoice download via jsPDF
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| UI | React 19, Tailwind CSS 3, React Router 6 |
-| HTTP | Axios with interceptors |
-| Charts | Chart.js + react-chartjs-2 |
-| PDF | jsPDF + jspdf-autotable |
-| Notifications | react-toastify |
-| Icons | react-icons |
+| UI | React 19, React Router 6, Tailwind CSS 3 |
+| State | React Context + useState (no Redux) |
+| HTTP | Axios with Bearer token interceptors |
+| Charts | Chart.js 4 + react-chartjs-2 |
+| PDF | jsPDF 3 + jspdf-autotable 5 |
+| Notifications | react-toastify 11 |
+| Icons | react-icons (FontAwesome) |
+| Utilities | lodash (debounce) |
 | Build | Vite 6 |
-| Backend | Laravel (Sanctum auth) |
 
 ## Project Structure
 
 ```
 src/
 ├── api/
-│   └── axios.js            # API client, interceptors, all endpoint functions
+│   └── axios.js              # Centralized API client + 35+ endpoint functions
 ├── components/
-│   └── PrivateRoute.js     # Auth guard wrapper
+│   └── PrivateRoute.js       # Auth guard wrapper
 ├── contexts/
-│   └── ConfigContext.js     # Global config (currency, VAT, tax, project name)
+│   └── ConfigContext.js      # Global config (currency, VAT, tax, project name)
 ├── layout/
-│   └── Layout.js           # Sidebar + topbar shell
+│   └── Layout.js             # Sidebar + topbar app shell
 ├── pages/
-│   ├── LoginPage.js        # Email/password auth
-│   ├── Logout.js           # Clear token, redirect
-│   ├── DashboardPage.js    # POS terminal with categories, cart, checkout
-│   ├── MainContent.js      # POS core: stock search, cart logic, checkout
-│   ├── CustomerPage.js     # Customer list + search
-│   ├── AddCustomer.js      # Customer form
-│   ├── CategoryPage.js     # Category list + search
-│   ├── AddCategory.js      # Category form
-│   ├── ProductPage.js      # Product list + edit modal
-│   ├── AddProduct.js       # Product form with image upload
-│   ├── StockPage.js        # Stock list + search
-│   ├── AddStock.js         # Stock form with product search
-│   ├── SalePage.js         # Sales list, detail modal, PDF invoice
-│   ├── IncomePage.js       # Income list
-│   ├── AddIncome.js        # Income form
-│   ├── ExpensePage.js      # Expense list
-│   ├── AddExpense.js       # Expense form
-│   └── ReportPage.js       # Dashboard stats and charts
-├── App.jsx                 # Router, providers, toast config
-├── main.jsx                # Entry point
-└── index.css               # Tailwind base styles
+│   ├── LoginPage.js          # Email/password authentication
+│   ├── Logout.js             # Token cleanup + redirect
+│   ├── DashboardPage.js      # POS wrapper
+│   ├── MainContent.js        # POS terminal (categories, cart, checkout)
+│   ├── CustomerPage.js       # Customer list + edit modal
+│   ├── AddCustomer.js        # Customer create form
+│   ├── CategoryPage.js       # Category list + edit modal
+│   ├── AddCategory.js        # Category create form
+│   ├── ProductPage.js        # Product list + edit modal with image upload
+│   ├── AddProduct.js         # Product create form
+│   ├── StockPage.js          # Stock list (read-only)
+│   ├── AddStock.js           # Stock create with infinite-scroll search
+│   ├── SalePage.js           # Sales list + detail modal + PDF invoice
+│   ├── IncomePage.js         # Income list with date filtering
+│   ├── AddIncome.js          # Income create form
+│   ├── ExpensePage.js        # Expense list with date filtering
+│   ├── AddExpense.js         # Expense create form
+│   └── ReportPage.js         # Charts dashboard (3 tabs)
+├── App.jsx                   # Router, ToastContainer, ConfigProvider
+├── main.jsx                  # Entry point
+└── index.css                 # Tailwind directives
 ```
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- npm or yarn
-- Laravel backend running (local or production)
-
-### Environment Setup
-
-Create `.env` in the project root:
-
-```bash
-VITE_API_URL=http://localhost:8082/api/v1    # Local dev (proxied via Vite)
-VITE_API_URL_PRODUCTION=https://erp.obydullah.com/api/v1  # Production
-```
-
-### Development
-
-```bash
-npm install
-npm run dev
-```
-
-The dev server runs on `http://localhost:3060`. API requests to `/api` are proxied to the Laravel backend via Vite's dev server proxy.
-
-### Build
-
-```bash
-npm run build
-```
-
-Output goes to `dist/`.
-
-### Production Deployment
-
-The `VITE_API_URL` is baked into the build at compile time. For production builds, ensure `.env.production` exists with the correct API URL before running `npm run build`.
 
 ## API Endpoints
 
@@ -111,8 +99,8 @@ The `VITE_API_URL` is baked into the build at compile time. For production build
 |--------|----------|-------------|
 | POST | `/login` | Authenticate user |
 | POST | `/logout` | Invalidate session |
-| POST | `/configuration` | Fetch app config (public) |
-| POST | `/dashboard` | POS dashboard categories |
+| POST | `/configuration` | App config (public) |
+| POST | `/dashboard` | POS categories |
 | POST | `/category-product/{id}` | Stocks by category |
 | POST | `/customer` | List customers |
 | POST | `/save-customer` | Create customer |
@@ -138,15 +126,42 @@ The `VITE_API_URL` is baked into the build at compile time. For production build
 | POST | `/save-expense` | Create expense |
 | POST | `/report` | Report data |
 | GET | `/ai/status` | AI service status |
-| POST | `/ai/product-description` | Generate product description |
-| POST | `/ai/product-search` | AI-powered product search |
+| POST | `/ai/product-description` | Generate description |
+| POST | `/ai/product-search` | AI search |
 | POST | `/ai/inventory-insights` | Inventory analysis |
 | POST | `/ai/sales-forecast` | Sales prediction |
-| POST | `/ai/customer-support` | AI customer support |
+| POST | `/ai/customer-support` | AI support |
 | POST | `/ai/price-suggestion` | Price optimization |
 
-## Default Credentials
+## Getting Started
 
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+- Laravel backend running
+
+### Environment Setup
+
+Create `.env`:
+```bash
+VITE_API_URL=http://localhost:8082/api/v1              # Local dev
+VITE_API_URL_PRODUCTION=https://erp.obydullah.com/api/v1  # Production
+```
+
+### Development
+```bash
+npm install
+npm run dev
+```
+Dev server runs at `http://localhost:3060`. API requests are proxied to Laravel via Vite.
+
+### Build
+```bash
+npm run build
+```
+Output goes to `dist/`.
+
+### Default Credentials
 ```
 Email:    admin@erp.com
 Password: password
