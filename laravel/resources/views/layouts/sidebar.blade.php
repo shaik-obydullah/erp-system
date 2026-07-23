@@ -199,7 +199,7 @@
                 <svg class="dropdown-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
             <div class="nav-dropdown-menu">
-                <a href="{{ route('cms.index') }}" class="nav-dropdown-item {{ request()->routeIs('cms.*') ? 'active' : '' }}">All Content</a>
+                <a href="{{ route('cms.index') }}" class="nav-dropdown-item {{ request()->routeIs('cms.index') ? 'active' : '' }}">All Content</a>
                 <a href="{{ route('cms.create') }}" class="nav-dropdown-item {{ request()->routeIs('cms.create') ? 'active' : '' }}">Add Content</a>
             </div>
         </div>

@@ -41,4 +41,9 @@ class Sale extends Model
         return $this->hasOne(Transaction::class, 'fk_reference_id')
             ->where('type', Transaction::TYPE_SALE_INCOME);
     }
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class, 'fk_user_id');
+    }
 }

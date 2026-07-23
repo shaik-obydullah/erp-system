@@ -10,7 +10,10 @@
 
         fetch('/api/notifications/unread-count', { headers: { 'Accept': 'application/json' } })
             .then(r => r.json())
-            .then(d => { document.getElementById('notifBadge').textContent = d.count; })
+            .then(d => {
+                var badge = document.getElementById('notifBadge');
+                if (d.count > 0) { badge.textContent = d.count; badge.style.display = ''; }
+            })
             .catch(() => {});
     });
 </script>

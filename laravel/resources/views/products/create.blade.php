@@ -96,7 +96,7 @@
                 </div>
                 <div class="form-group">
                     <label for="fk_category_id">Category</label>
-                    <select id="fk_category_id" x-model="form.fk_category_id">
+                    <select id="fk_category_id" x-model="form.fk_category_id" @change="form.fk_subcategory_id = ''">
                         <option value="">Select Category</option>
                         @foreach($categories as $category)
                             <option value="{{ $category->id }}">{{ $category->name }}</option>
@@ -108,16 +108,6 @@
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="fk_category_id">Category</label>
-                    <select id="fk_category_id" x-model="form.fk_category_id" @change="form.fk_subcategory_id = ''">
-                        <option value="">Select Category</option>
-                        @foreach($categories as $category)
-                            <option value="{{ $category->id }}">{{ $category->name }}</option>
-                        @endforeach
-                    </select>
-                    <span class="form-error" x-show="errors.fk_category_id" x-text="errors.fk_category_id"></span>
-                </div>
-                <div class="form-group">
                     <label for="fk_subcategory_id">Subcategory</label>
                     <select id="fk_subcategory_id" x-model="form.fk_subcategory_id" :disabled="!form.fk_category_id">
                         <option value="">Select Subcategory</option>
@@ -128,6 +118,8 @@
                     <span class="form-error" x-show="errors.fk_subcategory_id" x-text="errors.fk_subcategory_id"></span>
                 </div>
             </div>
+
+            <div class="form-row">
                 <div class="form-group">
                     <label for="fk_unit_id">Unit</label>
                     <select id="fk_unit_id" x-model="form.fk_unit_id">

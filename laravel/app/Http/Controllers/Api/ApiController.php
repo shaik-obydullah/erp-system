@@ -66,21 +66,26 @@ class ApiController extends Controller
 
     public function categoryProduct(Request $request, $categoryId)
     {
-        $products = Product::where('fk_category_id', $categoryId)
-            ->with(['stocks' => function ($q) {
-                $q->where('status', 'active');
-            }])
-            ->get()
-            ->map(function ($product) {
-                return [
-                    'id' => $product->id,
-                    'name' => $product->name,
-                    'sale_price' => $product->sale_price,
-                    'image' => $product->image,
-                ];
-            });
+        $categoryIds = [$categoryId];
+        $children = Category::where('fk_category_id', $categoryId)->pluck('id')->toArray();
+        $categoryIds = array_merge($categoryIds, $children);
 
-        return response()->json($products);
+        $stocks = Stock::where('status', 'active')
+            ->where('quantity', '>', 0)
+            ->whereHas('product', function ($q) use ($categoryIds) {
+                $q->whereIn('fk_category_id', $categoryIds);
+            })
+            ->with('product')
+            ->get();
+
+        if ($stocks->isEmpty()) {
+            $stocks = Stock::where('status', 'active')
+                ->where('quantity', '>', 0)
+                ->with('product')
+                ->get();
+        }
+
+        return response()->json($stocks);
     }
 
     public function customer(Request $request)
@@ -360,7 +365,7 @@ class ApiController extends Controller
 
     public function sale(Request $request)
     {
-        $query = Sale::with('customer');
+        $query = Sale::with(['customer', 'transaction']);
 
         if ($request->has('search') && $request->search !== '') {
             $query->where('invoice_id', 'like', "%{$request->search}%");
@@ -374,7 +379,7 @@ class ApiController extends Controller
 
     public function selectSale(Request $request, $id)
     {
-        $sale = Sale::with(['details.stock.product', 'transaction'])->findOrFail($id);
+        $sale = Sale::with(['customer', 'details.stock.product', 'transaction'])->findOrFail($id);
 
         return response()->json($sale);
     }
@@ -645,8 +650,12 @@ class ApiController extends Controller
             ->selectRaw('SUM(quantity * buy_price) as total')
             ->value('total') ?? 0;
 
-        $monthlySales = Sale::whereYear('created_at', $currentYear)
-            ->selectRaw('MONTH(created_at) as month, SUM(grand_total) as total')
+        $monthlySales = Sale::whereHas('transaction', function ($q) use ($currentYear) {
+                $q->whereYear('date', $currentYear);
+            })
+            ->join('transactions', 'transactions.fk_reference_id', '=', 'sales.id')
+            ->where('transactions.type', Transaction::TYPE_SALE_INCOME)
+            ->selectRaw('MONTH(transactions.date) as month, SUM(sales.grand_total) as total')
             ->groupBy('month')
             ->pluck('total', 'month')
             ->toArray();
@@ -665,8 +674,12 @@ class ApiController extends Controller
             ->pluck('total', 'month')
             ->toArray();
 
-        $lastYearMonthlySales = Sale::whereYear('created_at', $lastYear)
-            ->selectRaw('MONTH(created_at) as month, SUM(grand_total) as total')
+        $lastYearMonthlySales = Sale::whereHas('transaction', function ($q) use ($lastYear) {
+                $q->whereYear('date', $lastYear);
+            })
+            ->join('transactions', 'transactions.fk_reference_id', '=', 'sales.id')
+            ->where('transactions.type', Transaction::TYPE_SALE_INCOME)
+            ->selectRaw('MONTH(transactions.date) as month, SUM(sales.grand_total) as total')
             ->groupBy('month')
             ->pluck('total', 'month')
             ->toArray();

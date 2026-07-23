@@ -13,7 +13,6 @@ import {
   FaReceipt,
   FaChartBar,
   FaSignOutAlt,
-  FaShoppingCart,
   FaBars,
   FaTimes,
 } from "react-icons/fa";
@@ -30,13 +29,12 @@ const navItems = [
   { to: "/reports", label: "Reports", icon: FaChartBar },
 ];
 
-const Layout = ({ cartTotal = 0 }) => {
+const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const config = useConfig();
   const navigate = useNavigate();
 
   const userName = localStorage.getItem("userName") || "Admin";
-  const currencySign = config.currencySign || "$";
 
   const handleLogout = async () => {
     const token = localStorage.getItem("authToken");
@@ -53,7 +51,7 @@ const Layout = ({ cartTotal = 0 }) => {
   const sidebarContent = (
     <>
       <div className="flex items-center justify-center h-16 text-xl font-bold tracking-wide text-white border-b border-indigo-600">
-        {config.projectName || "ERP System"}
+        {config.projectName || "React POS"}
       </div>
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
         {navItems.map(({ to, label, icon: Icon }) => (
@@ -94,7 +92,7 @@ const Layout = ({ cartTotal = 0 }) => {
         }`}
       >
         <div className="relative flex items-center justify-center h-16 text-xl font-bold tracking-wide text-white border-b border-indigo-600">
-          {config.projectName || "ERP System"}
+          {config.projectName || "React POS"}
           <button
             className="absolute right-2 text-indigo-200 hover:text-white lg:hidden"
             onClick={() => setSidebarOpen(false)}
@@ -135,19 +133,11 @@ const Layout = ({ cartTotal = 0 }) => {
               <FaBars className="w-5 h-5" />
             </button>
             <h2 className="hidden text-lg font-semibold text-gray-700 sm:block">
-              {config.projectName || "ERP System"}
+              {config.projectName || "React POS"}
             </h2>
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-gray-600">
-              <FaShoppingCart className="w-4 h-4 text-indigo-600" />
-              <span>
-                {currencySign}
-                {Number(cartTotal).toFixed(2)}
-              </span>
-            </div>
-
             <span className="hidden text-sm font-medium text-gray-700 sm:inline">
               {userName}
             </span>

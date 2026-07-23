@@ -11,6 +11,10 @@ export default defineConfig({
         target: 'http://erp_nginx:80',
         changeOrigin: true,
       },
+      '/uploads': {
+        target: 'http://erp_nginx:80',
+        changeOrigin: true,
+      },
     },
   },
   esbuild: {

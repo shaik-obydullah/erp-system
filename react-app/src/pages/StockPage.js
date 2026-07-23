@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { FaSearch, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+import { FaPlus, FaSearch, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { fetchStocks } from "../api/axios";
 import { useConfig } from "../contexts/ConfigContext";
 
@@ -51,6 +52,7 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
 }
 
 export default function StockPage() {
+  const navigate = useNavigate();
   const { currencySign } = useConfig();
   const [stocks, setStocks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -85,6 +87,9 @@ export default function StockPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Stocks</h1>
+        <button onClick={() => navigate("/add-stock")} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
+          <FaPlus /> Add Stock
+        </button>
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaArrowLeft, FaSave } from "react-icons/fa";
+import { toast } from "react-toastify";
 import { saveCategory } from "../api/axios";
 
 export default function AddCategory() {
@@ -19,8 +20,10 @@ export default function AddCategory() {
     setLoading(true);
     try {
       await saveCategory(form);
+      toast.success("Category added successfully");
       navigate("/categories", { replace: true });
     } catch (err) {
+      toast.error(err.message || "Failed to save category");
       setError(err.message || "Failed to save category");
     } finally {
       setLoading(false);

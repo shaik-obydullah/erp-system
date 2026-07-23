@@ -80,9 +80,16 @@
                     <tr id="row-{{ $product->id }}">
                         <td>
                             <div style="display: flex; align-items: center; gap: 10px;">
-                                <div style="width: 32px; height: 32px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; flex-shrink: 0;">
-                                    {{ substr($product->name, 0, 1) }}
-                                </div>
+                                @if($product->first_image_url)
+                                    <img src="{{ $product->first_image_url }}" alt="{{ $product->name }}" style="width: 32px; height: 32px; border-radius: 6px; object-fit: cover; flex-shrink: 0;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                                    <div style="width: 32px; height: 32px; background: var(--primary); color: white; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; flex-shrink: 0;">
+                                        {{ substr($product->name, 0, 1) }}
+                                    </div>
+                                @else
+                                    <div style="width: 32px; height: 32px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; flex-shrink: 0;">
+                                        {{ substr($product->name, 0, 1) }}
+                                    </div>
+                                @endif
                                 <div>
                                     <strong>{{ $product->name }}</strong>
                                     @if($product->sku)

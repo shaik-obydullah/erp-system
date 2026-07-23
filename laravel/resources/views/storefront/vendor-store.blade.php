@@ -51,8 +51,13 @@
         @php $stock = $product->stocks->first(); @endphp
         <a href="{{ route('store.product', $product->url_slug) }}"
            class="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-            <div class="aspect-square bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center p-6 relative">
-                <div class="text-5xl opacity-20 group-hover:opacity-30 transition">📦</div>
+            <div class="aspect-square bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center p-6 relative overflow-hidden">
+                @if($product->first_image_url)
+                    <img src="{{ $product->first_image_url }}" alt="{{ $product->name }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                    <div class="text-5xl opacity-20 group-hover:opacity-30 transition hidden items-center justify-center">📦</div>
+                @else
+                    <div class="text-5xl opacity-20 group-hover:opacity-30 transition">📦</div>
+                @endif
                 @if($product->brand)
                 <span class="absolute top-2 right-2 bg-gray-900/70 text-white text-xs px-2 py-0.5 rounded-full">{{ $product->brand->name }}</span>
                 @endif

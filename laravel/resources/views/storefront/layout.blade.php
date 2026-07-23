@@ -97,7 +97,6 @@
                 <div class="border-t my-2"></div>
                 <a href="{{ route('store.products') }}?sort=newest" class="block py-2 text-sm font-medium hover:text-primary-600">New Arrivals</a>
                 <a href="{{ route('store.vendors') }}" class="block py-2 text-sm font-medium hover:text-primary-600">Vendors</a>
-                <a href="{{ route('store.products') }}" class="block py-2 text-sm font-medium hover:text-primary-600">Blog</a>
             </div>
         </div>
     </nav>
@@ -240,12 +239,6 @@
                     class="{{ request()->routeIs('store.vendors') || request()->routeIs('store.vendor') ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50' }} px-4 py-2.5 rounded-lg transition-all duration-200">
                     Vendors
                 </a>
-
-                <!-- Blog -->
-                <a href="{{ route('store.products') }}"
-                    class="text-gray-700 hover:text-primary-600 hover:bg-gray-50 px-4 py-2.5 rounded-lg transition-all duration-200">
-                    Blog
-                </a>
             </div>
         </div>
     </div>
@@ -263,7 +256,7 @@
     </main>
 
     <!-- Footer -->
-    <footer class="bg-gray-900 text-gray-400 mt-16">
+    <footer class="bg-gray-900 text-gray-400">
         <div class="max-w-7xl mx-auto px-4 py-12">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
                 <div>

@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaPlus, FaEdit, FaTrash, FaSearch, FaChevronLeft, FaChevronRight, FaImage } from "react-icons/fa";
-import { fetchProducts, updateProduct, deleteProduct } from "../api/axios";
+import { toast } from "react-toastify";
+import { fetchProducts, updateProduct, deleteProduct, fetchCategories } from "../api/axios";
 import { useConfig } from "../contexts/ConfigContext";
 
 function LoadingIndicator() {
@@ -21,21 +22,6 @@ function StatusBadge({ status }) {
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
       {status}
     </span>
-  );
-}
-
-function Notification({ message, type, onClose }) {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
-  const bgColor = type === "success" ? "bg-green-500" : "bg-red-500";
-  return (
-    <div className={`fixed top-4 right-4 z-50 ${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 transition-all`}>
-      <span>{message}</span>
-      <button onClick={onClose} className="ml-2 font-bold">&times;</button>
-    </div>
   );
 }
 
@@ -70,15 +56,15 @@ export default function ProductPage() {
   const navigate = useNavigate();
   const { currencySign } = useConfig();
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [notification, setNotification] = useState(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
   const [editModal, setEditModal] = useState(false);
-  const [editData, setEditData] = useState({ id: "", name: "", sku: "", status: "" });
+  const [editData, setEditData] = useState({ id: "", name: "", fk_category_id: "", sku: "", status: "" });
   const [editImage, setEditImage] = useState(null);
   const [editImagePreview, setEditImagePreview] = useState("");
   const [editLoading, setEditLoading] = useState(false);
@@ -106,11 +92,23 @@ export default function ProductPage() {
   }, [loadProducts]);
 
   useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const data = await fetchCategories();
+        setCategories(data.data || data.categories || data || []);
+      } catch (err) {
+        console.error("Failed to load categories:", err);
+      }
+    };
+    loadCategories();
+  }, []);
+
+  useEffect(() => {
     setPage(1);
   }, [search]);
 
   const handleEdit = (product) => {
-    setEditData({ id: product.id, name: product.name, sku: product.sku, status: product.status });
+    setEditData({ id: product.id, name: product.name, fk_category_id: product.fk_category_id || product.category?.id || "", sku: product.sku, status: product.status });
     setEditImage(null);
     setEditImagePreview(product.image ? (product.image.startsWith("http") ? product.image : `${import.meta.env.VITE_API_URL || "https://erp.obydullah.com"}/storage/${product.image}`) : "");
     setEditModal(true);
@@ -130,17 +128,18 @@ export default function ProductPage() {
     try {
       const formData = new FormData();
       formData.append("name", editData.name);
+      formData.append("fk_category_id", editData.fk_category_id);
       formData.append("sku", editData.sku);
       formData.append("status", editData.status);
       if (editImage) {
         formData.append("image", editImage);
       }
       await updateProduct(editData.id, formData);
-      setNotification({ message: "Product updated successfully", type: "success" });
+      toast.success("Product updated successfully");
       setEditModal(false);
       loadProducts();
     } catch (err) {
-      setNotification({ message: err.message || "Failed to update product", type: "error" });
+      toast.error(err.message || "Failed to update product");
     } finally {
       setEditLoading(false);
     }
@@ -155,12 +154,12 @@ export default function ProductPage() {
     setDeleteLoading(true);
     try {
       await deleteProduct(deleteId);
-      setNotification({ message: "Product deleted successfully", type: "success" });
+      toast.success("Product deleted successfully");
       setDeleteModal(false);
       setDeleteId(null);
       loadProducts();
     } catch (err) {
-      setNotification({ message: err.message || "Failed to delete product", type: "error" });
+      toast.error(err.message || "Failed to delete product");
     } finally {
       setDeleteLoading(false);
     }
@@ -168,10 +167,6 @@ export default function ProductPage() {
 
   return (
     <div className="p-6">
-      {notification && (
-        <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
-      )}
-
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Products</h1>
         <button onClick={() => navigate("/add-product")} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
@@ -243,6 +238,15 @@ export default function ProductPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
                 <input type="text" required value={editData.name} onChange={(e) => setEditData({ ...editData, name: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <select required value={editData.fk_category_id} onChange={(e) => setEditData({ ...editData, fk_category_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                  <option value="">Select category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

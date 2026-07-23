@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaPlus, FaEdit, FaTrash, FaSearch, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { toast } from "react-toastify";
 import { fetchCategories, updateCategory, deleteCategory } from "../api/axios";
 import { useConfig } from "../contexts/ConfigContext";
 
@@ -21,21 +22,6 @@ function StatusBadge({ status }) {
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
       {status}
     </span>
-  );
-}
-
-function Notification({ message, type, onClose }) {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
-  const bgColor = type === "success" ? "bg-green-500" : "bg-red-500";
-  return (
-    <div className={`fixed top-4 right-4 z-50 ${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 transition-all`}>
-      <span>{message}</span>
-      <button onClick={onClose} className="ml-2 font-bold">&times;</button>
-    </div>
   );
 }
 
@@ -72,7 +58,6 @@ export default function CategoryPage() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [notification, setNotification] = useState(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -117,11 +102,11 @@ export default function CategoryPage() {
     setEditLoading(true);
     try {
       await updateCategory(editData);
-      setNotification({ message: "Category updated successfully", type: "success" });
+      toast.success("Category updated successfully");
       setEditModal(false);
       loadCategories();
     } catch (err) {
-      setNotification({ message: err.message || "Failed to update category", type: "error" });
+      toast.error(err.message || "Failed to update category");
     } finally {
       setEditLoading(false);
     }
@@ -136,12 +121,12 @@ export default function CategoryPage() {
     setDeleteLoading(true);
     try {
       await deleteCategory(deleteId);
-      setNotification({ message: "Category deleted successfully", type: "success" });
+      toast.success("Category deleted successfully");
       setDeleteModal(false);
       setDeleteId(null);
       loadCategories();
     } catch (err) {
-      setNotification({ message: err.message || "Failed to delete category", type: "error" });
+      toast.error(err.message || "Failed to delete category");
     } finally {
       setDeleteLoading(false);
     }
@@ -149,10 +134,6 @@ export default function CategoryPage() {
 
   return (
     <div className="p-6">
-      {notification && (
-        <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
-      )}
-
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Categories</h1>
         <button onClick={() => navigate("/add-category")} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">

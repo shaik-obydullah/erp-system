@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaArrowLeft, FaSave } from "react-icons/fa";
+import { toast } from "react-toastify";
 import { saveCustomer } from "../api/axios";
 
 export default function AddCustomer() {
@@ -19,8 +20,10 @@ export default function AddCustomer() {
     setLoading(true);
     try {
       await saveCustomer(form);
+      toast.success("Customer added successfully");
       navigate("/customers", { replace: true });
     } catch (err) {
+      toast.error(err.message || "Failed to save customer");
       setError(err.message || "Failed to save customer");
     } finally {
       setLoading(false);

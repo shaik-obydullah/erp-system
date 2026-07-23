@@ -22,11 +22,26 @@ class StorefrontController extends Controller
 
     public function home()
     {
+        $childCategoryIds = Category::whereNull('fk_category_id')
+            ->where('status', 'active')
+            ->pluck('id');
+
+        $childProductCounts = Product::where('status', 'active')
+            ->whereIn('fk_category_id', $childCategoryIds)
+            ->selectRaw('fk_category_id, count(*) as cnt')
+            ->groupBy('fk_category_id')
+            ->pluck('cnt', 'fk_category_id');
+
         $categories = Category::whereNull('fk_category_id')
             ->where('status', 'active')
+            ->with('children')
             ->withCount(['products' => fn($q) => $q->where('status', 'active')])
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->each(function ($cat) use ($childCategoryIds, $childProductCounts) {
+                $childIds = $cat->children->pluck('id');
+                $cat->products_count += $childProductCounts->only($childIds)->sum();
+            });
 
         $products_count = Product::where('status', 'active')->count();
 
@@ -135,7 +150,7 @@ class StorefrontController extends Controller
         $relatedProducts = Product::where('fk_category_id', $product->fk_category_id)
             ->where('id', '!=', $product->id)
             ->where('status', 'active')
-            ->with(['stocks' => fn($q) => $q->where('status', 'active'), 'brand', 'supplier'])
+            ->with(['stocks' => fn($q) => $q->where('status', 'active'), 'brand', 'supplier', 'reviews'])
             ->limit(4)
             ->get();
 

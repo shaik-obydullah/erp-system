@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { ConfigProvider } from "./contexts/ConfigContext";
 import PrivateRoute from "./components/PrivateRoute";
 import Layout from "./layout/Layout";
@@ -24,6 +26,7 @@ function App() {
   return (
     <ConfigProvider>
       <BrowserRouter>
+        <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} closeOnClick pauseOnHover theme="colored" />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/logout" element={<Logout />} />

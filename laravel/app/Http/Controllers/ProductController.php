@@ -136,12 +136,6 @@ class ProductController extends Controller
         $units = Unit::where('status', 'active')->get();
         $suppliers = Supplier::where('status', 'active')->get();
 
-        if ($product->image) {
-            $product->parsed_images = json_decode($product->image, true) ?? [];
-        } else {
-            $product->parsed_images = [];
-        }
-
         return view('products.edit', compact('product', 'brands', 'categories', 'units', 'suppliers'));
     }
 

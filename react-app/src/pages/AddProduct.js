@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaArrowLeft, FaSave, FaImage } from "react-icons/fa";
+import { toast } from "react-toastify";
 import { saveProduct, fetchCategories } from "../api/axios";
 import { useConfig } from "../contexts/ConfigContext";
 
@@ -56,7 +57,7 @@ export default function AddProduct() {
     try {
       const formData = new FormData();
       formData.append("name", form.name);
-      formData.append("category_id", form.category_id);
+      formData.append("fk_category_id", form.category_id);
       formData.append("sku", form.sku);
       formData.append("barcode", form.barcode);
       formData.append("status", form.status);
@@ -66,8 +67,10 @@ export default function AddProduct() {
         formData.append("image", image);
       }
       await saveProduct(formData);
+      toast.success("Product added successfully");
       navigate("/products", { replace: true });
     } catch (err) {
+      toast.error(err.message || "Failed to save product");
       setError(err.message || "Failed to save product");
     } finally {
       setLoading(false);

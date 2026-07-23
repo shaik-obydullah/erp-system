@@ -11,6 +11,7 @@ import {
   FaUser,
   FaTag,
 } from "react-icons/fa";
+import { toast } from "react-toastify";
 import { debounce } from "lodash";
 import {
   fetchDashboardCategories,
@@ -53,7 +54,6 @@ export default function MainContent({ onCartUpdate }) {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [discount, setDiscount] = useState("");
   const [checkingOut, setCheckingOut] = useState(false);
-  const [checkoutMsg, setCheckoutMsg] = useState(null);
 
   const categoryScrollRef = useRef(null);
   const customerDropdownRef = useRef(null);
@@ -71,7 +71,7 @@ export default function MainContent({ onCartUpdate }) {
       setLoadingCategories(true);
       try {
         const data = await fetchDashboardCategories();
-        const list = data?.categories || data?.data || [];
+        const list = Array.isArray(data) ? data : data?.categories || data?.data || [];
         setCategories(list);
         if (list.length > 0) {
           setActiveCategoryId(list[0].id);
@@ -85,14 +85,14 @@ export default function MainContent({ onCartUpdate }) {
     load();
   }, []);
 
-  // ── fetch products by category ──
+  // ── fetch products (stocks) by category ──
   useEffect(() => {
     if (!activeCategoryId) return;
     const load = async () => {
       setLoadingProducts(true);
       try {
         const data = await fetchProductsByCategory(activeCategoryId);
-        const list = data?.products || data?.data || [];
+        const list = Array.isArray(data) ? data : data?.stocks || data?.data || [];
         setProducts(list);
         setFilteredProducts(list);
         setSearch("");
@@ -115,9 +115,12 @@ export default function MainContent({ onCartUpdate }) {
       const lower = term.toLowerCase();
       setFilteredProducts(
         items.filter(
-          (p) =>
-            (p.name || p.product_name || "").toLowerCase().includes(lower) ||
-            (p.sku || "").toLowerCase().includes(lower)
+          (s) =>
+            (s.product?.name || "").toLowerCase().includes(lower) ||
+            (s.batch || "").toLowerCase().includes(lower) ||
+            (s.lot || "").toLowerCase().includes(lower) ||
+            (s.product?.sku || "").toLowerCase().includes(lower) ||
+            (s.product?.barcode || "").toLowerCase().includes(lower)
         )
       );
     }, 300),
@@ -133,7 +136,7 @@ export default function MainContent({ onCartUpdate }) {
     const load = async () => {
       try {
         const data = await fetchCustomers({ search: customerSearch || undefined });
-        const list = data?.customers || data?.data || [];
+        const list = Array.isArray(data) ? data : data?.customers || data?.data || [];
         setCustomers(list);
       } catch (err) {
         console.error("Failed to load customers:", err);
@@ -154,22 +157,25 @@ export default function MainContent({ onCartUpdate }) {
   }, []);
 
   // ── cart actions ──
-  const addToCart = (product) => {
+  const addToCart = (stock) => {
     setCart((prev) => {
-      const existing = prev.find((i) => i.id === product.id);
+      const existing = prev.find((i) => i.id === stock.id);
       if (existing) {
         return prev.map((i) =>
-          i.id === product.id ? { ...i, qty: i.qty + 1 } : i
+          i.id === stock.id ? { ...i, qty: Math.min(i.qty + 1, stock.quantity) } : i
         );
       }
       return [
         ...prev,
         {
-          id: product.id,
-          name: product.name || product.product_name,
-          image: product.image || product.product_image || "",
-          price: parseFloat(product.price || product.sale_price || 0),
+          id: stock.id,
+          stock_id: stock.id,
+          name: stock.product?.name || "Unknown",
+          batch: stock.batch || "",
+          image: stock.product?.image || "",
+          price: parseFloat(stock.sale_price || 0),
           qty: 1,
+          maxQty: stock.quantity,
         },
       ];
     });
@@ -178,8 +184,14 @@ export default function MainContent({ onCartUpdate }) {
   const updateQty = (id, delta) => {
     setCart((prev) =>
       prev
-        .map((i) => (i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i))
-        .filter((i) => i.qty > 0)
+        .map((i) => {
+          if (i.id !== id) return i;
+          const newQty = i.qty + delta;
+          if (newQty <= 0) return null;
+          if (newQty > i.maxQty) return { ...i, qty: i.maxQty };
+          return { ...i, qty: newQty };
+        })
+        .filter(Boolean)
     );
   };
 
@@ -191,7 +203,6 @@ export default function MainContent({ onCartUpdate }) {
     setCart([]);
     setSelectedCustomer(null);
     setDiscount("");
-    setCheckoutMsg(null);
   };
 
   // ── price calculations ──
@@ -206,32 +217,28 @@ export default function MainContent({ onCartUpdate }) {
   const handleCheckout = async () => {
     if (cart.length === 0) return;
     setCheckingOut(true);
-    setCheckoutMsg(null);
     try {
       const payload = {
         customer_id: selectedCustomer?.id || null,
-        discount: parseFloat(discount || 0),
+        subtotal: subtotal,
+        vat_amount: vatAmount,
+        tax_amount: taxAmount,
+        discount_amount: discountAmount,
+        total: grandTotal,
         items: cart.map((i) => ({
-          product_id: i.id,
-          quantity: i.qty,
-          price: i.price,
+          fk_stock_id: i.stock_id,
+          sale_stock: i.qty,
+          subtotal: i.price * i.qty,
         })),
       };
       await checkout(payload);
-      setCheckoutMsg({ type: "success", text: "Sale completed successfully!" });
+      toast.success("Sale completed successfully!");
       clearCart();
     } catch (err) {
-      setCheckoutMsg({ type: "error", text: err.message || "Checkout failed" });
+      toast.error(err.message || "Checkout failed");
     } finally {
       setCheckingOut(false);
     }
-  };
-
-  // ── image helper ──
-  const productImageUrl = (image) => {
-    if (!image) return null;
-    if (image.startsWith("http")) return image;
-    return `https://erp.obydullah.com/uploads/product_images/thumbs/${image}`;
   };
 
   // ── filtered customers for dropdown ──
@@ -281,7 +288,7 @@ export default function MainContent({ onCartUpdate }) {
             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Search products..."
+              placeholder="Search stocks by name, batch, lot, SKU..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-sm"
@@ -306,24 +313,26 @@ export default function MainContent({ onCartUpdate }) {
           ) : filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">
               <FaShoppingCart size={48} className="mb-3 opacity-40" />
-              <p className="text-lg font-medium">No products found</p>
+              <p className="text-lg font-medium">No stocks found</p>
               <p className="text-sm">Try another category or search term</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {filteredProducts.map((product) => {
-                const imgUrl = productImageUrl(product.image || product.product_image);
+              {filteredProducts.map((stock) => {
+                const imgUrl = stock.product?.image
+                  ? (stock.product.image.startsWith("http") ? stock.product.image : `/uploads/products/${stock.product.image.replace("products/", "")}`)
+                  : null;
                 return (
                   <button
-                    key={product.id}
-                    onClick={() => addToCart(product)}
+                    key={stock.id}
+                    onClick={() => addToCart(stock)}
                     className="bg-white rounded-xl border border-gray-200 hover:border-blue-400 hover:shadow-md transition text-left overflow-hidden group"
                   >
                     <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
                       {imgUrl ? (
                         <img
                           src={imgUrl}
-                          alt={product.name || product.product_name}
+                          alt={stock.product?.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
                           onError={(e) => {
                             e.target.style.display = "none";
@@ -341,12 +350,18 @@ export default function MainContent({ onCartUpdate }) {
                     </div>
                     <div className="p-3">
                       <p className="text-sm font-medium text-gray-800 truncate">
-                        {product.name || product.product_name}
+                        {stock.product?.name || "Unknown"}
                       </p>
-                      <p className="text-blue-600 font-bold mt-1">
-                        {currencySign}
-                        {parseFloat(product.price || product.sale_price || 0).toFixed(2)}
-                      </p>
+                      {stock.batch && (
+                        <p className="text-xs text-gray-400 mt-0.5">Batch: {stock.batch}</p>
+                      )}
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-blue-600 font-bold">
+                          {currencySign}
+                          {parseFloat(stock.sale_price || 0).toFixed(2)}
+                        </p>
+                        <span className="text-xs text-gray-400">Qty: {stock.quantity}</span>
+                      </div>
                     </div>
                   </button>
                 );
@@ -364,7 +379,7 @@ export default function MainContent({ onCartUpdate }) {
             <FaShoppingCart className="text-blue-600" />
             <h2 className="font-bold text-gray-800">Cart</h2>
             <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-              {cart.reduce((s, i) => s + i.qty, 0)} items
+              {currencySign}{grandTotal.toFixed(2)}
             </span>
           </div>
           {cart.length > 0 && (
@@ -398,7 +413,7 @@ export default function MainContent({ onCartUpdate }) {
                         src={
                           item.image.startsWith("http")
                             ? item.image
-                            : `https://erp.obydullah.com/uploads/product_images/thumbs/${item.image}`
+                            : `/uploads/products/${item.image.replace("products/", "")}`
                         }
                         alt={item.name}
                         className="w-full h-full object-cover"
@@ -416,6 +431,7 @@ export default function MainContent({ onCartUpdate }) {
                   {/* Item Details */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">{item.name}</p>
+                    {item.batch && <p className="text-xs text-gray-400">Batch: {item.batch}</p>}
                     <p className="text-xs text-blue-600 font-semibold">
                       {currencySign}
                       {item.price.toFixed(2)}
@@ -455,19 +471,6 @@ export default function MainContent({ onCartUpdate }) {
         {/* Cart Footer: Customer, Discount, Totals, Checkout */}
         {cart.length > 0 && (
           <div className="border-t border-gray-200 px-4 py-3 space-y-3">
-            {/* Checkout Message */}
-            {checkoutMsg && (
-              <div
-                className={`p-2 rounded-lg text-sm font-medium ${
-                  checkoutMsg.type === "success"
-                    ? "bg-green-100 text-green-700"
-                    : "bg-red-100 text-red-700"
-                }`}
-              >
-                {checkoutMsg.text}
-              </div>
-            )}
-
             {/* Customer Assignment */}
             <div className="relative" ref={customerDropdownRef}>
               <label className="text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">

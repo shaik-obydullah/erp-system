@@ -45,7 +45,6 @@ services:
       - "3060:3060"
     volumes:
       - ./react-app:/app
-      - /app/node_modules
     depends_on:
       - erp_nginx
 

@@ -81,15 +81,31 @@
             <div class="zoom-lens">
                 <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
             </div>
-            <div class="zoom-target text-[120px] opacity-15 select-none">
-                @if($product->category)
-                    @switch($product->category->name)
-                        @case('Phones') 📱 @break
-                        @case('Laptops') 💻 @break
-                        @case('Audio') 🎧 @break
-                        @case('Shoes') 👟 @break
-                        @default 📦 @endswitch
-                @else 📦 @endif
+            <div class="zoom-target">
+                @if($product->first_image_url)
+                    <img src="{{ $product->first_image_url }}" alt="{{ $product->name }}" class="w-full h-full object-contain" style="max-height: 400px;" onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
+                    <div class="text-[120px] opacity-15 select-none hidden">
+                        @if($product->category)
+                            @switch($product->category->name)
+                                @case('Phones') 📱 @break
+                                @case('Laptops') 💻 @break
+                                @case('Audio') 🎧 @break
+                                @case('Shoes') 👟 @break
+                                @default 📦 @endswitch
+                        @else 📦 @endif
+                    </div>
+                @else
+                    <div class="text-[120px] opacity-15 select-none">
+                        @if($product->category)
+                            @switch($product->category->name)
+                                @case('Phones') 📱 @break
+                                @case('Laptops') 💻 @break
+                                @case('Audio') 🎧 @break
+                                @case('Shoes') 👟 @break
+                                @default 📦 @endswitch
+                        @else 📦 @endif
+                    </div>
+                @endif
             </div>
         </div>
 
@@ -100,18 +116,22 @@
             @endif
             <h1 class="text-3xl font-bold mb-3">{{ $product->name }}</h1>
 
-            @if($product->review_number > 0)
+            @php
+                $actualReviewCount = $product->reviews->count();
+                $actualReviewAvg = $actualReviewCount > 0 ? round($product->reviews->avg('rating'), 1) : 0;
+            @endphp
+            @if($actualReviewCount > 0)
             <div class="flex items-center gap-2 mb-4">
                 <div class="flex text-accent-500">
                     @for($i = 1; $i <= 5; $i++)
-                        @if($i <= floor($product->review_avg))
+                        @if($i <= floor($actualReviewAvg))
                             <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/></svg>
                         @else
                             <svg class="w-4 h-4 fill-current text-gray-300" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/></svg>
                         @endif
                     @endfor
                 </div>
-                <span class="text-sm text-gray-500">({{ $product->review_number }} reviews)</span>
+                <span class="text-sm text-gray-500">({{ $actualReviewCount }} reviews)</span>
             </div>
             @endif
 
@@ -219,7 +239,7 @@
         <div class="flex border-b px-6">
             <button @click="activeTab = 'description'" :class="activeTab === 'description' ? 'tab-active' : 'text-gray-500 hover:text-gray-700'" class="px-5 py-4 text-sm transition">Description</button>
             <button @click="activeTab = 'specs'" :class="activeTab === 'specs' ? 'tab-active' : 'text-gray-500 hover:text-gray-700'" class="px-5 py-4 text-sm transition">Specifications</button>
-            <button @click="activeTab = 'reviews'" :class="activeTab === 'reviews' ? 'tab-active' : 'text-gray-500 hover:text-gray-700'" class="px-5 py-4 text-sm transition">Reviews ({{ $product->review_number ?? 0 }})</button>
+            <button @click="activeTab = 'reviews'" :class="activeTab === 'reviews' ? 'tab-active' : 'text-gray-500 hover:text-gray-700'" class="px-5 py-4 text-sm transition">Reviews ({{ $actualReviewCount }})</button>
         </div>
 
         <!-- Description Tab -->
@@ -330,17 +350,31 @@
             @php $rpStock = $rp->stocks->first(); @endphp
             <div class="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col">
                 <a href="{{ route('store.product', $rp->url_slug) }}" class="block">
-                    <div class="aspect-square bg-gray-50 flex items-center justify-center p-6">
-                        <div class="text-4xl opacity-20">
-                            @if($rp->category)
-                                @switch($rp->category->name)
-                                    @case('Phones') 📱 @break
-                                    @case('Laptops') 💻 @break
-                                    @case('Audio') 🎧 @break
-                                    @case('Shoes') 👟 @break
-                                    @default 📦 @endswitch
-                            @else 📦 @endif
-                        </div>
+                    <div class="aspect-square bg-gray-50 flex items-center justify-center p-6 relative overflow-hidden">
+                        @if($rp->first_image_url)
+                            <img src="{{ $rp->first_image_url }}" alt="{{ $rp->name }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                            <div class="text-4xl opacity-20 hidden items-center justify-center">
+                                @if($rp->category)
+                                    @switch($rp->category->name)
+                                        @case('Phones') 📱 @break
+                                        @case('Laptops') 💻 @break
+                                        @case('Audio') 🎧 @break
+                                        @case('Shoes') 👟 @break
+                                        @default 📦 @endswitch
+                                @else 📦 @endif
+                            </div>
+                        @else
+                            <div class="text-4xl opacity-20">
+                                @if($rp->category)
+                                    @switch($rp->category->name)
+                                        @case('Phones') 📱 @break
+                                        @case('Laptops') 💻 @break
+                                        @case('Audio') 🎧 @break
+                                        @case('Shoes') 👟 @break
+                                        @default 📦 @endswitch
+                                @else 📦 @endif
+                            </div>
+                        @endif
                     </div>
                 </a>
                 <div class="p-4 flex flex-col flex-1">
@@ -350,18 +384,18 @@
                     @if($rp->supplier)
                     <p class="text-xs text-gray-400 mb-1">{{ $rp->supplier->name }}</p>
                     @endif
-                    @if($rp->review_number > 0)
+                    @if($rp->reviews->count() > 0)
                     <div class="flex items-center gap-1 mb-2">
                         <div class="flex text-accent-500">
                             @for($i = 1; $i <= 5; $i++)
-                                @if($i <= floor($rp->review_avg))
+                                @if($i <= floor($rp->reviews->avg('rating')))
                                     <svg class="w-3 h-3 fill-current" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/></svg>
                                 @else
                                     <svg class="w-3 h-3 fill-current text-gray-300" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z"/></svg>
                                 @endif
                             @endfor
                         </div>
-                        <span class="text-[10px] text-gray-400">({{ $rp->review_number }})</span>
+                        <span class="text-[10px] text-gray-400">({{ $rp->reviews->count() }})</span>
                     </div>
                     @endif
                     @if($rpStock)

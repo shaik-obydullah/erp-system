@@ -9,10 +9,10 @@ export default function AddStock() {
   const navigate = useNavigate();
   const { currencySign } = useConfig();
   const [form, setForm] = useState({
-    product_id: "",
+    fk_product_id: "",
     batch: "",
     lot: "",
-    qty: "",
+    quantity: "",
     buy_price: "",
     sale_price: "",
     status: "Active",
@@ -78,7 +78,7 @@ export default function AddStock() {
 
   const handleProductSelect = (product) => {
     setSelectedProduct(product);
-    setForm({ ...form, product_id: product.id });
+    setForm({ ...form, fk_product_id: product.id });
     setProductSearch(product.name);
     setShowDropdown(false);
   };
@@ -129,7 +129,7 @@ export default function AddStock() {
                   setShowDropdown(true);
                   if (!e.target.value) {
                     setSelectedProduct(null);
-                    setForm({ ...form, product_id: "" });
+                    setForm({ ...form, fk_product_id: "" });
                   }
                 }}
                 onFocus={() => setShowDropdown(true)}
@@ -194,7 +194,7 @@ export default function AddStock() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
             <input
               type="number"
-              name="qty"
+              name="quantity"
               required
               min="0"
               value={form.qty}

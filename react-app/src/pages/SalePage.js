@@ -3,7 +3,7 @@ import { useConfig } from "../contexts/ConfigContext";
 import { fetchSale, fetchSaleDetails, deleteSale } from "../api/axios";
 import { FaSearch, FaEye, FaTrash, FaFileInvoice, FaDollarSign, FaShoppingCart, FaCalendarDay } from "react-icons/fa";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 export default function SalePage() {
   const config = useConfig();
@@ -90,21 +90,21 @@ export default function SalePage() {
     doc.text("Invoice", 14, 22);
     doc.setFontSize(10);
     doc.text(`Invoice ID: ${s.invoice_id || s.id}`, 14, 32);
-    doc.text(`Date: ${s.date || s.created_at || ""}`, 14, 38);
-    doc.text(`Customer: ${s.customer_name || s.customer?.name || ""}`, 14, 44);
-    doc.text(`Phone: ${s.customer_phone || s.customer?.phone || ""}`, 14, 50);
-    doc.text(`Address: ${s.customer_address || s.customer?.address || ""}`, 14, 56);
+    doc.text(`Date: ${s.transaction?.date || ""}`, 14, 38);
+    doc.text(`Customer: ${s.customer?.name || ""}`, 14, 44);
+    doc.text(`Phone: ${s.customer?.phone || ""}`, 14, 50);
+    doc.text(`Address: ${s.customer?.address || ""}`, 14, 56);
 
-    const items = s.items || s.sale_items || [];
+    const items = s.details || s.items || [];
     const tableBody = items.map((item, i) => [
       i + 1,
-      item.product_name || item.name || "",
-      item.quantity || 0,
-      `${currencySign}${Number(item.price || 0).toFixed(2)}`,
-      `${currencySign}${Number(item.total || item.quantity * item.price || 0).toFixed(2)}`,
+      item.stock_name || item.product_name || "",
+      item.sale_stock || item.quantity || 0,
+      `${currencySign}${Number(item.subtotal / item.sale_stock || 0).toFixed(2)}`,
+      `${currencySign}${Number(item.subtotal || 0).toFixed(2)}`,
     ]);
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: 64,
       head: [["#", "Product", "Qty", "Price", "Total"]],
       body: tableBody,
@@ -114,20 +114,21 @@ export default function SalePage() {
 
     const finalY = doc.lastAutoTable.finalY + 10;
     doc.setFontSize(11);
-    doc.text(`Subtotal: ${currencySign}${Number(s.subtotal || 0).toFixed(2)}`, 130, finalY);
-    doc.text(`VAT: ${currencySign}${Number(s.vat || 0).toFixed(2)}`, 130, finalY + 7);
-    doc.text(`Tax: ${currencySign}${Number(s.tax || 0).toFixed(2)}`, 130, finalY + 14);
+    doc.text(`Subtotal: ${currencySign}${Number(s.net_price || 0).toFixed(2)}`, 130, finalY);
+    doc.text(`VAT: ${currencySign}${Number(s.vat_amount || 0).toFixed(2)}`, 130, finalY + 7);
+    doc.text(`Tax: ${currencySign}${Number(s.tax_amount || 0).toFixed(2)}`, 130, finalY + 14);
+    doc.text(`Discount: ${currencySign}${Number(s.discount_amount || 0).toFixed(2)}`, 130, finalY + 21);
     doc.setFontSize(13);
-    doc.text(`Total: ${currencySign}${Number(s.total || 0).toFixed(2)}`, 130, finalY + 24);
+    doc.text(`Total: ${currencySign}${Number(s.grand_total || 0).toFixed(2)}`, 130, finalY + 31);
 
     doc.save(`invoice_${s.invoice_id || s.id}.pdf`);
   };
 
   const totalSales = totalItems;
-  const totalRevenue = sales.reduce((sum, s) => sum + Number(s.total || 0), 0);
+  const totalRevenue = sales.reduce((sum, s) => sum + Number(s.grand_total || 0), 0);
   const avgSale = sales.length > 0 ? totalRevenue / sales.length : 0;
   const todayStr = new Date().toISOString().slice(0, 10);
-  const todaySales = sales.filter((s) => (s.date || s.created_at || "").startsWith(todayStr)).length;
+  const todaySales = sales.filter((s) => (s.transaction?.date || "").startsWith(todayStr)).length;
 
   const pageNumbers = [];
   for (let i = 1; i <= totalPages; i++) {
@@ -197,9 +198,9 @@ export default function SalePage() {
                 sales.map((sale) => (
                   <tr key={sale.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-800">{sale.invoice_id || sale.id}</td>
-                    <td className="px-4 py-3 text-gray-600">{sale.customer_name || sale.customer?.name || "-"}</td>
-                    <td className="px-4 py-3 text-gray-600">{sale.date || sale.created_at || "-"}</td>
-                    <td className="px-4 py-3 text-gray-600">{currencySign}{Number(sale.total || 0).toFixed(2)}</td>
+                    <td className="px-4 py-3 text-gray-600">{sale.customer?.name || "-"}</td>
+                    <td className="px-4 py-3 text-gray-600">{sale.transaction?.date || "-"}</td>
+                    <td className="px-4 py-3 text-gray-600">{currencySign}{Number(sale.grand_total || 0).toFixed(2)}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 text-xs rounded-full font-medium ${
                         sale.status === "completed" || sale.status === "paid"
@@ -300,10 +301,10 @@ export default function SalePage() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div><span className="text-gray-500">Invoice ID:</span> <span className="font-medium">{saleDetail.invoice_id || saleDetail.id}</span></div>
-                    <div><span className="text-gray-500">Date:</span> <span className="font-medium">{saleDetail.date || saleDetail.created_at || ""}</span></div>
-                    <div><span className="text-gray-500">Customer:</span> <span className="font-medium">{saleDetail.customer_name || saleDetail.customer?.name || ""}</span></div>
-                    <div><span className="text-gray-500">Phone:</span> <span className="font-medium">{saleDetail.customer_phone || saleDetail.customer?.phone || ""}</span></div>
-                    <div className="col-span-2"><span className="text-gray-500">Address:</span> <span className="font-medium">{saleDetail.customer_address || saleDetail.customer?.address || ""}</span></div>
+                    <div><span className="text-gray-500">Date:</span> <span className="font-medium">{saleDetail.transaction?.date || ""}</span></div>
+                    <div><span className="text-gray-500">Customer:</span> <span className="font-medium">{saleDetail.customer?.name || ""}</span></div>
+                    <div><span className="text-gray-500">Phone:</span> <span className="font-medium">{saleDetail.customer?.phone || ""}</span></div>
+                    <div className="col-span-2"><span className="text-gray-500">Address:</span> <span className="font-medium">{saleDetail.customer?.address || ""}</span></div>
                   </div>
 
                   <table className="w-full text-sm text-left border border-gray-200 rounded-lg overflow-hidden">
@@ -317,13 +318,13 @@ export default function SalePage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {(saleDetail.items || saleDetail.sale_items || []).map((item, i) => (
+                      {(saleDetail.details || saleDetail.items || []).map((item, i) => (
                         <tr key={i}>
                           <td className="px-4 py-2">{i + 1}</td>
-                          <td className="px-4 py-2">{item.product_name || item.name || ""}</td>
-                          <td className="px-4 py-2">{item.quantity || 0}</td>
-                          <td className="px-4 py-2">{currencySign}{Number(item.price || 0).toFixed(2)}</td>
-                          <td className="px-4 py-2">{currencySign}{Number(item.total || item.quantity * item.price || 0).toFixed(2)}</td>
+                          <td className="px-4 py-2">{item.stock_name || item.product_name || ""}</td>
+                          <td className="px-4 py-2">{item.sale_stock || item.quantity || 0}</td>
+                          <td className="px-4 py-2">{currencySign}{Number(item.subtotal / item.sale_stock || 0).toFixed(2)}</td>
+                          <td className="px-4 py-2">{currencySign}{Number(item.subtotal || 0).toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -331,10 +332,11 @@ export default function SalePage() {
 
                   <div className="flex justify-end">
                     <div className="w-64 space-y-1 text-sm">
-                      <div className="flex justify-between"><span className="text-gray-500">Subtotal:</span><span>{currencySign}{Number(saleDetail.subtotal || 0).toFixed(2)}</span></div>
-                      <div className="flex justify-between"><span className="text-gray-500">VAT:</span><span>{currencySign}{Number(saleDetail.vat || 0).toFixed(2)}</span></div>
-                      <div className="flex justify-between"><span className="text-gray-500">Tax:</span><span>{currencySign}{Number(saleDetail.tax || 0).toFixed(2)}</span></div>
-                      <div className="flex justify-between font-bold border-t border-gray-200 pt-1"><span>Total:</span><span>{currencySign}{Number(saleDetail.total || 0).toFixed(2)}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-500">Subtotal:</span><span>{currencySign}{Number(saleDetail.net_price || 0).toFixed(2)}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-500">VAT:</span><span>{currencySign}{Number(saleDetail.vat_amount || 0).toFixed(2)}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-500">Tax:</span><span>{currencySign}{Number(saleDetail.tax_amount || 0).toFixed(2)}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-500">Discount:</span><span>{currencySign}{Number(saleDetail.discount_amount || 0).toFixed(2)}</span></div>
+                      <div className="flex justify-between font-bold border-t border-gray-200 pt-1"><span>Total:</span><span>{currencySign}{Number(saleDetail.grand_total || 0).toFixed(2)}</span></div>
                     </div>
                   </div>
                 </div>

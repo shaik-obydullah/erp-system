@@ -13,7 +13,7 @@ export const ConfigProvider = ({ children }) => {
     dateFormat: "Y-m-d",
     timeFormat: "H:i:s",
     timezone: "UTC",
-    projectName: "ERP System",
+    projectName: "React POS",
   });
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export const ConfigProvider = ({ children }) => {
             dateFormat: data.date_format || "Y-m-d",
             timeFormat: data.time_format || "H:i:s",
             timezone: data.timezone || "UTC",
-            projectName: data.project_name || "ERP System",
+            projectName: data.project_name || "React POS",
           });
         }
       } catch (error) {
@@ -39,9 +39,7 @@ export const ConfigProvider = ({ children }) => {
   }, []);
 
   return (
-    <ConfigContext.Provider value={config}>
-      {children}
-    </ConfigContext.Provider>
+    <ConfigContext.Provider value={config}>{children}</ConfigContext.Provider>
   );
 };
 

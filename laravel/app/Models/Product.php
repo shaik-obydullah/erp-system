@@ -82,4 +82,30 @@ class Product extends Model
     {
         return $this->stocks()->where('status', 'active')->sum('quantity');
     }
+
+    public function getParsedImagesAttribute()
+    {
+        if (empty($this->image)) {
+            return [];
+        }
+        $decoded = json_decode($this->image, true);
+        if (is_array($decoded)) {
+            return $decoded;
+        }
+        return [$this->image];
+    }
+
+    public function getFirstImageUrlAttribute()
+    {
+        $images = $this->parsed_images;
+        if (empty($images)) {
+            return null;
+        }
+        $first = $images[0];
+        if (str_starts_with($first, 'http')) {
+            return $first;
+        }
+        $cleanPath = preg_replace('#^products/#', '', $first);
+        return asset('uploads/products/' . $cleanPath);
+    }
 }

@@ -202,17 +202,31 @@
             @php $stock = $product->stocks->first(); @endphp
             <a href="{{ route('store.product', $product->url_slug) }}"
                class="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                <div class="aspect-square bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center p-6 relative">
-                    <div class="text-6xl opacity-20 group-hover:opacity-30 transition">
-                        @if($product->category)
-                            @switch($product->category->name)
-                                @case('Phones') 📱 @break
-                                @case('Laptops') 💻 @break
-                                @case('Audio') 🎧 @break
-                                @case('Shoes') 👟 @break
-                                @default 📦 @endswitch
-                        @else 📦 @endif
-                    </div>
+                <div class="aspect-square bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center p-6 relative overflow-hidden">
+                    @if($product->first_image_url)
+                        <img src="{{ $product->first_image_url }}" alt="{{ $product->name }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                        <div class="text-6xl opacity-20 group-hover:opacity-30 transition hidden items-center justify-center">
+                            @if($product->category)
+                                @switch($product->category->name)
+                                    @case('Phones') 📱 @break
+                                    @case('Laptops') 💻 @break
+                                    @case('Audio') 🎧 @break
+                                    @case('Shoes') 👟 @break
+                                    @default 📦 @endswitch
+                            @else 📦 @endif
+                        </div>
+                    @else
+                        <div class="text-6xl opacity-20 group-hover:opacity-30 transition">
+                            @if($product->category)
+                                @switch($product->category->name)
+                                    @case('Phones') 📱 @break
+                                    @case('Laptops') 💻 @break
+                                    @case('Audio') 🎧 @break
+                                    @case('Shoes') 👟 @break
+                                    @default 📦 @endswitch
+                            @else 📦 @endif
+                        </div>
+                    @endif
                     @if($product->review_avg >= 4.5)
                     <span class="absolute top-3 left-3 bg-accent-500 text-white text-xs font-bold px-2 py-1 rounded-full">Best Seller</span>
                     @endif
@@ -268,8 +282,13 @@
                 @php $stock = $product->stocks->first(); @endphp
                 <a href="{{ route('store.product', $product->url_slug) }}"
                    class="group bg-gray-50 rounded-xl overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                    <div class="aspect-square bg-gradient-to-br from-gray-100 to-white flex items-center justify-center p-6">
-                        <div class="text-5xl opacity-20 group-hover:opacity-30 transition">🆕</div>
+                    <div class="aspect-square bg-gradient-to-br from-gray-100 to-white flex items-center justify-center p-6 relative overflow-hidden">
+                        @if($product->first_image_url)
+                            <img src="{{ $product->first_image_url }}" alt="{{ $product->name }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                            <div class="text-5xl opacity-20 group-hover:opacity-30 transition hidden items-center justify-center">🆕</div>
+                        @else
+                            <div class="text-5xl opacity-20 group-hover:opacity-30 transition">🆕</div>
+                        @endif
                     </div>
                     <div class="p-4">
                         <h3 class="font-semibold text-sm line-clamp-2 group-hover:text-primary-600 transition mb-1">{{ $product->name }}</h3>
