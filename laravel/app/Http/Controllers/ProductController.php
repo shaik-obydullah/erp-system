@@ -157,7 +157,7 @@ class ProductController extends Controller
             'images.*' => 'nullable|file|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
         ]);
 
-        $existingImages = $product->image ? (json_decode($product->image, true) ?? []) : [];
+        $existingImages = $product->parsed_images;
 
         if ($request->input('remove_images')) {
             $removeIndexes = explode(',', $request->input('remove_images'));
