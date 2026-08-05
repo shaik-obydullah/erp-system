@@ -16,3 +16,4 @@ laravel/storage/debugbar/
 .DS_Store
 .idea/
 .vscode/
+docs
