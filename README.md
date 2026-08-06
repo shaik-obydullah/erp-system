@@ -62,22 +62,147 @@ AI-powered full-stack ERP and multi-vendor marketplace system featuring a Larave
 
 ## Architecture
 
+> Full deep-dive (services, data flow, AI/BI layers, security, deployment): [docs/erp-architecture.md](docs/erp-architecture.md)
+
+### System Context
+
+The system is a **monolithic backend with decoupled frontends**, replacing five-plus disconnected tools (spreadsheets, separate POS, offline accounting) with one platform.
+
 ```
-react-pos.obydullah.com (React POS terminal)
-        │
-        ▼
-   Apache / Nginx
-        │
-        ▼
-erp.obydullah.com (Laravel API + Admin + Storefront)
-        │
-        ├── MariaDB (single source of truth, 55+ tables)
-        ├── Ollama (llama3.2) — generative AI
-        ├── Flask BI (bi_flask:5000) — ML analytics
-        └── Storage (product images)
+                    ┌──────────────────────────────────────────────┐
+                    │                 DNS / Domains                 │
+                    │   erp.obydullah.com   react-pos.obydullah.com │
+                    └───────────────────┬──────────────────────────┘
+                                        │
+                    ┌───────────────────▼──────────────────────────┐
+                    │            Web Server (Nginx/Apache)          │
+                    │   serves static assets + reverse proxies API  │
+                    └───────────────────┬──────────────────────────┘
+                                        │
+        ┌───────────────────────────────▼───────────────────────────────┐
+        │                    LARAVEL MONOLITH (PHP 8.3)                  │
+        │                                                                │
+        │   ┌───────────────┐  ┌───────────────┐  ┌───────────────────┐  │
+        │   │ Admin Panel   │  │  Storefront   │  │  REST API (/api/v1)│  │
+        │   │ (Blade+Vue+   │  │ (Blade +      │  │  Sanctum protected │  │
+        │   │  Alpine.js)   │  │  Vue/Alpine)  │  │  + Customer/       │  │
+        │   │               │  │               │  │  Supplier portals  │  │
+        │   └───────────────┘  └───────────────┘  └───────────────────┘  │
+        │                              │                                  │
+        │   Controllers → Services → Eloquent Models → DB::transaction()  │
+        └──────────────┬────────────────────┬──────────────────┬─────────┘
+                       │                    │                  │
+          ┌────────────▼──────┐   ┌─────────▼───────┐  ┌───────▼──────────┐
+          │  MariaDB (10.6)   │   │  Ollama AI       │  │  Flask BI        │
+          │  55+ tables ·     │   │  llama3.2        │  │  scikit-learn ·   │
+          │  single source    │   │  port 11434      │  │  Prophet · 5000   │
+          │  of truth         │   │  (self-hosted,   │  │  (ML analytics)   │
+          └───────────────────┘   │  zero API cost)  │  └──────────────────┘
+                                  └──────────────────┘
 ```
 
-The backend is a Laravel monolith serving three front-ends: the admin panel (Blade + Vue + Alpine), the public storefront, and the REST API consumed by the React POS. The React POS authenticates with Laravel Sanctum bearer tokens; all admin/storefront/portal sessions are guard-based.
+**Design principles:**
+
+- **One source of truth** — every frontend (admin, storefront, React POS) reads/writes the same MariaDB via the Laravel API layer. No duplicated business logic in frontends.
+- **Server-side integrity** — all multi-table mutations (sales, returns, payments) run inside `DB::transaction()` with automatic rollback.
+- **Self-hosted intelligence** — Ollama and the Flask BI service run in-process with the backend so customer data never leaves the server.
+- **Guard-per-persona** — admins, customers, and suppliers authenticate with independent guards; machines (React POS) use Sanctum tokens.
+
+### Components
+
+| Component | Role | Consumer |
+|---|---|---|
+| **Laravel API + Admin + Storefront** | Monolithic application server | Admin browsers, storefront browsers, React POS |
+| **React 19 POS** | Standalone POS terminal (SPA) | Cashiers |
+| **MariaDB** | Relational database (55+ tables) | Laravel |
+| **Ollama (llama3.2)** | Self-hosted LLM inference | Laravel (via HTTP `/api/chat`) |
+| **Flask BI** | ML analytics microservice | Laravel (via HTTP proxy) |
+| **phpMyAdmin** | DB admin UI (dev only) | Developers |
+| **Nginx** | Reverse proxy + static server | Public traffic |
+
+**Communication flows:**
+
+| Flow | Transport | Direction |
+|---|---|---|
+| React POS → Laravel API | HTTPS + Bearer token (`auth:sanctum`) | POS → Backend |
+| Laravel → MariaDB | PDO/MySQL | Backend → DB |
+| Laravel → Ollama | HTTP `POST /api/chat`, `GET /api/tags` | Backend → AI |
+| Laravel → Flask BI | HTTP `:5000/api/*` | Backend → BI |
+| Admin/Storefront → Laravel | HTTPS + session cookie | Browser → Backend |
+
+> **Note:** Ollama and Flask BI are *never* exposed to the public. Only the Laravel backend can reach them. The React POS talks exclusively to the Laravel API.
+
+### Services & Ports (Dev — Docker Compose)
+
+| Service | Image | Host Port | Purpose |
+|---|---|---|---|
+| `erp_laravel` | PHP 8.3-FPM (custom) | 5173 | Laravel + Vite dev server; builds assets |
+| `erp_nginx` | nginx:stable-alpine | 8082 | Reverse proxy → PHP-FPM |
+| `erp_db` | mariadb:10.6 | 3307 | Database (`laravel_db`) |
+| `erp_react` | node:22-alpine | 3060 | React POS Vite dev server |
+| `erp_ollama` | ollama/ollama | 11434 | AI inference (2-core CPU limit) |
+| `erp_phpmyadmin` | phpmyadmin/phpmyadmin | 8083 | DB admin UI |
+
+Persistent volumes: `erp_db_data` (database), `ollama_data` (AI models).
+
+### Frontend Layers
+
+- **Admin panel** — Blade + Vue 3 + Alpine.js, Tailwind, Quill.js, Tom Select, Chart.js; permission-gated sidebar.
+- **Storefront & portals** — public catalog/cart/checkout (customer guard); customer order portal; supplier portal with document upload + invoice PDF (supplier guard).
+- **React POS (SPA)** — React 19, Vite 6, Tailwind, React Router, Axios (single instance + bearer-token interceptor), Chart.js, jsPDF; cart persisted to localStorage; PWA manifest.
+
+### Backend Layer (Laravel)
+
+Layering rules: **Routes** map URL → controller (middleware gating here) → **Controllers** validate + orchestrate → **Services** (ActivityLogger, NotificationHelper, OllamaService) hold cross-cutting logic → **Models** own relationships/scopes/casts → **`DB::transaction()`** wraps any multi-table mutation.
+
+Route files: `web.php` (admin + storefront, permission-gated), `api.php` (Sanctum REST + AI), `customer.php`, `supplier.php`, `auth.php`.
+
+### Authentication & Authorization
+
+- **Four guards:** `admin` / `customer` / `supplier` (session) + `sanctum` (bearer token for React POS).
+- **RBAC:** roles (`super-admin`, `admin`, `manager`, `cashier`), 120 `module.action` permissions across 32 groups, `permission:` middleware per route, super-admin bypass.
+- **Middleware:** RoleMiddleware, PermissionMiddleware, Active*Middleware, MaintenanceModeMiddleware.
+
+### AI Layer (Ollama)
+
+Single gateway `app/Services/OllamaService.php` → `http://erp_ollama:11434` with model `llama3.2`, configurable temperature, 120 s timeout, exception-safe.
+
+| Capability | Endpoint | Temperature |
+|---|---|---|
+| Product descriptions | `POST /ai/product-description` | 0.8 |
+| Natural-language search | `POST /ai/product-search` | 0.3 |
+| Inventory insights | `POST /ai/inventory-insights` | 0.4 |
+| Sales forecast | `POST /ai/sales-forecast` | 0.5 |
+| Customer support | `POST /ai/customer-support` (public) | 0.6 |
+| Price suggestion | `POST /ai/price-suggestion` | 0.5 |
+
+> The AI is **generative** (text/insights). For deterministic analytics the system delegates to the Flask BI service.
+
+### BI Layer (Flask)
+
+`BiController` proxies to `bi_flask:5000` (30 s timeout). Admin views under `/bi/*` (gated by `reports.view`).
+
+| Method | Endpoint | Analytics |
+|---|---|---|
+| POST | `/analyze` | Employee performance (KMeans + IsolationForest + score) |
+| GET | `/product-analysis` | Product performance tiers |
+| GET | `/sales-forecast` | Next-month forecast + confidence interval |
+| GET | `/product-combos` | Frequently-bought-together analysis |
+| POST | `/recommendations/products` | 6 strategies (popular, trending, content-based, collaborative, similar-users, personalized) |
+| GET | `/prophet-forecast` | Prophet forecast with confidence intervals |
+
+### Data Layer
+
+55+ tables across 9 modules (Auth, Catalog, Inventory, Sales, Finance, Procurement, Manufacturing, HRM, System). Conventions: `created_by`/`updated_by`/`deleted_by`, soft deletes, `fk_`-prefixed foreign keys. Every financially-significant mutation is atomic — e.g. POS checkout wraps sale + sale_details + stock decrement + transaction/income + cashbook entry in one `DB::transaction()`.
+
+### Security
+
+HTTPS · 4 guards · per-route permission middleware · CSRF · Blade XSS escaping · image-only uploads · full audit trail with IP capture · `.env` secrets · soft deletes with `deleted_by`.
+
+### Deployment
+
+- **Dev:** `docker compose up` — Laravel (Vite 5173 / nginx 8082), MariaDB (3307), React POS (3060), Ollama (11434), phpMyAdmin (8083).
+- **Prod (Hostinger):** Laravel via `production/laravel-production.tar.gz` (Apache + cron queue worker), React POS as static build with `VITE_API_URL=https://erp.obydullah.com/api/v1`.
 
 ## Tech Stack
 
@@ -417,8 +542,9 @@ erp-system/
 ├── production/       # Deployment configs, build scripts, Apache configs
 ├── nginx/            # Nginx reverse proxy config
 ├── php/              # PHP-FPM Dockerfile
-├── docs/             # Case study, feature list, module documentation, DB dump
-│   └── modules/      # Per-module reference documentation (TinyMCE/HTML)
+├── documentation/    # Per-module reference documentation (HTML)
+├── screenshots/      # Admin panel, storefront, and POS screenshots
+├── docs/             # Case study, feature list, full documentation (md + html), DB dump
 ├── docker-compose.yml
 └── setup.sh
 ```
@@ -427,22 +553,28 @@ See [laravel/README.md](laravel/README.md) and [react-app/README.md](react-app/R
 
 ## Module Documentation
 
-Each module has a comprehensive reference doc covering schema, models, routes, API surface, business flows, and permissions:
+The complete documentation is available as a single page, covering every module with schema, models, routes, API surface, business flows, permissions, and screenshots:
 
-| Module                         | Document                                                                                               |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| Authentication & Authorization | [docs/modules/01-authentication-authorization.html](docs/modules/01-authentication-authorization.html) |
-| Administration & System        | [docs/modules/02-administration-system.html](docs/modules/02-administration-system.html)               |
-| Catalog Management             | [docs/modules/03-catalog-management.html](docs/modules/03-catalog-management.html)                     |
-| Inventory & Stock              | [docs/modules/04-inventory-stock.html](docs/modules/04-inventory-stock.html)                           |
-| Sales & POS                    | [docs/modules/05-sales-pos.html](docs/modules/05-sales-pos.html)                                       |
-| E-Commerce & Storefront        | [docs/modules/06-ecommerce-storefront.html](docs/modules/06-ecommerce-storefront.html)                 |
-| Financial Management           | [docs/modules/07-finance-accounting.html](docs/modules/07-finance-accounting.html)                     |
-| Procurement & Supply Chain     | [docs/modules/08-procurement-supply-chain.html](docs/modules/08-procurement-supply-chain.html)         |
-| Manufacturing                  | [docs/modules/09-manufacturing.html](docs/modules/09-manufacturing.html)                               |
-| HRM                            | [docs/modules/10-hrm.html](docs/modules/10-hrm.html)                                                   |
-| Marketing & Campaigns          | [docs/modules/11-marketing-campaigns.html](docs/modules/11-marketing-campaigns.html)                   |
-| AI & Business Intelligence     | [docs/modules/12-ai-business-intelligence.html](docs/modules/12-ai-business-intelligence.html)         |
+- [**docs/erp-architecture.md**](docs/erp-architecture.md) — comprehensive system architecture (services, data flow, AI/BI layers, security, deployment)
+- [**docs/erp-documentation.md**](docs/erp-documentation.md) — Markdown version (readable directly on GitHub)
+- [**docs/erp-documentation.html**](docs/erp-documentation.html) — styled HTML version
+
+Individual per-module reference docs (schema, models, routes, API surface, business flows, and permissions) also live in [`documentation/`](documentation/):
+
+| Module                         | Document                                                                             |
+| ------------------------------ | ------------------------------------------------------------------------------------ |
+| Authentication & Authorization | [documentation/01-authentication-authorization.md](documentation/01-authentication-authorization.md) |
+| Administration & System        | [documentation/02-administration-system.md](documentation/02-administration-system.md)             |
+| Catalog Management             | [documentation/03-catalog-management.md](documentation/03-catalog-management.md)                   |
+| Inventory & Stock              | [documentation/04-inventory-stock.md](documentation/04-inventory-stock.md)                         |
+| Sales & POS                    | [documentation/05-sales-pos.md](documentation/05-sales-pos.md)                                     |
+| E-Commerce & Storefront        | [documentation/06-ecommerce-storefront.md](documentation/06-ecommerce-storefront.md)               |
+| Financial Management           | [documentation/07-finance-accounting.md](documentation/07-finance-accounting.md)                   |
+| Procurement & Supply Chain     | [documentation/08-procurement-supply-chain.md](documentation/08-procurement-supply-chain.md)       |
+| Manufacturing                  | [documentation/09-manufacturing.md](documentation/09-manufacturing.md)                             |
+| HRM                            | [documentation/10-hrm.md](documentation/10-hrm.md)                                                 |
+| Marketing & Campaigns          | [documentation/11-marketing-campaigns.md](documentation/11-marketing-campaigns.md)                 |
+| AI & Business Intelligence     | [documentation/12-ai-business-intelligence.md](documentation/12-ai-business-intelligence.md)       |
 
 Also see the [Case Study](docs/Case%20Study.md), [Feature List](docs/ERP%20-%20Feature%20List.md), and [AGENTS.md](docs/AI%20Agents.md) for AI agents working in this repository.
 
