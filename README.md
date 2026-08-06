@@ -70,35 +70,35 @@ The system is a **monolithic backend with decoupled frontends**, replacing five-
 
 ```
                     ┌──────────────────────────────────────────────┐
-                    │                 DNS / Domains                 │
-                    │   erp.obydullah.com   react-pos.obydullah.com │
+                    │                 DNS / Domains                │
+                    │   erp.obydullah.com   react-pos.obydullah.com│
                     └───────────────────┬──────────────────────────┘
                                         │
                     ┌───────────────────▼──────────────────────────┐
-                    │            Web Server (Nginx/Apache)          │
-                    │   serves static assets + reverse proxies API  │
+                    │            Web Server (Nginx/Apache)         │
+                    │   serves static assets + reverse proxies API │
                     └───────────────────┬──────────────────────────┘
                                         │
         ┌───────────────────────────────▼───────────────────────────────┐
-        │                    LARAVEL MONOLITH (PHP 8.3)                  │
-        │                                                                │
-        │   ┌───────────────┐  ┌───────────────┐  ┌───────────────────┐  │
-        │   │ Admin Panel   │  │  Storefront   │  │  REST API (/api/v1)│  │
-        │   │ (Blade+Vue+   │  │ (Blade +      │  │  Sanctum protected │  │
-        │   │  Alpine.js)   │  │  Vue/Alpine)  │  │  + Customer/       │  │
-        │   │               │  │               │  │  Supplier portals  │  │
-        │   └───────────────┘  └───────────────┘  └───────────────────┘  │
-        │                              │                                  │
-        │   Controllers → Services → Eloquent Models → DB::transaction()  │
-        └──────────────┬────────────────────┬──────────────────┬─────────┘
+        │                    LARAVEL MONOLITH (PHP 8.3)                 │
+        │                                                               │
+        │   ┌───────────────┐  ┌───────────────┐  ┌────────────────────┐│
+        │   │ Admin Panel   │  │  Storefront   │  │  REST API (/api/v1)││
+        │   │ (Blade+Vue+   │  │ (Blade +      │  │  Sanctum protected ││
+        │   │  Alpine.js)   │  │  Vue/Alpine)  │  │  + Customer/       ││
+        │   │               │  │               │  │  Supplier portals  ││
+        │   └───────────────┘  └───────────────┘  └───────────────────┘ │
+        │                              │                                │
+        │   Controllers → Services → Eloquent Models → DB::transaction()│
+        └──────────────┬────────────────────┬──────────────────┬────────┘
                        │                    │                  │
           ┌────────────▼──────┐   ┌─────────▼───────┐  ┌───────▼──────────┐
-          │  MariaDB (10.6)   │   │  Ollama AI       │  │  Flask BI        │
-          │  55+ tables ·     │   │  llama3.2        │  │  scikit-learn ·   │
-          │  single source    │   │  port 11434      │  │  Prophet · 5000   │
-          │  of truth         │   │  (self-hosted,   │  │  (ML analytics)   │
-          └───────────────────┘   │  zero API cost)  │  └──────────────────┘
-                                  └──────────────────┘
+          │  MariaDB (10.6)   │   │  Ollama AI      │  │  Flask BI        │
+          │  55+ tables ·     │   │  llama3.2       │  │  scikit-learn ·  │
+          │  single source    │   │  port 11434     │  │  Prophet · 5000  │
+          │  of truth         │   │  (self-hosted,  │  │  (ML analytics)  │
+          └───────────────────┘   │  zero API cost) │  └──────────────────┘
+                                  └─────────────────┘
 ```
 
 **Design principles:**
