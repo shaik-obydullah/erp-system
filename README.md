@@ -40,7 +40,6 @@ AI-powered full-stack ERP and multi-vendor marketplace system featuring a Larave
 - [Testing](#testing)
 - [Production Deployment](#production-deployment)
 - [Database](#database)
-- [Common Gotchas](#common-gotchas)
 - [License](#license)
 
 ## Live Demo
