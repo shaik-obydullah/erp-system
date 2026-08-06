@@ -751,4 +751,4 @@ See [laravel/README.md](laravel/README.md#database-schema) for the full schema.
 
 ## License
 
-Copyright Shaik Obydullah 2015 - 2027
+© Shaik Obydullah. All Rights Reserved.
