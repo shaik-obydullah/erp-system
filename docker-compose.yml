@@ -27,7 +27,7 @@ services:
     image: mariadb:10.6
     container_name: erp_mariadb
     ports:
-      - "3307:3306"
+      - "3309:3306"
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: laravel_db
@@ -52,7 +52,7 @@ services:
     image: ollama/ollama
     container_name: erp_ollama
     ports:
-      - "11434:11434"
+      - "11435:11434"
     volumes:
       - ollama_data:/root/.ollama
     deploy:

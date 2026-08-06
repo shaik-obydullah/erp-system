@@ -16,31 +16,52 @@
         <div class="lg:col-span-2">
             <div class="bg-white rounded-xl border border-gray-200 p-6">
                 <h2 class="font-bold text-lg mb-5">Shipping Information</h2>
-                <form id="checkoutForm" class="space-y-4">
+                <form id="checkoutForm" class="space-y-4" novalidate>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-                            <input type="text" name="customer_name" required class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                            <label for="customer_name" class="block text-sm font-medium mb-1"
+                                :class="errors.customer_name ? 'text-red-600' : 'text-gray-700'">Full Name *</label>
+                            <input type="text" id="customer_name" name="customer_name" x-model="form.customer_name" @input="clearError('customer_name')"
+                                class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:outline-none"
+                                :class="errors.customer_name ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary-500'">
+                            <p x-show="errors.customer_name" x-text="errors.customer_name" class="mt-1 text-xs text-red-600"></p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                            <input type="email" name="customer_email" required class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                            <label for="customer_email" class="block text-sm font-medium mb-1"
+                                :class="errors.customer_email ? 'text-red-600' : 'text-gray-700'">Email *</label>
+                            <input type="email" id="customer_email" name="customer_email" x-model="form.customer_email" @input="clearError('customer_email')"
+                                class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:outline-none"
+                                :class="errors.customer_email ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary-500'">
+                            <p x-show="errors.customer_email" x-text="errors.customer_email" class="mt-1 text-xs text-red-600"></p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
-                            <input type="text" name="customer_phone" required class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                            <label for="customer_phone" class="block text-sm font-medium mb-1"
+                                :class="errors.customer_phone ? 'text-red-600' : 'text-gray-700'">Phone *</label>
+                            <input type="text" id="customer_phone" name="customer_phone" x-model="form.customer_phone" @input="clearError('customer_phone')"
+                                class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:outline-none"
+                                :class="errors.customer_phone ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary-500'">
+                            <p x-show="errors.customer_phone" x-text="errors.customer_phone" class="mt-1 text-xs text-red-600"></p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Address *</label>
-                            <input type="text" name="address" required class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                            <label for="address" class="block text-sm font-medium mb-1"
+                                :class="errors.address ? 'text-red-600' : 'text-gray-700'">Address *</label>
+                            <input type="text" id="address" name="address" x-model="form.address" @input="clearError('address')"
+                                class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:outline-none"
+                                :class="errors.address ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary-500'">
+                            <p x-show="errors.address" x-text="errors.address" class="mt-1 text-xs text-red-600"></p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">City *</label>
-                            <input type="text" name="city" required class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                            <label for="city" class="block text-sm font-medium mb-1"
+                                :class="errors.city ? 'text-red-600' : 'text-gray-700'">City *</label>
+                            <input type="text" id="city" name="city" x-model="form.city" @input="clearError('city')"
+                                class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:outline-none"
+                                :class="errors.city ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary-500'">
+                            <p x-show="errors.city" x-text="errors.city" class="mt-1 text-xs text-red-600"></p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
-                            <input type="text" name="postal_code" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
+                            <label for="postal_code" class="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
+                            <input type="text" id="postal_code" name="postal_code" x-model="form.postal_code"
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
                         </div>
                     </div>
 
@@ -144,10 +165,44 @@
             paymentMethod: 'cod',
             showSuccess: false,
             orderNumber: '',
+            form: {
+                customer_name: '',
+                customer_email: '',
+                customer_phone: '',
+                address: '',
+                city: '',
+                postal_code: '',
+                notes: '',
+            },
+            errors: {},
             subtotal() { return this.items.reduce((s, i) => s + (i.price * i.qty), 0); },
+            clearError(field) {
+                if (this.errors[field]) {
+                    delete this.errors[field];
+                }
+            },
+            validate() {
+                this.errors = {};
+                const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                const rules = {
+                    customer_name: 'Please enter your full name',
+                    customer_email: 'Please enter your email address',
+                    customer_phone: 'Please enter your phone number',
+                    address: 'Please enter your address',
+                    city: 'Please enter your city',
+                };
+                for (const [field, message] of Object.entries(rules)) {
+                    const value = (this.form[field] || '').trim();
+                    if (!value) {
+                        this.errors[field] = message;
+                    } else if (field === 'customer_email' && !emailPattern.test(value)) {
+                        this.errors[field] = 'Please enter a valid email address';
+                    }
+                }
+                return Object.keys(this.errors).length === 0;
+            },
             placeOrder() {
-                const form = document.getElementById('checkoutForm');
-                if (!form.reportValidity()) return;
+                if (!this.validate()) return;
 
                 this.orderNumber = 'ORD-' + Date.now().toString(36).toUpperCase();
                 this.showSuccess = true;

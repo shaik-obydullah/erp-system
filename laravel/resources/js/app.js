@@ -22,3 +22,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         createApp(NotificationManager).mount('#notification-manager');
     }
 });
+
+// Form Error Auto-Styling
+function syncFormErrorStates() {
+    document.querySelectorAll('.form-group').forEach((group) => {
+        const hasError = Array.from(group.querySelectorAll('.form-error')).some((span) => {
+            const text = (span.textContent || '').trim();
+            return text.length > 0 && span.offsetParent !== null;
+        });
+        group.classList.toggle('error', hasError);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    syncFormErrorStates();
+    new MutationObserver(syncFormErrorStates).observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ['style'],
+    });
+});

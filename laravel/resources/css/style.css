@@ -773,6 +773,23 @@ tr:hover {
     margin-top: 4px;
 }
 
+.form-group.error label {
+    color: var(--error);
+}
+
+.form-group.error input,
+.form-group.error select,
+.form-group.error textarea {
+    border-color: var(--error);
+}
+
+.form-group.error input:focus,
+.form-group.error select:focus,
+.form-group.error textarea:focus {
+    border-color: var(--error);
+    box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.1);
+}
+
 .form-actions {
     display: flex;
     align-items: center;
