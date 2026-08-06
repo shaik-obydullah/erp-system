@@ -1,0 +1,93 @@
+<h1>Module 10 &mdash; Human Resource Management (HRM)</h1>
+
+<p><strong>Module:</strong> Human Resource Management (HRM)<br>
+<strong>Category:</strong> Workforce<br>
+<strong>Purpose:</strong> Manages employees, payroll disbursements, and task assignment &mdash; with task-completion analytics feeding the Business Intelligence dashboard.</p>
+
+<blockquote>
+<p>HRM keeps the workforce ledger: employee master data, payroll runs per employee, and a task board. Payroll payments flow into the finance module as <code>salaryPayment</code> transactions, and task completion rates drive employee performance analytics.</p>
+</blockquote>
+
+<h2>1. Overview</h2>
+
+<p>The HRM module covers three entities:</p>
+
+<ul>
+<li><strong>Employees</strong> &mdash; master records with job title, salary, hire date, and status.</li>
+<li><strong>Payroll</strong> &mdash; per-employee payment runs (basic salary + allowances &minus; deductions = net).</li>
+<li><strong>Tasks</strong> &mdash; assignments with status and dates, linked to employees.</li>
+</ul>
+
+<h2>2. Database Tables</h2>
+
+<table>
+<thead>
+<tr><th>Table</th><th>Purpose</th><th>Key Columns</th></tr>
+</thead>
+<tbody>
+<tr><td><code>employees</code></td><td>Employee master</td><td>first_name, last_name, email (unique), mobile, job_title, salary, hire_date, status (active/inactive)</td></tr>
+<tr><td><code>payrolls</code></td><td>Payroll runs</td><td>fk_employee_id, basic_salary, allowances, deductions, net_salary, pay_date</td></tr>
+<tr><td><code>task_management</code></td><td>Assigned tasks</td><td>fk_employee_id, task_name, description, status (pending/in_progress/completed/canceled), start_date, due_date</td></tr>
+</tbody>
+</table>
+
+<h2>3. Key Models &amp; Relationships</h2>
+
+<ul>
+<li><strong>Employee</strong> (<code>app/Models/Employee.php</code>) &mdash; <code>payrolls()</code> and <code>tasks()</code> has-many; computed <code>full_name</code> accessor; <code>salary</code> decimal, <code>hire_date</code> date.</li>
+<li><strong>Payroll</strong> &mdash; <code>employee()</code> belongs-to; net salary derived from basic + allowances &minus; deductions.</li>
+<li><strong>TaskManagement</strong> &mdash; <code>employee()</code> belongs-to.</li>
+</ul>
+
+<h2>4. Admin Surface (Routes)</h2>
+
+<table>
+<thead>
+<tr><th>Route Prefix</th><th>Controller</th><th>Permissions</th></tr>
+</thead>
+<tbody>
+<tr><td><code>employees</code> (resource, minus show)</td><td>EmployeeController</td><td>employees.*</td></tr>
+<tr><td><code>payrolls</code> (resource, minus show)</td><td>PayrollController</td><td>payrolls.*</td></tr>
+<tr><td><code>tasks</code> (resource, minus show)</td><td>TaskController</td><td>tasks.*</td></tr>
+</tbody>
+</table>
+
+<p>Key behaviors:</p>
+
+<ul>
+<li>Employee CRUD includes search and status toggling; dashboard shows active employee count.</li>
+<li>Payroll form includes AJAX employee-salary lookup and searchable list.</li>
+<li>Task CRUD tracks assignment, start/due dates, and status lifecycle.</li>
+</ul>
+
+<h2>5. Financial Link (Payroll)</h2>
+
+<p>Payroll payments should be recorded as <code>salaryPayment</code> transactions with corresponding cashbook outflow entries &mdash; following the transactional pattern established by the Sales/Finance modules. Net salary = basic_salary + allowances &minus; deductions.</p>
+
+<h2>6. Analytics &amp; BI</h2>
+
+<ul>
+<li><strong>Dashboard widget</strong> &mdash; top employees by task completion rate (legacy feature list).</li>
+<li><strong>Flask BI employee analysis</strong> &mdash; <code>POST /api/analyze</code> clusters employees with KMeans (n=3) and flags anomalies with IsolationForest. Composite performance score = <code>0.4 &times; completion_rate + 0.3 &times; (1 &minus; avg_task_hours) + 0.3 &times; completed_tasks</code> (scaled 0&ndash;100). View: <code>GET /bi/employees</code>.</li>
+</ul>
+
+<h2>7. Permissions</h2>
+
+<table>
+<thead>
+<tr><th>Group</th><th>Permissions</th></tr>
+</thead>
+<tbody>
+<tr><td>Employees</td><td><code>employees.view/save/edit/delete</code></td></tr>
+<tr><td>Payroll</td><td><code>payrolls.view/save/edit/delete</code></td></tr>
+<tr><td>Tasks</td><td><code>tasks.view/save/edit/delete</code></td></tr>
+</tbody>
+</table>
+
+<h2>8. Related Code Locations</h2>
+
+<ul>
+<li>Controllers: <code>laravel/app/Http/Controllers/{EmployeeController,PayrollController,TaskController}.php</code></li>
+<li>Models: <code>laravel/app/Models/{Employee,Payroll,TaskManagement}.php</code></li>
+<li>BI: <code>laravel/app/Http/Controllers/BiController.php</code> (<code>employees</code>)</li>
+</ul>

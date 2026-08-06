@@ -1,0 +1,160 @@
+<h1>Module 02 &mdash; Administration &amp; System</h1>
+
+<p><strong>Module:</strong> Administration &amp; System (System)<br>
+<strong>Category:</strong> Core Platform<br>
+<strong>Purpose:</strong> Provides the global control center: executive dashboard, system configuration, audit trail, notifications, CMS content, and maintenance mode.</p>
+
+<blockquote>
+<p>This module wires together every other module. The dashboard aggregates sales, stock, and workforce KPIs; the settings panel drives currency, VAT/tax rates, date formats and more; and the audit trail records every significant mutation in the system.</p>
+</blockquote>
+
+<h2>1. Overview</h2>
+
+<p>The Administration &amp; System module includes six functional areas:</p>
+
+<ul>
+<li><strong>Dashboard</strong> &mdash; KPI summary, top products, category revenue, recent sales.</li>
+<li><strong>System Settings (Configurations)</strong> &mdash; key-value store consumed across all modules.</li>
+<li><strong>Activity Log</strong> &mdash; full audit trail with IP capture and optional geolocation.</li>
+<li><strong>Notifications</strong> &mdash; in-app alerts with seen/unseen state and per-admin targeting.</li>
+<li><strong>CMS Content</strong> &mdash; editable pages/banners for the storefront.</li>
+<li><strong>Maintenance Mode</strong> &mdash; global on/off switch guarded by settings permission.</li>
+</ul>
+
+<h2>2. Database Tables</h2>
+
+<table>
+<thead>
+<tr><th>Table</th><th>Purpose</th><th>Key Columns</th></tr>
+</thead>
+<tbody>
+<tr><td><code>configurations</code></td><td>Key-value system settings</td><td>name (unique, e.g. <code>currency_symbol</code>), setting (text)</td></tr>
+<tr><td><code>activities</code></td><td>Audit trail</td><td>fk_admin_id, type (success/warning/error), name, description, subject_type, subject_id, ip_address, visitor_country/state/city/address, old_data, new_data</td></tr>
+<tr><td><code>notifications</code></td><td>In-app notifications</td><td>fk_admin_id (nullable, per-admin), title, link, notification, type (info/success/warning/error), module, view_status (seen/unseen)</td></tr>
+<tr><td><code>contents</code></td><td>CMS pages &amp; banners</td><td>name, attribute, media, content (HTML), type (default 'page'), slug (unique), status, sort_order</td></tr>
+<tr><td><code>fiscal_year</code></td><td>Accounting period definition</td><td>fiscal_year_start, fiscal_year_end</td></tr>
+<tr><td><code>currencies</code></td><td>Multi-currency support</td><td>code (unique), name, symbol, exchange_rate, is_base, is_active</td></tr>
+<tr><td><code>cache</code> / <code>jobs</code></td><td>Framework support tables</td><td>&mdash;</td></tr>
+<tr><td><code>usermeta</code></td><td>Per-user metadata</td><td>fk_user_id, key, value</td></tr>
+</tbody>
+</table>
+
+<h2>3. Key Models</h2>
+
+<ul>
+<li><strong>Configuration</strong> (<code>app/Models/Configuration.php</code>) &mdash; static helper <code>Configuration::get('key', $default)</code>; supports bulk get via <code>getMany([...])</code>.</li>
+<li><strong>Activity</strong> &mdash; audit entry; polymorphic subject (subject_type/subject_id), captures old/new data on updates.</li>
+<li><strong>AdminNotification / Notification</strong> &mdash; typed in-app alerts, optionally scoped to an admin via <code>fk_admin_id</code>.</li>
+<li><strong>Content</strong> &mdash; CMS records for the storefront; type-driven (page/banner), slug-addressable, sortable.</li>
+</ul>
+
+<h2>4. Dashboard (DashboardController)</h2>
+
+<p><code>app/Http/Controllers/DashboardController.php</code> &mdash; <code>GET /dashboard</code> (<code>permission:dashboard.view</code>) renders:</p>
+
+<ul>
+<li><strong>KPI cards:</strong> total sales, total revenue (paid), total expenses, active products, customers, active suppliers, active employees, total stock value (sum of quantity &times; buy_price).</li>
+<li><strong>Order stats:</strong> total orders, completed orders, pending orders (status <code>orderPlaced</code>), total due.</li>
+<li><strong>Recent sales:</strong> last 5 by id.</li>
+<li><strong>Top products:</strong> by quantity sold across sale_details (fallback to latest 5 products when no sales data).</li>
+<li><strong>Category revenue:</strong> top 5 categories by sum of sale_detail subtotals.</li>
+<li>Chart data arrays (<code>monthlySales</code>, <code>monthlyExpenses</code>) are prepared for Chart.js rendering.</li>
+</ul>
+
+<h2>5. System Settings (ConfigController)</h2>
+
+<p>Routes: <code>GET /settings</code> (<code>permission:settings.view</code>), <code>PUT /settings</code> (<code>permission:settings.save</code>), <code>POST /maintenance/toggle</code> (<code>permission:settings.save</code>).</p>
+
+<p><strong>Common configuration keys</strong> consumed across modules (see <code>ConfigurationSeeder</code> and the API <code>configuration</code> endpoint):</p>
+
+<table>
+<thead>
+<tr><th>Key</th><th>Purpose</th></tr>
+</thead>
+<tbody>
+<tr><td><code>currency_symbol</code> / <code>currency_sign</code></td><td>Symbol shown in all money displays</td></tr>
+<tr><td><code>vat_percentage</code> / <code>vat_rate</code></td><td>VAT rate for POS/cart calculations</td></tr>
+<tr><td><code>tax_percentage</code> / <code>tax_rate</code></td><td>Additional tax rate</td></tr>
+<tr><td><code>date_format</code>, <code>time_format</code>, <code>timezone</code></td><td>Display formatting</td></tr>
+<tr><td><code>project_name</code></td><td>Brand name shown in app header / AI support bot</td></tr>
+<tr><td><code>stock_warning_level</code></td><td>Low-stock threshold for alerts/reports</td></tr>
+</tbody>
+</table>
+
+<h2>6. Activity Log (Audit Trail)</h2>
+
+<h3>6.1 ActivityLogger Service</h3>
+
+<p><code>app/Services/ActivityLogger.php</code> provides static helpers called on every mutation across the codebase:</p>
+
+<ul>
+<li><code>login($email)</code>, <code>logout()</code>, <code>failedLogin($email, $reason)</code> &mdash; session lifecycle.</li>
+<li><code>created($moduleName, $model)</code> &mdash; stores the new model state in <code>new_data</code>.</li>
+<li><code>updated($moduleName, $model, $changes)</code> &mdash; stores <code>old_data</code> and <code>new_data</code> (only changed attributes).</li>
+<li><code>deleted($moduleName, $model)</code> &mdash; stores snapshot in <code>old_data</code>, type <code>warning</code>.</li>
+<li><code>error($name, $description)</code> &mdash; error-type entries.</li>
+</ul>
+
+<p>Each entry captures the acting admin, IP address, and optional geolocation fields (country/state/city/address, resolved via external geo service in <code>ActivityService</code>).</p>
+
+<h3>6.2 Listing Surface</h3>
+
+<ul>
+<li><code>GET /activities</code> (<code>permission:activity.view</code>) &mdash; paginated viewer.</li>
+<li>AJAX endpoints (admin-authenticated): <code>GET /api/activities</code>, <code>GET /api/activities/stats</code>, <code>DELETE /api/activities/clear</code>.</li>
+</ul>
+
+<h2>7. Notification System</h2>
+
+<p><code>app/Services/NotificationHelper.php</code> creates in-app notifications on key events (orders, sales, stock events, etc.). Fields: title, link, notification text, <code>type</code> (info/success/warning/error), <code>module</code>, and optional <code>fk_admin_id</code> for targeted delivery.</p>
+
+<p><strong>Admin surface</strong> (<code>NotificationController</code>):</p>
+
+<ul>
+<li><code>GET /notifications</code> &mdash; list page.</li>
+<li><code>GET /api/notifications</code>, <code>GET /api/notifications/unread-count</code>, <code>GET /api/notifications/unread</code> &mdash; AJAX feeds for the sidebar badge.</li>
+<li><code>POST /api/notifications/{id}/seen</code>, <code>POST /api/notifications/mark-all-seen</code> &mdash; read-state updates.</li>
+<li><code>POST /api/notifications</code>, <code>DELETE /api/notifications/{id}</code> &mdash; create/delete.</li>
+</ul>
+
+<h2>8. CMS Content Management</h2>
+
+<p><code>CmsController</code> (resource <code>cms</code>, excluding <code>show</code>) provides CRUD for storefront content. <code>contents</code> records support:</p>
+
+<ul>
+<li>Rich HTML content (<code>content</code> column) rendered on the storefront.</li>
+<li><code>type</code> field (default <code>page</code>) to distinguish pages, banners, or other content blocks.</li>
+<li>Unique <code>slug</code> for URL addressing and <code>sort_order</code> for display ordering.</li>
+<li><code>media</code> for images and <code>attribute</code> for extra metadata.</li>
+</ul>
+
+<h2>9. Multi-Currency (Currencies)</h2>
+
+<ul>
+<li><code>CurrencyController</code> resource (excluding <code>show</code>) plus <code>POST /currencies/{currency}/set-base</code> (<code>permission:settings.save</code>).</li>
+<li>Each currency has a code (unique), symbol, <code>exchange_rate</code>, <code>is_base</code> flag (base = rate 1.000000), and <code>is_active</code>.</li>
+</ul>
+
+<h2>10. Permissions (This Module)</h2>
+
+<table>
+<thead>
+<tr><th>Permission</th><th>Gates</th></tr>
+</thead>
+<tbody>
+<tr><td><code>dashboard.view</code></td><td>Dashboard + Reports entry</td></tr>
+<tr><td><code>settings.view</code> / <code>settings.save</code></td><td>Settings page, maintenance toggle, currency base</td></tr>
+<tr><td><code>activity.view</code></td><td>Activity log viewer</td></tr>
+<tr><td><code>notifications.view</code> / <code>notifications.save</code></td><td>Notification list / creation</td></tr>
+<tr><td><code>reports.view</code></td><td>Report pages</td></tr>
+</tbody>
+</table>
+
+<h2>11. Related Code Locations</h2>
+
+<ul>
+<li>Controllers: <code>laravel/app/Http/Controllers/{DashboardController,ConfigController,ActivityController,NotificationController,CmsController,CurrencyController}.php</code></li>
+<li>Services: <code>laravel/app/Services/{ActivityLogger,ActivityService,NotificationHelper}.php</code></li>
+<li>Models: <code>laravel/app/Models/{Configuration,Activity,AdminNotification,Notification,Content,Currency}.php</code></li>
+<li>Seeders: <code>laravel/database/seeders/ConfigurationSeeder.php</code></li>
+</ul>

@@ -27,6 +27,7 @@ AI-powered full-stack ERP and multi-vendor marketplace system featuring a Larave
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
 - [Key Modules](#key-modules)
+- [Screenshots](#screenshots)
 - [Project Structure](#project-structure)
 - [Module Documentation](#module-documentation)
 - [Authentication & RBAC](#authentication--rbac)
@@ -108,6 +109,304 @@ The backend is a Laravel monolith serving three front-ends: the admin panel (Bla
 | **RBAC**            | 4 seeded roles, 120 permissions across 32 groups                                      |
 | **AI**              | Product descriptions, inventory insights, sales forecasting, pricing, support chatbot |
 | **Reporting**       | Sales trends, income vs expenses, profit analysis, annual performance charts          |
+
+## Screenshots
+
+### Authentication & System
+
+**Login**
+
+![Login](screenshots/ERP_Login.png)
+
+**Dashboard**
+
+![Dashboard](screenshots/ERP_Dashboard.png)
+
+**Settings**
+
+![Settings](screenshots/ERP_Settings.png)
+
+**Roles & Permissions**
+
+![Roles & Permissions](screenshots/Role_Permission.png)
+
+**Permissions**
+
+![Permissions](screenshots/Permissions.png)
+
+**Maintenance Mode**
+
+![Maintenance Mode](screenshots/Maintenance_Mode.png)
+
+**Activity Manager**
+
+![Activity Manager](screenshots/Activity_Manager.png)
+
+### Catalog Management
+
+**Products**
+
+![Products](screenshots/Products.png)
+
+**Categories**
+
+![Categories](screenshots/Categories.png)
+
+**Brands**
+
+![Brands](screenshots/Brands.png)
+
+**Sizes**
+
+![Sizes](screenshots/Sizes.png)
+
+**Colors**
+
+![Colors](screenshots/Colors.png)
+
+**Units**
+
+![Units](screenshots/Units.png)
+
+### Inventory & Stock
+
+**Stocks**
+
+![Stocks](screenshots/Stocks.png)
+
+**Stock Add**
+
+![Stock Add](screenshots/Stock_Add.png)
+
+**Stock Adjustments**
+
+![Stock Adjustments](screenshots/Stock_Adjustments.png)
+
+**New Stock Adjustment**
+
+![New Stock Adjustment](screenshots/New_Stock_Adjustment.png)
+
+**Warehouses**
+
+![Warehouses](screenshots/Warehouses.png)
+
+### Sales & POS
+
+**POS Terminal**
+
+![POS](screenshots/POS.png)
+
+**Sales**
+
+![Sales](screenshots/Sales.png)
+
+**Sales Return**
+
+![Sales Return](screenshots/Sales_Return.png)
+
+### Customers
+
+**Customers**
+
+![Customers](screenshots/Customers.png)
+
+**Add Customer**
+
+![Add Customer](screenshots/Add_Customer.png)
+
+**Customer Fund**
+
+![Customer Fund](screenshots/Customer_Fund.png)
+
+**Customer Transactions**
+
+![Customer Transactions](screenshots/Customer_Transactions.png)
+
+**Outstanding Customer Dues**
+
+![Outstanding Customer Dues](screenshots/Outstanding_Customer_Dues.png)
+
+### Suppliers
+
+**Suppliers**
+
+![Suppliers](screenshots/Suppliers.png)
+
+**Supplier Due**
+
+![Supplier Due](screenshots/Supplier_Due.png)
+
+**Supplier Transactions**
+
+![Supplier Transactions](screenshots/Supplier_Transactions.png)
+
+### Finance & Accounting
+
+**Income**
+
+![Income](screenshots/Income.png)
+
+**Expense**
+
+![Expense](screenshots/Expense.png)
+
+**Transactions Log**
+
+![Transactions Log](screenshots/Transactions_Log.png)
+
+**Cashbook**
+
+![Cashbook](screenshots/Cashbook.png)
+
+**Account Payable**
+
+![Account Payable](screenshots/Account_Payable.png)
+
+**Account Receivable**
+
+![Account Receivable](screenshots/Account_Receivable.png)
+
+**Currencies**
+
+![Currencies](screenshots/Currencies.png)
+
+**Fixed Assets**
+
+![Fixed Assets](screenshots/Fixed_Assets.png)
+
+### Procurement & Supply Chain
+
+**Procurement Needs**
+
+![Procurement Needs](screenshots/Procurement_Needs.png)
+
+**Create Purchase Order**
+
+![Create Purchase Order](screenshots/Create_Purchase_Order.png)
+
+**Shipments**
+
+![Shipments](screenshots/Shipments.png)
+
+### Manufacturing
+
+**Bill of Materials**
+
+![Bill of Materials](screenshots/Bill_of_Materials.png)
+
+**Production Planning**
+
+![Production Planning](screenshots/Production_Planning.png)
+
+### HRM
+
+**Employees**
+
+![Employees](screenshots/Employees.png)
+
+**Payrolls**
+
+![Payrolls](screenshots/Payrolls.png)
+
+**Tasks**
+
+![Tasks](screenshots/Tasks.png)
+
+### Marketing & Content
+
+**Campaigns**
+
+![Campaigns](screenshots/Campaigns.png)
+
+**Content**
+
+![Content](screenshots/Content.png)
+
+### Reporting
+
+**Reports**
+
+![Reports](screenshots/Reports.png)
+
+**Supplier Report**
+
+![Supplier Report](screenshots/Supplier_Report.png)
+
+### Ecommerce Storefront
+
+**Homepage**
+
+![Homepage](screenshots/Ecommerce/E_Commerce_Homepage.png)
+
+**Featured Products**
+
+![Featured Products](screenshots/Ecommerce/E_Commerce_Featured_Products.png)
+
+**New Arrivals**
+
+![New Arrivals](screenshots/Ecommerce/E_Commerce_New_Arrivales.png)
+
+**Homepage Footer**
+
+![Homepage Footer](screenshots/Ecommerce/Homepage_Footer.png)
+
+**Product Listing**
+
+![Product Listing](screenshots/Ecommerce/Product_Listing.png)
+
+**Product Details**
+
+![Product Details](screenshots/Ecommerce/Product_Details.png)
+
+**Related Products**
+
+![Related Products](screenshots/Ecommerce/Related_Products.png)
+
+**Vendor List**
+
+![Vendor List](screenshots/Ecommerce/Vendor_List.png)
+
+**Vendor Page**
+
+![Vendor Page](screenshots/Ecommerce/Vendor_Page.png)
+
+### React POS
+
+**POS Terminal**
+
+![POS](react-app/screenshots/POS.png)
+
+**Categories**
+
+![Categories](react-app/screenshots/Categories.png)
+
+**Customers**
+
+![Customers](react-app/screenshots/Customers.png)
+
+**Products**
+
+![Products](react-app/screenshots/Products.png)
+
+**Stocks**
+
+![Stocks](react-app/screenshots/Stocks.png)
+
+**Sales**
+
+![Sales](react-app/screenshots/Sales.png)
+
+**Incomes**
+
+![Incomes](react-app/screenshots/Incomes.png)
+
+**Expense**
+
+![Expense](react-app/screenshots/Expense.png)
+
+**Reports**
+
+![Reports](react-app/screenshots/Reports.png)
 
 ## Project Structure
 

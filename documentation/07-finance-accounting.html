@@ -1,0 +1,157 @@
+<h1>Module 07 &mdash; Financial Management</h1>
+
+<p><strong>Module:</strong> Financial Management (Finance)<br>
+<strong>Category:</strong> Accounting<br>
+<strong>Purpose:</strong> Provides a double-entry-style cashbook ledger, a typed transaction log, income and expense tracking, accounts payable/receivable, balances, fixed assets, fiscal years, and multi-currency support.</p>
+
+<blockquote>
+<p>The <code>cashbook</code> table is the double-entry ledger of the system. Every financial event &mdash; sale, fund deposit, expense, payroll, return refund &mdash; writes a row. Financial integrity depends on writing these rows atomically with the business transaction that triggered them.</p>
+</blockquote>
+
+<h2>1. Overview</h2>
+
+<p>Finance is not an island &mdash; it is written to by Sales, Procurement, HRM, Marketing, and Manufacturing. This module documents the shared ledger model and the finance-specific admin surfaces (income, expense, cashbook, payables, receivables, transactions, fixed assets, currencies).</p>
+
+<h2>2. Database Tables</h2>
+
+<table>
+<thead>
+<tr><th>Table</th><th>Purpose</th><th>Key Columns</th></tr>
+</thead>
+<tbody>
+<tr><td><code>transactions</code></td><td>Typed financial ledger</td><td>date, type (15 enum values), fk_reference_id, amount, paid_amount, due_amount</td></tr>
+<tr><td><code>cashbook</code></td><td>Double-entry ledger</td><td>table_name, fk_reference_id, description, in_amount, out_amount, amount_payable, amount_receivable</td></tr>
+<tr><td><code>incomes</code></td><td>Income records</td><td>table_name, fk_transaction_id, description, amount</td></tr>
+<tr><td><code>expenses</code></td><td>Expense records</td><td>table_name, fk_transaction_id, description, amount</td></tr>
+<tr><td><code>payable</code></td><td>Accounts payable</td><td>table_name, fk_reference_id, description, amount</td></tr>
+<tr><td><code>receivable</code></td><td>Accounts receivable</td><td>table_name, fk_reference_id, description, amount</td></tr>
+<tr><td><code>balances</code></td><td>Per-user balance ledger</td><td>fk_user_id, amount</td></tr>
+<tr><td><code>fixed_assets</code></td><td>Fixed asset register</td><td>name, price, description</td></tr>
+<tr><td><code>fiscal_year</code></td><td>Accounting period</td><td>fiscal_year_start, fiscal_year_end</td></tr>
+<tr><td><code>currencies</code></td><td>Multi-currency rates</td><td>code (unique), name, symbol, exchange_rate, is_base, is_active</td></tr>
+</tbody>
+</table>
+
+<h2>3. The Transaction Model (15 Types)</h2>
+
+<p>Constants on <code>App\Models\Transaction</code>:</p>
+
+<table>
+<thead>
+<tr><th>Constant</th><th>Enum Value</th><th>Used For</th></tr>
+</thead>
+<tbody>
+<tr><td>TYPE_USER_FUND</td><td><code>userFund</code></td><td>Customer fund deposits</td></tr>
+<tr><td>TYPE_SUPPLIER_DEPOSIT</td><td><code>supplierDeposit</code></td><td>Supplier deposits</td></tr>
+<tr><td>TYPE_SUPPLIER_PAYMENT</td><td><code>supplierPayment</code></td><td>Payments to suppliers</td></tr>
+<tr><td>TYPE_BOM_EXPENSE</td><td><code>bomExpense</code></td><td>Bill-of-materials costs</td></tr>
+<tr><td>TYPE_SALARY_PAYMENT</td><td><code>salaryPayment</code></td><td>Payroll disbursements</td></tr>
+<tr><td>TYPE_CAMPAIGN_EXPENSE</td><td><code>campaignExpense</code></td><td>Marketing campaign spend</td></tr>
+<tr><td>TYPE_STOCK_IN</td><td><code>stockIn</code></td><td>Stock additions</td></tr>
+<tr><td>TYPE_STOCK_OUT</td><td><code>stockOut</code></td><td>Stock removals</td></tr>
+<tr><td>TYPE_SALE_INCOME</td><td><code>saleIncome</code></td><td>Completed sales revenue</td></tr>
+<tr><td>TYPE_SALE_DUE</td><td><code>saleDue</code></td><td>Due payments collected</td></tr>
+<tr><td>TYPE_FIXED_ASSET</td><td><code>fixedAsset</code></td><td>Asset acquisitions</td></tr>
+<tr><td>TYPE_INCOME</td><td><code>income</code></td><td>Manual income entries</td></tr>
+<tr><td>TYPE_EXPENSE</td><td><code>expense</code></td><td>Manual expense entries</td></tr>
+<tr><td>TYPE_MISC_INCOME</td><td><code>miscIncome</code></td><td>Miscellaneous income</td></tr>
+<tr><td>TYPE_MISC_EXPENSE</td><td><code>miscExpense</code></td><td>Miscellaneous outflows (e.g. return refunds)</td></tr>
+</tbody>
+</table>
+
+<h2>4. Cashbook &mdash; Double-Entry Ledger</h2>
+
+<p><code>Cashbook</code> rows are polymorphic: <code>table_name</code> + <code>fk_reference_id</code> point at the source record (sales, incomes, expenses, customers, suppliers, sale_returns&hellip;). Four monetary columns describe the movement:</p>
+
+<ul>
+<li><code>in_amount</code> &mdash; cash received.</li>
+<li><code>out_amount</code> &mdash; cash paid.</li>
+<li><code>amount_payable</code> &mdash; liability created (money owed to suppliers).</li>
+<li><code>amount_receivable</code> &mdash; receivable created (money owed by customers).</li>
+</ul>
+
+<p>Example writes: POS sale payment &rarr; <code>in_amount</code>; sale due &rarr; <code>amount_receivable</code>; customer fund &rarr; <code>in_amount</code> + <code>amount_payable</code>; return refund &rarr; <code>out_amount</code>.</p>
+
+<h2>5. Income &amp; Expense</h2>
+
+<p><strong>Auto-created</strong> &mdash; every POS/API sale creates an <code>Income</code> row (description "Sale #INV...") linked to its <code>saleIncome</code> transaction.</p>
+
+<p><strong>Manual entry</strong> (admin + API), each wrapped in <code>DB::transaction()</code>:</p>
+
+<ol>
+<li>Create Transaction (<code>income</code> / <code>expense</code>) with amount = paid.</li>
+<li>Create Income/Expense row referencing the transaction; backfill the transaction's <code>fk_reference_id</code>.</li>
+<li>Write the matching Cashbook row (<code>in_amount</code> or <code>out_amount</code>).</li>
+<li>Log activity and commit.</li>
+</ol>
+
+<p><strong>Admin routes:</strong> <code>GET /incomes</code> + <code>/incomes/create</code> + <code>POST /incomes</code> (incomes.*); <code>GET /expenses</code> + <code>/expenses/create</code> + <code>POST /expenses</code> (expenses.*). <strong>API routes:</strong> <code>POST /income</code>/<code>save-income</code>, <code>POST /expense</code>/<code>save-expense</code>.</p>
+
+<h2>6. Accounts Payable &amp; Receivable</h2>
+
+<ul>
+<li><strong>Payables</strong> (<code>payable</code> table) &mdash; supplier liabilities. <code>GET /payables</code> (<code>permission:cashbook.view</code>).</li>
+<li><strong>Receivables</strong> (<code>receivable</code> table) &mdash; customer receivables. <code>GET /receivables</code> (<code>permission:cashbook.view</code>).</li>
+<li><strong>Customer due/fund workflows</strong> &mdash; <code>CustomerDueController</code> (<code>GET /customers/due</code>), <code>CustomerFundController</code> (deposit &amp; balance). Fund deposit: increments customer balance, writes <code>userFund</code> transaction + cashbook entry, all transactional.</li>
+<li><strong>Supplier due/fund workflows</strong> &mdash; <code>SupplierDueController</code>, <code>SupplierFundController</code>.</li>
+</ul>
+
+<h2>7. Cashbook &amp; Transaction Viewer</h2>
+
+<ul>
+<li><code>GET /cashbook</code> (<code>permission:cashbook.view</code>) &mdash; CashbookController; paginated ledger feed with filters.</li>
+<li><code>GET /transactions</code> (<code>permission:transactions.view</code>) &mdash; TransactionController; full typed transaction log with paid/due amounts.</li>
+</ul>
+
+<h2>8. Fixed Assets</h2>
+
+<p><code>GET/POST /fixed-assets</code> + edit/update/destroy &mdash; FixedAssetController resource (excluding <code>show</code>). Records name, price, description; acquisitions are tracked in the ledger as <code>fixedAsset</code> transactions.</p>
+
+<h2>9. Currencies</h2>
+
+<ul>
+<li><code>CurrencyController</code> resource (excluding <code>show</code>) &mdash; CRUD over <code>currencies</code>.</li>
+<li><code>POST /currencies/{currency}/set-base</code> (<code>permission:settings.save</code>) &mdash; marks a currency as the base (rate = 1.000000).</li>
+</ul>
+
+<h2>10. Financial Reports</h2>
+
+<ul>
+<li><code>ReportController::index</code> &mdash; total sales, income (paid), expenses, net profit; 12-month sales vs expenses chart.</li>
+<li><code>ReportController::income</code> &mdash; date-range income with monthly series.</li>
+<li><code>ReportController::expense</code> &mdash; date-range expenses with monthly series.</li>
+<li><code>ReportController::customer</code> &mdash; top customers, balance totals (positive/negative = due).</li>
+<li><code>ReportController::supplier</code> &mdash; supplier counts + balance totals.</li>
+<li>API <code>POST /report</code> &mdash; YTD vs last-year monthly sales/income/expense for the POS dashboard.</li>
+</ul>
+
+<h2>11. Permissions</h2>
+
+<table>
+<thead>
+<tr><th>Group</th><th>Permissions</th></tr>
+</thead>
+<tbody>
+<tr><td>Income</td><td><code>incomes.view/save/edit/delete</code></td></tr>
+<tr><td>Expenses</td><td><code>expenses.view/save/edit/delete</code></td></tr>
+<tr><td>Cashbook</td><td><code>cashbook.view/save/edit/delete</code></td></tr>
+<tr><td>Transactions</td><td><code>transactions.view/save/edit/delete</code></td></tr>
+</tbody>
+</table>
+
+<h2>12. Integrity Conventions &amp; Gotchas</h2>
+
+<ul>
+<li><strong>Every money-moving operation must be wrapped in <code>DB::transaction()</code></strong> with the ledger rows written in the same unit of work. See the canonical examples: <code>ApiController::saveSale</code>, <code>PosController::checkout</code>, <code>CustomerFundController::store</code>, <code>SaleController::receiveDue</code>, <code>SaleReturnController::approve</code>.</li>
+<li>After any financial mutation, verify a <code>transactions</code> row, an <code>incomes</code>/<code>expenses</code> row (where applicable), and a <code>cashbook</code> row were all written exactly once.</li>
+<li>Never mutate only the source table (sale/customer/supplier) &mdash; keep the ledger in sync.</li>
+<li>Currency symbols are read via <code>Configuration::get('currency_symbol', '$')</code> across views.</li>
+</ul>
+
+<h2>13. Related Code Locations</h2>
+
+<ul>
+<li>Models: <code>laravel/app/Models/{Transaction,Cashbook,Income,Expense,Payable,Receivable,Balance,FixedAsset,Currency}.php</code></li>
+<li>Controllers: <code>laravel/app/Http/Controllers/{CashbookController,IncomeController,ExpenseController,PayableController,ReceivableController,TransactionController,FixedAssetController,CurrencyController,CustomerFundController,SupplierFundController}.php</code></li>
+<li>Canonical transactional flows: <code>Api/ApiController.php</code>, <code>PosController.php</code>, <code>SaleController.php</code>, <code>SaleReturnController.php</code></li>
+</ul>

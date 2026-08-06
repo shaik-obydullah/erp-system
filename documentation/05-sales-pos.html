@@ -1,0 +1,178 @@
+<h1>Module 05 &mdash; Sales &amp; Point of Sale (POS)</h1>
+
+<p><strong>Module:</strong> Sales &amp; POS (Sales)<br>
+<strong>Category:</strong> Core Revenue<br>
+<strong>Purpose:</strong> Captures revenue through two front-ends &mdash; an in-admin Blade POS and a standalone React 19 terminal &mdash; and manages orders, invoices, dues, and returns with full accounting integrity.</p>
+
+<blockquote>
+<p>The POS checkout is the canonical transactional flow of the ERP. A single sale atomically writes Sale + SaleDetails + stock decrement + Transaction + Income + Cashbook inside one database transaction. Every money-moving or stock-moving operation in the system follows this same pattern.</p>
+</blockquote>
+
+<h2>1. Overview</h2>
+
+<p>The sales module covers:</p>
+
+<ul>
+<li><strong>Admin POS</strong> &mdash; Blade-based terminal with a persistent per-admin cart (AJAX add/remove, live recalculation, one-click checkout).</li>
+<li><strong>React POS</strong> &mdash; standalone Vite app consuming the Sanctum REST API; category browsing, tap-to-add, localStorage persistence, invoice PDF via jsPDF.</li>
+<li><strong>Sales ledger</strong> &mdash; order listing, detail view, printable invoice, due collection.</li>
+<li><strong>Sale returns</strong> &mdash; request &rarr; approve/reject workflow that restocks items and writes refund accounting.</li>
+</ul>
+
+<h2>2. Database Tables</h2>
+
+<table>
+<thead>
+<tr><th>Table</th><th>Purpose</th><th>Key Columns</th></tr>
+</thead>
+<tbody>
+<tr><td><code>sales</code></td><td>Orders (POS + Ecommerce)</td><td>table_name, fk_user_id (customer), invoice_id (unique), type (POS/Ecommerce), net_price, vat_amount, tax_amount, shipping_cost, discount_amount, grand_total, paid_amount, buy_price, sale_due, status, send_notification, note</td></tr>
+<tr><td><code>sale_details</code></td><td>Line items per sale</td><td>fk_sale_id, fk_stock_id, stock_name, size, color, total_stock, sale_stock, subtotal, return_reason</td></tr>
+<tr><td><code>sale_returns</code></td><td>Return requests</td><td>fk_sale_id, fk_stock_id, quantity, refund_amount, reason (damaged/wrong_item/customer_request/defective/other), note, status (pending/approved/rejected/completed)</td></tr>
+<tr><td><code>cart</code></td><td>Admin POS shopping cart</td><td>fk_admin_id, fk_user_id, net_total, vat_total, tax_total, discount_total, grand_total, buy_total</td></tr>
+<tr><td><code>cart_details</code></td><td>Cart line items</td><td>fk_cart_id, fk_stock_id, stock_name, total_stock, qty, unit, vat, tax, discount, subtotal, buy_price</td></tr>
+<tr><td><code>billings</code></td><td>Ecommerce billing address</td><td>fk_sale_id, full_name, email, phone, address, city, state, zip, country</td></tr>
+<tr><td><code>shippings</code></td><td>Ecommerce shipping address</td><td>fk_sale_id, full_name, phone, address, city, state, zip, country</td></tr>
+</tbody>
+</table>
+
+<h2>3. Key Models &amp; Relationships</h2>
+
+<ul>
+<li><strong>Sale</strong> (<code>app/Models/Sale.php</code>) &mdash; <code>details()</code> / <code>saleItems()</code> has-many; <code>transaction()</code> has-one (saleIncome type); <code>customer()</code> belongs-to. Money columns cast to decimal(2).</li>
+<li><strong>SaleDetail</strong> &mdash; belongs-to Sale and Stock; denormalizes <code>stock_name</code>, size, color at time of sale.</li>
+<li><strong>SaleReturn</strong> &mdash; belongs-to <code>sale()</code> and <code>stock()</code>.</li>
+<li><strong>Cart</strong> / <strong>CartDetail</strong> &mdash; admin-scoped (or user-scoped) persistent cart with totals recomputed by <code>PosController::recalculateCart</code>.</li>
+</ul>
+
+<h2>4. Sale Status Lifecycle</h2>
+
+<p>Status enum: <code>orderPlaced</code> &rarr; <code>processing</code> &rarr; <code>shipment</code> &rarr; <code>completed</code> &mdash; with <code>canceled</code> as a terminal state. POS checkouts are created directly as <code>completed</code>; ecommerce orders start at <code>orderPlaced</code>.</p>
+
+<h2>5. Admin POS (Blade)</h2>
+
+<p><code>PosController</code> &mdash; routes <code>GET /pos</code> (<code>permission:pos.view</code>), <code>POST /pos/cart/add</code> &middot; <code>cart/remove</code> &middot; <code>checkout</code> (<code>permission:pos.save</code>):</p>
+
+<ol>
+<li><strong>index()</strong> &mdash; first-or-creates a cart for the logged-in admin; loads cart details with stock/product; lists active in-stock items; reads currency, VAT, tax rates and active customers.</li>
+<li><strong>addToCart()</strong> &mdash; validates stock exists and quantity available; upserts a cart detail (merging quantities) and recalculates totals.</li>
+<li><strong>removeFromCart()</strong> &mdash; deletes a detail and recalculates.</li>
+<li><strong>checkout()</strong> &mdash; <strong>transactional:</strong>
+  <ol>
+  <li>Computes net, discount, shipping, grand total, paid, and due (<code>max(0, grand - paid)</code>), and total buy price.</li>
+  <li>Creates Sale (type POS, status completed) + SaleDetails.</li>
+  <li>Decrements each stock's quantity (floored at 0).</li>
+  <li>Writes Transaction (saleIncome), Income record, and Cashbook entries (payment received + receivable if due).</li>
+  <li>Clears the cart, commits, logs activity, redirects to invoice.</li>
+  </ol>
+</li>
+</ol>
+
+<h2>6. React POS (Standalone Terminal)</h2>
+
+<p>Built with React 19 + Vite 6 + Tailwind + Axios + Chart.js + jsPDF. Pages under <code>react-app/src/pages/</code> and a single Axios instance (<code>src/api/axios.js</code>) with a Bearer-token interceptor.</p>
+
+<table>
+<thead>
+<tr><th>Feature</th><th>Implementation</th></tr>
+</thead>
+<tbody>
+<tr><td>Login / logout</td><td><code>POST /api/v1/login</code> &rarr; token stored; <code>/logout</code> revokes</td></tr>
+<tr><td>Category browsing</td><td><code>POST /api/v1/dashboard</code> (categories), <code>POST /api/v1/category-product/{id}</code></td></tr>
+<tr><td>Cart</td><td>Local state + localStorage persistence; header total; tap-to-add grid</td></tr>
+<tr><td>Checkout</td><td><code>POST /api/v1/save-sale</code> (items[], customer_id, totals)</td></tr>
+<tr><td>Customers</td><td>Search/create/edit/delete via customer endpoints</td></tr>
+<tr><td>Products / Stocks</td><td>Product &amp; stock CRUD endpoints; barcode/SKU search</td></tr>
+<tr><td>Incomes / Expenses</td><td>Quick entry via <code>save-income</code> / <code>save-expense</code></td></tr>
+<tr><td>Reports</td><td><code>POST /api/v1/report</code> &mdash; YTD vs LY charts (Chart.js), summary cards</td></tr>
+<tr><td>Invoice PDF</td><td>jsPDF + auto-table export</td></tr>
+</tbody>
+</table>
+
+<h3>6.1 API Checkout Flow (<code>ApiController::saveSale</code>)</h3>
+
+<ol>
+<li>Validates items (stock exists, quantity &ge; 1), subtotal, VAT, tax, discount, total.</li>
+<li>Generates <code>INV-XXXXXXXX-time()</code> invoice id.</li>
+<li>Inside <code>DB::beginTransaction()</code>:
+  <ul>
+  <li>Creates Sale (POS, completed, paid = total, due = 0).</li>
+  <li>For each item: creates SaleDetail (snapshot name + stock qty) and <code>decrement</code>s stock.</li>
+  <li>Creates Transaction (saleIncome), Income, Cashbook (in = total).</li>
+  <li>Logs <code>ActivityLogger::created('Sale', $sale)</code>.</li>
+  </ul>
+</li>
+<li>Commits; returns sale + invoice id. On exception, rolls back and returns 500.</li>
+</ol>
+
+<h2>7. Sales Ledger (Admin)</h2>
+
+<table>
+<thead>
+<tr><th>Route</th><th>Permission</th><th>Behavior</th></tr>
+</thead>
+<tbody>
+<tr><td><code>GET /sales</code></td><td>sales.view</td><td>List with search (invoice_id), status and type filters</td></tr>
+<tr><td><code>GET /sales/{sale}</code></td><td>sales.view</td><td>Detail with details + transaction</td></tr>
+<tr><td><code>GET /sales/{sale}/invoice</code></td><td>sales.view</td><td>Printable invoice</td></tr>
+<tr><td><code>POST /sales/{sale}/receive-due</code></td><td>sales.edit</td><td>Partial payment on due: updates paid/due, writes Transaction (saleDue) + Cashbook (in, receivable -&Delta;)</td></tr>
+</tbody>
+</table>
+
+<p><strong>API equivalents:</strong> <code>GET /sale</code> (list, search by invoice), <code>POST /select-sale/{id}</code> (detail with customer/details/transaction), <code>DELETE /delete-sale/{id}</code> (transactional: restores stock, deletes transaction/details/sale).</p>
+
+<h2>8. Sale Returns</h2>
+
+<p><code>SaleReturnController</code> &mdash; routes under <code>sale-returns</code> (permissions sales.*):</p>
+
+<ol>
+<li><strong>store</strong> &mdash; creates a request with status <code>pending</code>.</li>
+<li><strong>approve</strong> &mdash; transactional effect:
+  <ul>
+  <li>Sets status <code>approved</code>.</li>
+  <li>Increments the referenced stock's quantity (restock).</li>
+  <li>Writes Transaction (miscExpense) + Cashbook (out = refund).</li>
+  <li>Reduces the sale's <code>paid_amount</code> and <code>grand_total</code>.</li>
+  </ul>
+</li>
+<li><strong>reject</strong> &mdash; sets status <code>rejected</code>.</li>
+</ol>
+
+<h2>9. Sales Reports &amp; Analytics</h2>
+
+<ul>
+<li><code>ReportController::sales</code> &mdash; date-range sales report with type filter, totals (count, revenue, paid, due) and monthly Chart.js series.</li>
+<li><code>ReportController::index</code> &mdash; total sales, income (paid), expenses, net profit, 12-month sales/expense chart, top 5 products, recent sales.</li>
+<li><code>ApiController::report</code> &mdash; YTD and LY monthly sales/income/expense for the POS dashboard.</li>
+<li><strong>AI sales forecast</strong> &mdash; <code>POST /api/v1/ai/sales-forecast</code> analyzes 12 months of completed-sale revenue.</li>
+</ul>
+
+<h2>10. Permissions</h2>
+
+<table>
+<thead>
+<tr><th>Group</th><th>Permissions</th></tr>
+</thead>
+<tbody>
+<tr><td>Sales</td><td><code>sales.view/save/edit/delete</code></td></tr>
+<tr><td>POS</td><td><code>pos.view/save/edit/delete</code></td></tr>
+<tr><td>Orders</td><td><code>orders.view/save/edit/delete</code></td></tr>
+</tbody>
+</table>
+
+<h2>11. Financial Integrity Conventions</h2>
+
+<ul>
+<li><strong>Always wrap checkout in <code>DB::transaction()</code>.</strong> Verify cashbook/transaction rows are written and stock is decremented exactly once.</li>
+<li>Invoice IDs: admin POS uses <code>INV-{uniqid}</code>; API uses <code>INV-{random}-{time}</code>. Both unique-indexed.</li>
+<li>Due money flows through <code>saleDue</code> transactions and receivable cashbook lines &mdash; never mutate only the sale row.</li>
+</ul>
+
+<h2>12. Related Code Locations</h2>
+
+<ul>
+<li>Controllers: <code>laravel/app/Http/Controllers/{PosController,SaleController,SaleReturnController}.php</code>, <code>Api/ApiController.php</code></li>
+<li>Models: <code>laravel/app/Models/{Sale,SaleDetail,SaleReturn,Cart,CartDetail}.php</code></li>
+<li>React POS: <code>react-app/src/pages/{SalePage,AddCustomer,DashboardPage,ReportPage,...}.js</code>, <code>react-app/src/api/axios.js</code></li>
+<li>Routes: <code>laravel/routes/web.php</code> (POS/Sales/Returns), <code>laravel/routes/api.php</code></li>
+</ul>

@@ -1,0 +1,132 @@
+<h1>Module 06 &mdash; E-Commerce &amp; Storefront</h1>
+
+<p><strong>Module:</strong> E-Commerce &amp; Storefront (Ecommerce)<br>
+<strong>Category:</strong> Multi-Vendor Sales Channel<br>
+<strong>Purpose:</strong> Runs the public multi-vendor storefront, shopping cart, checkout, customer portal, supplier portal, and social features (reviews, AI search, AI support chat).</p>
+
+<blockquote>
+<p>This module turns the ERP into a marketplace. Customers browse vendor stores, add to cart, checkout with billing/shipping, track orders, and leave reviews &mdash; while suppliers get a portal to view their products and purchase orders.</p>
+</blockquote>
+
+<h2>1. Overview</h2>
+
+<p>The e-commerce module spans three audiences:</p>
+
+<ul>
+<li><strong>Shoppers (customers)</strong> &mdash; storefront pages, cart, checkout, customer portal, product reviews, AI search and support chat.</li>
+<li><strong>Suppliers</strong> &mdash; supplier portal with their products and purchase orders.</li>
+<li><strong>Admins</strong> &mdash; CMS content, review moderation, flash sales, campaign content.</li>
+</ul>
+
+<h2>2. Database Tables</h2>
+
+<table>
+<thead>
+<tr><th>Table</th><th>Purpose</th><th>Key Columns</th></tr>
+</thead>
+<tbody>
+<tr><td><code>customers</code></td><td>Storefront accounts</td><td>name, email, password, phone, address, balance, status</td></tr>
+<tr><td><code>reviews</code></td><td>Product ratings &amp; reviews</td><td>fk_product_id, fk_user_id, rating (1-5), review, status (published/unpublished)</td></tr>
+<tr><td><code>billings</code></td><td>Checkout billing address</td><td>fk_sale_id, full_name, email, phone, address, city, state, zip, country</td></tr>
+<tr><td><code>shippings</code></td><td>Checkout shipping address</td><td>fk_sale_id, full_name, phone, address, city, state, zip, country</td></tr>
+<tr><td><code>cart</code> / <code>cart_details</code></td><td>Session shopping cart</td><td>totals + line items</td></tr>
+<tr><td><code>sales</code></td><td>Orders of type Ecommerce</td><td>type = 'Ecommerce', status orderPlaced &rarr; completed</td></tr>
+<tr><td><code>flash_sales</code></td><td>Time-limited discounts</td><td>fk_stock_id, discount %, start/end datetime</td></tr>
+<tr><td><code>contents</code></td><td>CMS pages/banners</td><td>name, slug, media, content, type, sort_order</td></tr>
+</tbody>
+</table>
+
+<h2>3. Storefront Pages (StorefrontController)</h2>
+
+<table>
+<thead>
+<tr><th>Route</th><th>Name</th><th>Content</th></tr>
+</thead>
+<tbody>
+<tr><td><code>GET /home</code></td><td>store.home</td><td>Category dropdown, image slider/banners, new products grid</td></tr>
+<tr><td><code>GET /products-list</code></td><td>store.products</td><td>Catalog with filters (category, price range, brand, rating)</td></tr>
+<tr><td><code>GET /product/{slug}</code></td><td>store.product</td><td>Product detail: images, specs (WYSIWYG), size/color selection, add to cart, reviews</td></tr>
+<tr><td><code>GET /vendors</code></td><td>store.vendors</td><td>Vendor directory</td></tr>
+<tr><td><code>GET /vendor/{slug}</code></td><td>store.vendor</td><td>Vendor storefront</td></tr>
+<tr><td><code>GET /cart</code></td><td>store.cart</td><td>Cart items with quantities and order summary</td></tr>
+<tr><td><code>GET /checkout</code></td><td>store.checkout</td><td>Billing/shipping/payment forms + order summary</td></tr>
+</tbody>
+</table>
+
+<h2>4. Customer Authentication &amp; Portal</h2>
+
+<p>Routes in <code>routes/customer.php</code> (prefix <code>customer</code>) and <code>routes/web.php</code> (prefix <code>portal</code>):</p>
+
+<ul>
+<li><strong>Auth:</strong> register, login, forgot/reset password, logout &mdash; all behind <code>guest:customer</code> / <code>auth:customer</code> + <code>active.customer</code>.</li>
+<li><strong>Portal</strong> (<code>CustomerPortalController</code>): dashboard, order history, order detail, profile view/update.</li>
+<li>Customer-facing auth controllers under <code>app/Http/Controllers/Customer/Auth/</code>.</li>
+</ul>
+
+<h2>5. Supplier Portal</h2>
+
+<p>Routes in <code>routes/supplier.php</code> (prefix <code>supplier</code>) and <code>routes/web.php</code> (prefix <code>supplier-portal</code>):</p>
+
+<ul>
+<li><strong>Auth:</strong> login, forgot/reset password &mdash; behind <code>guest:supplier</code> / <code>auth:supplier</code> + <code>active.supplier</code>.</li>
+<li><strong>Portal</strong> (<code>SupplierPortalController</code>): dashboard, purchase orders list + detail, their products, profile view/update.</li>
+<li>Auth controllers under <code>app/Http/Controllers/Supplier/Auth/</code>.</li>
+</ul>
+
+<h2>6. Reviews</h2>
+
+<p><code>reviews</code> ties a product to a user with a 1&ndash;5 <code>rating</code> and optional text. Products denormalize <code>review_number</code> and <code>review_avg</code> for list displays. Reviews flow: customer submits &rarr; admin moderates (published/unpublished).</p>
+
+<h2>7. AI Storefront Integration</h2>
+
+<p>Public AI endpoints served by <code>AiController</code> (no token required):</p>
+
+<table>
+<thead>
+<tr><th>Endpoint</th><th>Purpose</th></tr>
+</thead>
+<tbody>
+<tr><td><code>GET /api/v1/ai/status</code></td><td>Health check &mdash; returns <code>{ available, model }</code> so the UI can hide/disable AI widgets when Ollama is offline</td></tr>
+<tr><td><code>POST /api/v1/ai/customer-support</code></td><td>Support chat; detects product keywords in the message, enriches context with up to 5 matching products (name, sku, price, availability), and returns an Ollama answer</td></tr>
+</tbody>
+</table>
+
+<p>Protected AI endpoints (POS/admin): product-description, product-search, inventory-insights, sales-forecast, price-suggestion.</p>
+
+<h2>8. Flash Sales &amp; CMS</h2>
+
+<ul>
+<li><strong>Flash sales</strong> &mdash; time-boxed percentage discounts on specific stocks; surfaced on the storefront as promotional blocks ("flash sale products", "new arrivals", "best sellers").</li>
+<li><strong>CMS content</strong> &mdash; <code>contents</code> records render as pages/banners; type and sort_order drive placement on the homepage.</li>
+</ul>
+
+<h2>9. Checkout &amp; Order Fulfillment</h2>
+
+<ol>
+<li>Customer completes billing + shipping forms; order summary shows subtotal, shipping, tax, VAT, total.</li>
+<li>Sale of type <code>Ecommerce</code> is created with status <code>orderPlaced</code>; billing and shipping rows are stored.</li>
+<li>Order progresses: <code>orderPlaced</code> &rarr; <code>processing</code> &rarr; <code>shipment</code> &rarr; <code>completed</code> (or <code>canceled</code>).</li>
+<li>Customer tracks status in the portal.</li>
+</ol>
+
+<h2>10. Permissions</h2>
+
+<table>
+<thead>
+<tr><th>Group</th><th>Permissions</th></tr>
+</thead>
+<tbody>
+<tr><td>E-Commerce</td><td><code>ecommerce.view/save/edit/delete</code></td></tr>
+<tr><td>Reviews</td><td><code>reviews.view/save/edit/delete</code></td></tr>
+<tr><td>Orders</td><td><code>orders.view/save/edit/delete</code></td></tr>
+</tbody>
+</table>
+
+<h2>11. Related Code Locations</h2>
+
+<ul>
+<li>Controllers: <code>laravel/app/Http/Controllers/{StorefrontController,CustomerPortalController,SupplierPortalController,CustomerController,SupplierController}.php</code>, <code>Customer/Auth/</code>, <code>Supplier/Auth/</code></li>
+<li>AI: <code>laravel/app/Http/Controllers/Api/AiController.php</code> (<code>status</code>, <code>customerSupport</code>)</li>
+<li>Models: <code>laravel/app/Models/{Review,Billing,Shipping,FlashSale,Content}.php</code></li>
+<li>Routes: <code>laravel/routes/{web,customer,supplier}.php</code></li>
+</ul>
