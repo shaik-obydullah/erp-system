@@ -110,38 +110,38 @@ The system is a **monolithic backend with decoupled frontends**, replacing five-
 
 ### Components
 
-| Component | Role | Consumer |
-|---|---|---|
-| **Laravel API + Admin + Storefront** | Monolithic application server | Admin browsers, storefront browsers, React POS |
-| **React 19 POS** | Standalone POS terminal (SPA) | Cashiers |
-| **MariaDB** | Relational database (55+ tables) | Laravel |
-| **Ollama (llama3.2)** | Self-hosted LLM inference | Laravel (via HTTP `/api/chat`) |
-| **Flask BI** | ML analytics microservice | Laravel (via HTTP proxy) |
-| **phpMyAdmin** | DB admin UI (dev only) | Developers |
-| **Nginx** | Reverse proxy + static server | Public traffic |
+| Component                            | Role                             | Consumer                                       |
+| ------------------------------------ | -------------------------------- | ---------------------------------------------- |
+| **Laravel API + Admin + Storefront** | Monolithic application server    | Admin browsers, storefront browsers, React POS |
+| **React 19 POS**                     | Standalone POS terminal (SPA)    | Cashiers                                       |
+| **MariaDB**                          | Relational database (55+ tables) | Laravel                                        |
+| **Ollama (llama3.2)**                | Self-hosted LLM inference        | Laravel (via HTTP `/api/chat`)                 |
+| **Flask BI**                         | ML analytics microservice        | Laravel (via HTTP proxy)                       |
+| **phpMyAdmin**                       | DB admin UI (dev only)           | Developers                                     |
+| **Nginx**                            | Reverse proxy + static server    | Public traffic                                 |
 
 **Communication flows:**
 
-| Flow | Transport | Direction |
-|---|---|---|
-| React POS → Laravel API | HTTPS + Bearer token (`auth:sanctum`) | POS → Backend |
-| Laravel → MariaDB | PDO/MySQL | Backend → DB |
-| Laravel → Ollama | HTTP `POST /api/chat`, `GET /api/tags` | Backend → AI |
-| Laravel → Flask BI | HTTP `:5000/api/*` | Backend → BI |
-| Admin/Storefront → Laravel | HTTPS + session cookie | Browser → Backend |
+| Flow                       | Transport                              | Direction         |
+| -------------------------- | -------------------------------------- | ----------------- |
+| React POS → Laravel API    | HTTPS + Bearer token (`auth:sanctum`)  | POS → Backend     |
+| Laravel → MariaDB          | PDO/MySQL                              | Backend → DB      |
+| Laravel → Ollama           | HTTP `POST /api/chat`, `GET /api/tags` | Backend → AI      |
+| Laravel → Flask BI         | HTTP `:5000/api/*`                     | Backend → BI      |
+| Admin/Storefront → Laravel | HTTPS + session cookie                 | Browser → Backend |
 
-> **Note:** Ollama and Flask BI are *never* exposed to the public. Only the Laravel backend can reach them. The React POS talks exclusively to the Laravel API.
+> **Note:** Ollama and Flask BI are _never_ exposed to the public. Only the Laravel backend can reach them. The React POS talks exclusively to the Laravel API.
 
 ### Services & Ports (Dev — Docker Compose)
 
-| Service | Image | Host Port | Purpose |
-|---|---|---|---|
-| `erp_laravel` | PHP 8.3-FPM (custom) | 5173 | Laravel + Vite dev server; builds assets |
-| `erp_nginx` | nginx:stable-alpine | 8082 | Reverse proxy → PHP-FPM |
-| `erp_db` | mariadb:10.6 | 3307 | Database (`laravel_db`) |
-| `erp_react` | node:22-alpine | 3060 | React POS Vite dev server |
-| `erp_ollama` | ollama/ollama | 11434 | AI inference (2-core CPU limit) |
-| `erp_phpmyadmin` | phpmyadmin/phpmyadmin | 8083 | DB admin UI |
+| Service          | Image                 | Host Port | Purpose                                  |
+| ---------------- | --------------------- | --------- | ---------------------------------------- |
+| `erp_laravel`    | PHP 8.3-FPM (custom)  | 5173      | Laravel + Vite dev server; builds assets |
+| `erp_nginx`      | nginx:stable-alpine   | 8082      | Reverse proxy → PHP-FPM                  |
+| `erp_db`         | mariadb:10.6          | 3307      | Database (`laravel_db`)                  |
+| `erp_react`      | node:22-alpine        | 3060      | React POS Vite dev server                |
+| `erp_ollama`     | ollama/ollama         | 11434     | AI inference (2-core CPU limit)          |
+| `erp_phpmyadmin` | phpmyadmin/phpmyadmin | 8083      | DB admin UI                              |
 
 Persistent volumes: `erp_db_data` (database), `ollama_data` (AI models).
 
@@ -161,20 +161,20 @@ Route files: `web.php` (admin + storefront, permission-gated), `api.php` (Sanctu
 
 - **Four guards:** `admin` / `customer` / `supplier` (session) + `sanctum` (bearer token for React POS).
 - **RBAC:** roles (`super-admin`, `admin`, `manager`, `cashier`), 120 `module.action` permissions across 32 groups, `permission:` middleware per route, super-admin bypass.
-- **Middleware:** RoleMiddleware, PermissionMiddleware, Active*Middleware, MaintenanceModeMiddleware.
+- **Middleware:** RoleMiddleware, PermissionMiddleware, Active\*Middleware, MaintenanceModeMiddleware.
 
 ### AI Layer (Ollama)
 
 Single gateway `app/Services/OllamaService.php` → `http://erp_ollama:11434` with model `llama3.2`, configurable temperature, 120 s timeout, exception-safe.
 
-| Capability | Endpoint | Temperature |
-|---|---|---|
-| Product descriptions | `POST /ai/product-description` | 0.8 |
-| Natural-language search | `POST /ai/product-search` | 0.3 |
-| Inventory insights | `POST /ai/inventory-insights` | 0.4 |
-| Sales forecast | `POST /ai/sales-forecast` | 0.5 |
-| Customer support | `POST /ai/customer-support` (public) | 0.6 |
-| Price suggestion | `POST /ai/price-suggestion` | 0.5 |
+| Capability              | Endpoint                             | Temperature |
+| ----------------------- | ------------------------------------ | ----------- |
+| Product descriptions    | `POST /ai/product-description`       | 0.8         |
+| Natural-language search | `POST /ai/product-search`            | 0.3         |
+| Inventory insights      | `POST /ai/inventory-insights`        | 0.4         |
+| Sales forecast          | `POST /ai/sales-forecast`            | 0.5         |
+| Customer support        | `POST /ai/customer-support` (public) | 0.6         |
+| Price suggestion        | `POST /ai/price-suggestion`          | 0.5         |
 
 > The AI is **generative** (text/insights). For deterministic analytics the system delegates to the Flask BI service.
 
@@ -182,14 +182,14 @@ Single gateway `app/Services/OllamaService.php` → `http://erp_ollama:11434` wi
 
 `BiController` proxies to `bi_flask:5000` (30 s timeout). Admin views under `/bi/*` (gated by `reports.view`).
 
-| Method | Endpoint | Analytics |
-|---|---|---|
-| POST | `/analyze` | Employee performance (KMeans + IsolationForest + score) |
-| GET | `/product-analysis` | Product performance tiers |
-| GET | `/sales-forecast` | Next-month forecast + confidence interval |
-| GET | `/product-combos` | Frequently-bought-together analysis |
-| POST | `/recommendations/products` | 6 strategies (popular, trending, content-based, collaborative, similar-users, personalized) |
-| GET | `/prophet-forecast` | Prophet forecast with confidence intervals |
+| Method | Endpoint                    | Analytics                                                                                   |
+| ------ | --------------------------- | ------------------------------------------------------------------------------------------- |
+| POST   | `/analyze`                  | Employee performance (KMeans + IsolationForest + score)                                     |
+| GET    | `/product-analysis`         | Product performance tiers                                                                   |
+| GET    | `/sales-forecast`           | Next-month forecast + confidence interval                                                   |
+| GET    | `/product-combos`           | Frequently-bought-together analysis                                                         |
+| POST   | `/recommendations/products` | 6 strategies (popular, trending, content-based, collaborative, similar-users, personalized) |
+| GET    | `/prophet-forecast`         | Prophet forecast with confidence intervals                                                  |
 
 ### Data Layer
 
@@ -561,22 +561,20 @@ The complete documentation is available as a single page, covering every module 
 
 Individual per-module reference docs (schema, models, routes, API surface, business flows, and permissions) also live in [`documentation/`](documentation/):
 
-| Module                         | Document                                                                             |
-| ------------------------------ | ------------------------------------------------------------------------------------ |
+| Module                         | Document                                                                                             |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------- |
 | Authentication & Authorization | [documentation/01-authentication-authorization.md](documentation/01-authentication-authorization.md) |
-| Administration & System        | [documentation/02-administration-system.md](documentation/02-administration-system.md)             |
-| Catalog Management             | [documentation/03-catalog-management.md](documentation/03-catalog-management.md)                   |
-| Inventory & Stock              | [documentation/04-inventory-stock.md](documentation/04-inventory-stock.md)                         |
-| Sales & POS                    | [documentation/05-sales-pos.md](documentation/05-sales-pos.md)                                     |
-| E-Commerce & Storefront        | [documentation/06-ecommerce-storefront.md](documentation/06-ecommerce-storefront.md)               |
-| Financial Management           | [documentation/07-finance-accounting.md](documentation/07-finance-accounting.md)                   |
-| Procurement & Supply Chain     | [documentation/08-procurement-supply-chain.md](documentation/08-procurement-supply-chain.md)       |
-| Manufacturing                  | [documentation/09-manufacturing.md](documentation/09-manufacturing.md)                             |
-| HRM                            | [documentation/10-hrm.md](documentation/10-hrm.md)                                                 |
-| Marketing & Campaigns          | [documentation/11-marketing-campaigns.md](documentation/11-marketing-campaigns.md)                 |
-| AI & Business Intelligence     | [documentation/12-ai-business-intelligence.md](documentation/12-ai-business-intelligence.md)       |
-
-Also see the [Case Study](docs/Case%20Study.md), [Feature List](docs/ERP%20-%20Feature%20List.md), and [AGENTS.md](docs/AI%20Agents.md) for AI agents working in this repository.
+| Administration & System        | [documentation/02-administration-system.md](documentation/02-administration-system.md)               |
+| Catalog Management             | [documentation/03-catalog-management.md](documentation/03-catalog-management.md)                     |
+| Inventory & Stock              | [documentation/04-inventory-stock.md](documentation/04-inventory-stock.md)                           |
+| Sales & POS                    | [documentation/05-sales-pos.md](documentation/05-sales-pos.md)                                       |
+| E-Commerce & Storefront        | [documentation/06-ecommerce-storefront.md](documentation/06-ecommerce-storefront.md)                 |
+| Financial Management           | [documentation/07-finance-accounting.md](documentation/07-finance-accounting.md)                     |
+| Procurement & Supply Chain     | [documentation/08-procurement-supply-chain.md](documentation/08-procurement-supply-chain.md)         |
+| Manufacturing                  | [documentation/09-manufacturing.md](documentation/09-manufacturing.md)                               |
+| HRM                            | [documentation/10-hrm.md](documentation/10-hrm.md)                                                   |
+| Marketing & Campaigns          | [documentation/11-marketing-campaigns.md](documentation/11-marketing-campaigns.md)                   |
+| AI & Business Intelligence     | [documentation/12-ai-business-intelligence.md](documentation/12-ai-business-intelligence.md)         |
 
 ## Authentication & RBAC
 
@@ -751,17 +749,6 @@ For the React app, `.env` uses `VITE_API_URL` for dev and `VITE_API_URL_PRODUCTI
 
 See [laravel/README.md](laravel/README.md#database-schema) for the full schema.
 
-## Common Gotchas
-
-1. **Ollama down** → AI endpoints return `null`/error; React UI must degrade gracefully.
-2. **API base URL** — react-app `.env` uses `VITE_API_URL` for dev and `VITE_API_URL_PRODUCTION` for prod builds.
-3. **Session vs API auth** — admin panel routes use the `admin` guard; API routes use `auth:sanctum`. Don't mix them.
-4. **RBAC enforcement** — new admin routes must be added inside permission middleware groups or they are public.
-5. **Financial operations** — always wrap in `DB::transaction()`; verify cashbook/transaction rows are written and stock decremented exactly once.
-6. **Vite asset pipeline** — admin assets are compiled from `resources/`; run `npm run build` after touching Tailwind/JS. The React app builds independently.
-7. **Flask BI** — if the microservice is down, `/bi/*` pages render error/empty states; it is not required for core ERP operations.
-8. **Do not commit secrets** — `.env` files are gitignored; keep them out of commits.
-
 ## License
 
-Private use.
+Copyright Shaik Obydullah 2015 - 2027
