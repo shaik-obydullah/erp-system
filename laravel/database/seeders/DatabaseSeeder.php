@@ -39,5 +39,8 @@ class DatabaseSeeder extends Seeder
 
         // Seed ecommerce data (categories, brands, products, etc.)
         $this->call(EcommerceSeeder::class);
+
+        // Seed default shipping zones and methods
+        $this->call(ShippingRuleSeeder::class);
     }
 }

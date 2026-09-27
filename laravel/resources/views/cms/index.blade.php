@@ -20,6 +20,7 @@
                     <option value="">All Types</option>
                     <option value="hero" {{ request('type') === 'hero' ? 'selected' : '' }}>Hero Banner</option>
                     <option value="banner" {{ request('type') === 'banner' ? 'selected' : '' }}>Banner</option>
+                    <option value="slider" {{ request('type') === 'slider' ? 'selected' : '' }}>Homepage Slider</option>
                     <option value="page" {{ request('type') === 'page' ? 'selected' : '' }}>Page</option>
                     <option value="faq" {{ request('type') === 'faq' ? 'selected' : '' }}>FAQ</option>
                     <option value="settings" {{ request('type') === 'settings' ? 'selected' : '' }}>Settings</option>

@@ -162,7 +162,7 @@
         </div>
 
         <!-- Marketing & Logistics Dropdown -->
-        <div class="nav-dropdown" x-data="{ open: {{ request()->routeIs('campaigns.*') || request()->routeIs('warehouses.*') || request()->routeIs('shipments.*') || request()->routeIs('shipment-returns.*') ? 'true' : 'false' }} }" :class="{ 'open': open }">
+        <div class="nav-dropdown" x-data="{ open: {{ request()->routeIs('campaigns.*') || request()->routeIs('warehouses.*') || request()->routeIs('shipments.*') || request()->routeIs('shipment-returns.*') || request()->routeIs('shipping-zones.*') ? 'true' : 'false' }} }" :class="{ 'open': open }">
             <button class="nav-item nav-dropdown-toggle" @click="open = !open">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 Marketing & Logistics
@@ -173,6 +173,7 @@
                 <div style="border-top: 1px solid var(--border); margin: 4px 0;"></div>
                 <a href="{{ route('warehouses.index') }}" class="nav-dropdown-item {{ request()->routeIs('warehouses.*') ? 'active' : '' }}">Warehouses</a>
                 <a href="{{ route('shipments.index') }}" class="nav-dropdown-item {{ request()->routeIs('shipments.*') ? 'active' : '' }}">Shipments</a>
+                <a href="{{ route('shipping-zones.index') }}" class="nav-dropdown-item {{ request()->routeIs('shipping-zones.*') ? 'active' : '' }}">Shipping Rules</a>
                 <a href="{{ route('shipment-returns.index') }}" class="nav-dropdown-item {{ request()->routeIs('shipment-returns.*') ? 'active' : '' }}">Shipment Returns</a>
             </div>
         </div>

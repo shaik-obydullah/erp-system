@@ -42,7 +42,7 @@ class CmsController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:200',
-            'type' => 'required|in:hero,page,banner,faq,settings',
+            'type' => 'required|in:hero,page,banner,faq,settings,slider',
             'slug' => 'nullable|string|max:200|unique:contents,slug',
             'media' => 'nullable|string|max:500',
             'content' => 'nullable|string',
@@ -82,7 +82,7 @@ class CmsController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:200',
-            'type' => 'required|in:hero,page,banner,faq,settings',
+            'type' => 'required|in:hero,page,banner,faq,settings,slider',
             'slug' => 'nullable|string|max:200|unique:contents,slug,' . $content->id,
             'media' => 'nullable|string|max:500',
             'content' => 'nullable|string',

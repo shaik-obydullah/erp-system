@@ -1,0 +1,3 @@
+services:
+  erp_laravel:
+    command: php-fpm

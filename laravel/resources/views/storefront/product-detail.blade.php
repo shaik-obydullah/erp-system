@@ -148,7 +148,7 @@
             <!-- Delivery Badge -->
             <div class="inline-flex items-center gap-2 bg-green-50 text-green-700 text-xs font-medium px-3 py-1.5 rounded-full mb-5">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>
-                Free shipping on orders over $50
+                @if($freeShippingThreshold)Free shipping on orders over ${{ number_format($freeShippingThreshold, 0) }}@else Free shipping on qualifying orders @endif
             </div>
 
             <!-- Meta -->
@@ -321,9 +321,10 @@
                                 @endif
                             @endfor
                         </div>
+                        <span class="text-xs font-medium text-gray-600">{{ $review->customer->name ?? 'Customer' }}</span>
                         <span class="text-xs text-gray-400">{{ $review->created_at?->diffForHumans() ?? '' }}</span>
                     </div>
-                    <p class="text-gray-600 text-sm">{{ $review->comment ?? $review->text ?? '' }}</p>
+                    <p class="text-gray-600 text-sm">{{ $review->review }}</p>
                 </div>
                 @endforeach
             </div>

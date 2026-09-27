@@ -142,6 +142,75 @@
         </div>
     </section>
 
+    <!-- Banner Image Carousel -->
+    @php
+        $bannerSlides = $sliderContent->count() ? $sliderContent->map(function ($s) {
+            return [
+                'bg' => 'from-primary-600 to-primary-800',
+                'title' => $s->name,
+                'subtitle' => $s->attribute ?? '',
+                'img' => $s->media ?? '',
+                'href' => Str::contains($s->slug ?? '', ['vendor', 'seller']) ? route('store.vendors') : route('store.products'),
+            ];
+        }) : collect([
+            ['bg' => 'from-rose-500 to-pink-500', 'title' => 'Summer Sale', 'subtitle' => 'Up to 60% off on selected items', 'img' => '/storage/products/samsung-galaxy-s24-ultra.jpg', 'href' => route('store.products')],
+            ['bg' => 'from-blue-500 to-indigo-500', 'title' => 'New Arrivals', 'subtitle' => 'Check out the latest tech gadgets', 'img' => '/storage/products/macbook-pro-16-m3.jpg', 'href' => route('store.products')],
+            ['bg' => 'from-amber-500 to-orange-500', 'title' => 'Become a Seller', 'subtitle' => 'Join ShopHub and reach millions of customers', 'img' => '/storage/products/iphone-15-pro-max.jpg', 'href' => route('store.vendors')],
+        ]);
+    @endphp
+    <section class="max-w-7xl mx-auto px-4 py-6"
+        x-data="{
+            currentBanner: 0,
+            banners: {{ json_encode($bannerSlides) }},
+            bannerTimer: null,
+            init() {
+                this.startBannerAutoplay();
+            },
+            startBannerAutoplay() {
+                this.stopBannerAutoplay();
+                this.bannerTimer = setInterval(() => {
+                    this.currentBanner = (this.currentBanner + 1) % this.banners.length;
+                }, 6000);
+            },
+            stopBannerAutoplay() {
+                if (this.bannerTimer) { clearInterval(this.bannerTimer); this.bannerTimer = null; }
+            },
+            goToBanner(i) {
+                this.currentBanner = i;
+                this.startBannerAutoplay();
+            }
+        }"
+        @mouseenter="stopBannerAutoplay()"
+        @mouseleave="startBannerAutoplay()">
+
+        <div class="relative rounded-2xl overflow-hidden h-48 md:h-64">
+            <template x-for="(b, i) in banners" :key="i">
+                <a :href="b.href"
+                   class="absolute inset-0 transition-opacity duration-500 ease-in-out"
+                   :class="currentBanner === i ? 'opacity-100 z-10' : 'opacity-0 z-0'">
+                    <div class="absolute inset-0 bg-gradient-to-br" :class="b.bg"></div>
+                    <img x-show="b.img" :src="b.img" alt="" class="absolute inset-0 w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-r from-gray-900/70 via-gray-900/30 to-transparent"></div>
+                    <div class="relative h-full flex items-center px-8 md:px-12">
+                        <div>
+                            <h2 class="text-2xl md:text-3xl font-bold text-white mb-1" x-text="b.title"></h2>
+                            <p class="text-white/80 text-sm md:text-base" x-text="b.subtitle"></p>
+                        </div>
+                    </div>
+                </a>
+            </template>
+
+            <!-- Dots -->
+            <div class="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+                <template x-for="(b, i) in banners" :key="i">
+                    <button class="w-2 h-2 rounded-full transition-all duration-300"
+                        :class="currentBanner === i ? 'bg-white w-5' : 'bg-white/40'"
+                        @click="goToBanner(i)"></button>
+                </template>
+            </div>
+        </div>
+    </section>
+
     <!-- Stats -->
     <section class="bg-white border-b">
         <div class="max-w-7xl mx-auto px-4 py-6">

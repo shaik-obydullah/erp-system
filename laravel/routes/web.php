@@ -43,6 +43,8 @@ use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\ShipmentReturnController;
+use App\Http\Controllers\ShippingZoneController;
+use App\Http\Controllers\ShippingMethodController;
 use App\Http\Controllers\BillOfMaterialController;
 use App\Http\Controllers\ProductionPlanningController;
 use App\Http\Controllers\ProductionController;
@@ -451,6 +453,20 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     // Logistics - Shipments
     Route::resource('shipments', ShipmentController::class);
 
+    // Logistics - Shipping Zones
+    Route::resource('shipping-zones', ShippingZoneController::class);
+
+    // Logistics - Shipping Methods
+    Route::post('/shipping-zones/{shippingZone}/methods', [ShippingMethodController::class, 'store'])
+        ->middleware('permission:shipping-methods.save')
+        ->name('shipping-methods.store');
+    Route::put('/shipping-zones/{shippingZone}/methods/{shippingMethod}', [ShippingMethodController::class, 'update'])
+        ->middleware('permission:shipping-methods.edit')
+        ->name('shipping-methods.update');
+    Route::delete('/shipping-zones/{shippingZone}/methods/{shippingMethod}', [ShippingMethodController::class, 'destroy'])
+        ->middleware('permission:shipping-methods.delete')
+        ->name('shipping-methods.destroy');
+
     // Logistics - Shipment Returns
     Route::resource('shipment-returns', ShipmentReturnController::class)->except(['show']);
 
@@ -464,7 +480,9 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     Route::resource('productions', ProductionController::class);
 
     // CMS Content
-    Route::resource('cms', CmsController::class)->except(['show']);
+    Route::resource('cms', CmsController::class)
+        ->parameters(['cms' => 'content'])
+        ->except(['show']);
 
     // Reports
     Route::get('/reports', [ReportController::class, 'index'])
@@ -529,9 +547,11 @@ Route::get('/home', [StorefrontController::class, 'home'])->name('store.home');
 Route::get('/products-list', [StorefrontController::class, 'products'])->name('store.products');
 Route::get('/product/{slug}', [StorefrontController::class, 'productDetail'])->name('store.product');
 Route::get('/vendors', [StorefrontController::class, 'vendorList'])->name('store.vendors');
+Route::post('/vendors/register', [StorefrontController::class, 'vendorRegister'])->name('store.vendor.register');
 Route::get('/vendor/{slug}', [StorefrontController::class, 'vendorStore'])->name('store.vendor');
 Route::get('/cart', [StorefrontController::class, 'cart'])->name('store.cart');
 Route::get('/checkout', [StorefrontController::class, 'checkout'])->name('store.checkout');
+Route::get('/shipping/options', [StorefrontController::class, 'shippingOptions'])->name('store.shipping.options');
 
 // Customer Portal
 Route::middleware(['auth:customer'])->prefix('portal')->group(function () {

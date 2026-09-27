@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\ApiController;
+use App\Http\Controllers\Api\SyncController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -13,6 +14,10 @@ Route::post('/ai/customer-support', [AiController::class, 'customerSupport']);
 
 // Protected routes (Sanctum auth)
 Route::middleware('auth:sanctum')->group(function () {
+    // Mobile-POS offline sync
+    Route::get('/sync/pull', [SyncController::class, 'pull']);
+    Route::post('/sync/push', [SyncController::class, 'push']);
+
     Route::post('/logout', [ApiController::class, 'logout']);
     Route::post('/configuration', [ApiController::class, 'configuration']);
     

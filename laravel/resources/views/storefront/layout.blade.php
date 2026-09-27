@@ -21,7 +21,7 @@
     <!-- Top Bar -->
     <div class="bg-gray-900 text-gray-300 text-xs">
         <div class="max-w-7xl mx-auto px-4 flex items-center justify-between h-8">
-            <span>Free shipping on orders over $50</span>
+            <span>@if($freeShippingThreshold)Free shipping on orders over ${{ number_format($freeShippingThreshold, 0) }}@else Nationwide fast delivery @endif</span>
             <div class="flex items-center gap-4">
                 <a href="{{ route('store.vendors') }}" class="hover:text-white transition">Sell on ShopHub</a>
                 <a href="{{ route('dashboard') }}" class="hover:text-white transition">Admin Panel</a>
@@ -276,7 +276,7 @@
                     <h4 class="text-white font-semibold mb-3 text-sm">For Vendors</h4>
                     <ul class="space-y-2 text-sm">
                         <li><a href="{{ route('suppliers.index') }}" class="hover:text-white transition">Vendor Dashboard</a></li>
-                        <li><a href="#" class="hover:text-white transition">Start Selling</a></li>
+                        <li><a href="{{ route('store.vendors') }}" class="hover:text-white transition">Start Selling</a></li>
                         <li><a href="#" class="hover:text-white transition">Vendor Guidelines</a></li>
                     </ul>
                 </div>

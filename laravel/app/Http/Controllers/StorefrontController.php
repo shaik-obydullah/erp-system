@@ -7,17 +7,28 @@ use App\Models\Category;
 use App\Models\Configuration;
 use App\Models\Content;
 use App\Models\Product;
+use App\Models\ShippingMethod;
+use App\Models\ShippingZone;
 use App\Models\Stock;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\View;
 
 class StorefrontController extends Controller
 {
     protected $currencySymbol;
 
+    protected $freeShippingThreshold;
+
     public function __construct()
     {
         $this->currencySymbol = Configuration::get('currency_symbol', '$');
+        $this->freeShippingThreshold = ShippingMethod::where('type', 'free_shipping')
+            ->where('status', 'active')
+            ->whereNotNull('min_order_amount')
+            ->min('min_order_amount');
+        View::share('freeShippingThreshold', $this->freeShippingThreshold);
     }
 
     public function home()
@@ -69,12 +80,13 @@ class StorefrontController extends Controller
             ->get();
 
         $heroContent = Content::active()->type('hero')->orderBy('sort_order')->get();
+        $sliderContent = Content::active()->type('slider')->orderBy('sort_order')->get();
         $pageContent = Content::active()->type('page')->orderBy('sort_order')->get();
         $faqContent = Content::active()->type('faq')->orderBy('sort_order')->get();
 
         return view('storefront.home', compact(
             'categories', 'featuredProducts', 'vendors', 'brands', 'newArrivals',
-            'products_count', 'heroContent', 'pageContent', 'faqContent'
+            'products_count', 'heroContent', 'sliderContent', 'pageContent', 'faqContent'
         ) + ['currencySymbol' => $this->currencySymbol]);
     }
 
@@ -143,7 +155,7 @@ class StorefrontController extends Controller
             ->with([
                 'stocks' => fn($q) => $q->where('status', 'active'),
                 'brand', 'category', 'supplier', 'category.parent',
-                'reviews' => fn($q) => $q->where('status', 'published')->orderBy('id', 'desc')->limit(10),
+                'reviews' => fn($q) => $q->where('status', 'published')->orderBy('id', 'desc')->limit(10)->with('customer'),
             ])
             ->firstOrFail();
 
@@ -164,6 +176,30 @@ class StorefrontController extends Controller
             ->paginate(12);
 
         return view('storefront.vendors', compact('vendors'));
+    }
+
+    public function vendorRegister(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:100',
+            'email' => 'required|email|max:100|unique:suppliers,email',
+            'password' => 'required|string|min:8|confirmed',
+            'mobile' => 'nullable|string|max:20',
+            'address' => 'nullable|string|max:255',
+        ]);
+
+        Supplier::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => $validated['password'],
+            'mobile' => $validated['mobile'] ?? null,
+            'address' => $validated['address'] ?? null,
+            'balance' => 0,
+            'status' => 'active',
+        ]);
+
+        return redirect()->route('store.vendors')
+            ->with('vendor_success', 'Your vendor application has been submitted successfully!');
     }
 
     public function vendorStore(string $slug)
@@ -188,6 +224,49 @@ class StorefrontController extends Controller
 
     public function checkout()
     {
-        return view('storefront.checkout', ['currencySymbol' => $this->currencySymbol]);
+        return view('storefront.checkout', [
+            'currencySymbol' => $this->currencySymbol,
+            'countries' => config('countries'),
+        ]);
+    }
+
+    public function shippingOptions(Request $request)
+    {
+        $country = strtoupper((string) $request->input('country', ''));
+        $subtotal = (float) $request->input('subtotal', 0);
+
+        $zones = ShippingZone::with(['methods' => fn($q) => $q->where('status', 'active')->orderBy('sort_order')])
+            ->where('status', 'active')
+            ->orderBy('sort_order')
+            ->get();
+
+        $matchedZone = $zones->first(fn($zone) => $zone->matchesCountry($country));
+
+        if (!$matchedZone) {
+            return response()->json([
+                'zone' => null,
+                'methods' => [],
+                'message' => 'No shipping options available for the selected country.',
+            ]);
+        }
+
+        $methods = $matchedZone->methods
+            ->filter(fn($method) => $method->isAvailable($subtotal))
+            ->values()
+            ->map(fn($method) => [
+                'id' => $method->id,
+                'name' => $method->name,
+                'type' => $method->type,
+                'cost' => $method->calculateCost($subtotal),
+                'min_order_amount' => $method->min_order_amount,
+                'label' => $method->type === 'free_shipping'
+                    ? 'Free'
+                    : ($method->type === 'local_pickup' ? 'Free' : number_format($method->calculateCost($subtotal), 2)),
+            ]);
+
+        return response()->json([
+            'zone' => ['id' => $matchedZone->id, 'name' => $matchedZone->name],
+            'methods' => $methods,
+        ]);
     }
 }

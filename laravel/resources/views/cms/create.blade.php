@@ -41,6 +41,7 @@
                     <select id="type" x-model="form.type" required>
                         <option value="hero">Hero Banner</option>
                         <option value="banner">Banner</option>
+                        <option value="slider">Homepage Slider</option>
                         <option value="page">Page</option>
                         <option value="faq">FAQ</option>
                         <option value="settings">Settings</option>

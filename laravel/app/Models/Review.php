@@ -10,8 +10,6 @@ class Review extends Model
 {
     use HasFactory, SoftDeletes;
 
-    public $timestamps = false;
-
     protected $fillable = [
         'fk_product_id', 'fk_user_id', 'rating', 'review', 'status',
         'created_by', 'updated_by', 'deleted_by',
@@ -20,5 +18,10 @@ class Review extends Model
     public function product()
     {
         return $this->belongsTo(Product::class, 'fk_product_id');
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class, 'fk_user_id');
     }
 }

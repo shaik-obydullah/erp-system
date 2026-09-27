@@ -23,7 +23,7 @@
                         </div>
                         <div class="flex-1 min-w-0">
                             <h3 class="font-semibold text-sm line-clamp-1" x-text="item.name"></h3>
-                            <p class="text-primary-600 font-bold mt-1" x-text="'${{ $currencySymbol }}' + parseFloat(item.price).toFixed(2)"></p>
+                            <p class="text-primary-600 font-bold mt-1" x-text="'{{ $currencySymbol }}' + parseFloat(item.price).toFixed(2)"></p>
                         </div>
                         <div class="flex items-center border border-gray-300 rounded-lg flex-shrink-0">
                             <button @click="updateQty(index, -1)" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-100 transition rounded-l-lg text-sm">−</button>
@@ -31,7 +31,7 @@
                             <button @click="updateQty(index, 1)" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-100 transition rounded-r-lg text-sm">+</button>
                         </div>
                         <div class="text-right flex-shrink-0 w-24">
-                            <p class="font-bold text-sm" x-text="'${{ $currencySymbol }}' + (item.price * item.qty).toFixed(2)"></p>
+                            <p class="font-bold text-sm" x-text="'{{ $currencySymbol }}' + (item.price * item.qty).toFixed(2)"></p>
                         </div>
                         <button @click="removeItem(index)" class="text-red-400 hover:text-red-600 transition flex-shrink-0 p-1">
                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -48,15 +48,15 @@
                 <div class="space-y-3 text-sm mb-6">
                     <div class="flex justify-between">
                         <span class="text-gray-500">Subtotal (<span x-text="totalItems"></span> items)</span>
-                        <span class="font-medium" x-text="'${{ $currencySymbol }}' + subtotal().toFixed(2)"></span>
+                        <span class="font-medium" x-text="'{{ $currencySymbol }}' + subtotal().toFixed(2)"></span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-500">Shipping</span>
-                        <span class="font-medium text-green-600">Free</span>
+                        <span class="font-medium text-gray-400">Calculated at checkout</span>
                     </div>
                     <div class="border-t pt-3 flex justify-between">
                         <span class="font-bold">Total</span>
-                        <span class="font-bold text-lg text-primary-600" x-text="'${{ $currencySymbol }}' + subtotal().toFixed(2)"></span>
+                        <span class="font-bold text-lg text-primary-600" x-text="'{{ $currencySymbol }}' + subtotal().toFixed(2)"></span>
                     </div>
                 </div>
                 <a href="{{ route('store.checkout') }}"

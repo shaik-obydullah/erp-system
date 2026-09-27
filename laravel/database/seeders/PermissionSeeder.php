@@ -195,6 +195,18 @@ class PermissionSeeder extends Seeder
             'shipments.save' => 'Shipments',
             'shipments.edit' => 'Shipments',
             'shipments.delete' => 'Shipments',
+
+            // Shipping Zones
+            'shipping-zones.view' => 'Shipping Zones',
+            'shipping-zones.save' => 'Shipping Zones',
+            'shipping-zones.edit' => 'Shipping Zones',
+            'shipping-zones.delete' => 'Shipping Zones',
+
+            // Shipping Methods
+            'shipping-methods.view' => 'Shipping Methods',
+            'shipping-methods.save' => 'Shipping Methods',
+            'shipping-methods.edit' => 'Shipping Methods',
+            'shipping-methods.delete' => 'Shipping Methods',
         ];
 
         // Create all permissions

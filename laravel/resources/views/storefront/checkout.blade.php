@@ -63,6 +63,42 @@
                             <input type="text" id="postal_code" name="postal_code" x-model="form.postal_code"
                                 class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none">
                         </div>
+                        <div>
+                            <label for="country" class="block text-sm font-medium mb-1"
+                                :class="errors.country ? 'text-red-600' : 'text-gray-700'">Country *</label>
+                            <select id="country" name="country" x-model="form.country" @change="loadShippingMethods()"
+                                class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:outline-none"
+                                :class="errors.country ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary-500'">
+                                <option value="">Select country...</option>
+                                <template x-for="(cname, code) in countries" :key="code">
+                                    <option :value="code" x-text="cname"></option>
+                                </template>
+                            </select>
+                            <p x-show="errors.country" x-text="errors.country" class="mt-1 text-xs text-red-600"></p>
+                        </div>
+                    </div>
+
+                    <!-- Shipping Method -->
+                    <div class="mt-6 pt-6 border-t" x-show="shippingMethods.length > 0">
+                        <h3 class="font-bold mb-3">Shipping Method</h3>
+                        <div x-show="shippingLoading" class="text-sm text-gray-500 mb-2">Calculating shipping options...</div>
+                        <div x-show="!shippingLoading && shippingMethods.length > 0" class="space-y-2">
+                            <template x-for="m in shippingMethods" :key="m.id">
+                                <label class="flex items-center gap-3 p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition"
+                                       :class="{ 'border-primary-500 bg-primary-50': selectedShippingId === m.id }">
+                                    <input type="radio" name="shipping_method" :value="m.id" x-model="selectedShippingId" class="text-primary-600 focus:ring-primary-500">
+                                    <div class="flex-1">
+                                        <span class="font-medium text-sm" x-text="m.name"></span>
+                                        <p class="text-xs text-gray-400" x-show="m.type === 'free_shipping'" x-text="'Free on orders over $' + Number(m.min_order_amount).toFixed(2)"></p>
+                                    </div>
+                                    <span class="font-medium text-sm" x-text="m.cost > 0 ? '{{ $currencySymbol }}' + Number(m.cost).toFixed(2) : 'Free'"></span>
+                                </label>
+                            </template>
+                        </div>
+                        <div x-show="!shippingLoading && !shippingMethods.length && form.country"
+                            class="text-sm text-orange-500 bg-orange-50 border border-orange-200 rounded-lg p-3">
+                            No shipping methods available for this country yet.
+                        </div>
                     </div>
 
                     <!-- Payment Method -->
@@ -111,22 +147,25 @@
                                 <p class="font-medium truncate text-xs" x-text="item.name"></p>
                                 <p class="text-gray-400 text-xs">Qty: <span x-text="item.qty"></span></p>
                             </div>
-                            <span class="font-medium text-xs flex-shrink-0" x-text="'${{ $currencySymbol }}' + (item.price * item.qty).toFixed(2)"></span>
+                            <span class="font-medium text-xs flex-shrink-0" x-text="'{{ $currencySymbol }}' + (item.price * item.qty).toFixed(2)"></span>
                         </div>
                     </template>
                 </div>
                 <div class="border-t pt-4 space-y-2 text-sm">
                     <div class="flex justify-between">
                         <span class="text-gray-500">Subtotal</span>
-                        <span class="font-medium" x-text="'${{ $currencySymbol }}' + subtotal().toFixed(2)"></span>
+                        <span class="font-medium" x-text="'{{ $currencySymbol }}' + subtotal().toFixed(2)"></span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-500">Shipping</span>
-                        <span class="font-medium text-green-600">Free</span>
+                        <span x-show="selectedShipping" class="font-medium"
+                              :class="selectedShippingCost > 0 ? '' : 'text-green-600'"
+                              x-text="selectedShippingCost > 0 ? '{{ $currencySymbol }}' + selectedShippingCost.toFixed(2) : 'Free'"></span>
+                        <span x-show="!selectedShipping" class="font-medium text-gray-400">Calculated at checkout</span>
                     </div>
                     <div class="border-t pt-2 flex justify-between">
                         <span class="font-bold">Total</span>
-                        <span class="font-bold text-lg text-primary-600" x-text="'${{ $currencySymbol }}' + subtotal().toFixed(2)"></span>
+                        <span class="font-bold text-lg text-primary-600" x-text="'{{ $currencySymbol }}' + total().toFixed(2)"></span>
                     </div>
                 </div>
 
@@ -172,13 +211,49 @@
                 address: '',
                 city: '',
                 postal_code: '',
+                country: '',
                 notes: '',
             },
+            countries: @json($countries),
+            shippingMethods: [],
+            selectedShippingId: null,
+            shippingLoading: false,
             errors: {},
+            get selectedShipping() {
+                return this.shippingMethods.find(m => m.id === this.selectedShippingId) || null;
+            },
+            get selectedShippingCost() {
+                return this.selectedShipping ? Number(this.selectedShipping.cost) : 0;
+            },
             subtotal() { return this.items.reduce((s, i) => s + (i.price * i.qty), 0); },
+            total() { return this.subtotal() + this.selectedShippingCost; },
             clearError(field) {
                 if (this.errors[field]) {
                     delete this.errors[field];
+                }
+            },
+            async loadShippingMethods() {
+                if (!this.form.country) {
+                    this.shippingMethods = [];
+                    this.selectedShippingId = null;
+                    return;
+                }
+                this.shippingLoading = true;
+                this.shippingMethods = [];
+                this.selectedShippingId = null;
+                try {
+                    const response = await fetch(`{{ route('store.shipping.options') }}?country=${encodeURIComponent(this.form.country)}&subtotal=${this.subtotal().toFixed(2)}`, {
+                        headers: { 'Accept': 'application/json' },
+                    });
+                    const data = await response.json();
+                    if (data.methods && data.methods.length > 0) {
+                        this.shippingMethods = data.methods;
+                        this.selectedShippingId = data.methods[0].id;
+                    }
+                } catch (e) {
+                    this.shippingMethods = [];
+                } finally {
+                    this.shippingLoading = false;
                 }
             },
             validate() {
@@ -190,6 +265,7 @@
                     customer_phone: 'Please enter your phone number',
                     address: 'Please enter your address',
                     city: 'Please enter your city',
+                    country: 'Please select your country',
                 };
                 for (const [field, message] of Object.entries(rules)) {
                     const value = (this.form[field] || '').trim();
