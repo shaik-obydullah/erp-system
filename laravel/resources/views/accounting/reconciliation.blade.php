@@ -17,8 +17,8 @@
     @php
         $rows = [
             ['label' => 'Cashbook net (in − out)', 'left' => $cashbookNet, 'right' => $cashAccount, 'rightLabel' => 'Cash account balance'],
-            ['label' => 'Customer balances', 'left' => $customerBalances, 'right' => $receivable, 'rightLabel' => 'Receivable account balance'],
-            ['label' => 'Supplier balances', 'left' => $supplierBalances, 'right' => $payable, 'rightLabel' => 'Payable account balance'],
+            ['label' => 'Customer due balances', 'left' => $customerBalances, 'right' => $receivable, 'rightLabel' => 'Customer-attributed receivable'],
+            ['label' => 'Supplier due balances', 'left' => $supplierBalances, 'right' => $payable, 'rightLabel' => 'Supplier-attributed payable'],
         ];
     @endphp
 
@@ -50,5 +50,15 @@
             @endforeach
         </tbody>
     </table>
+
+    @if(abs($unassignedReceivable) >= 0.01 || abs($unassignedPayable) >= 0.01)
+        <div style="padding:16px; color:var(--text-secondary); font-size:13px; border-top:1px solid var(--border-color);">
+            <strong>Not assigned to a party:</strong>
+            receivable {{ $currencySymbol }}{{ number_format($unassignedReceivable, 2) }},
+            payable {{ $currencySymbol }}{{ number_format($unassignedPayable, 2) }}.
+            These come from documents (for example POS sales) that have no customer or supplier attached,
+            so they stay on the control account but have no subledger row to reconcile against.
+        </div>
+    @endif
 </div>
 @endsection

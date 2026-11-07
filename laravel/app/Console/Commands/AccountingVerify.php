@@ -2,9 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Account;
-use App\Models\Cashbook;
-use App\Models\Customer;
+use App\Accounting\Reconciliation;
 use App\Models\Expense;
 use App\Models\FiscalPeriod;
 use App\Models\Income;
@@ -12,7 +10,6 @@ use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\Sale;
 use App\Models\SaleReturn;
-use App\Models\Supplier;
 use App\Models\Transaction;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +28,7 @@ class AccountingVerify extends Command
             ->join('journal_lines as l', 'l.journal_entry_id', '=', 'e.id')
             ->whereNull('e.deleted_at')
             ->where('e.status', 'posted')
+            ->select('e.id', 'e.entry_no')
             ->groupBy('e.id', 'e.entry_no')
             ->havingRaw('ROUND(SUM(l.debit), 2) <> ROUND(SUM(l.credit), 2)')
             ->get();
@@ -51,31 +49,35 @@ class AccountingVerify extends Command
             $problems++;
         }
 
-        $cashbookNet = round((float) Cashbook::sum('in_amount') - (float) Cashbook::sum('out_amount'), 2);
-        $cashAccount = $this->accountBalance('cash');
+        $reconciliation = app(Reconciliation::class)->summary();
 
-        if (abs($cashbookNet - $cashAccount) < 0.01) {
-            $this->info("Cash reconciliation: OK ({$cashAccount})");
+        if ($reconciliation['cash_matched']) {
+            $this->info("Cash reconciliation: OK ({$reconciliation['cash_account']})");
         } else {
-            $this->warn("Cash reconciliation: difference of ".round($cashbookNet - $cashAccount, 2)." (cashbook {$cashbookNet} vs ledger {$cashAccount})");
+            $this->warn('Cash reconciliation: difference of '.$reconciliation['cash_difference']
+                ." (cashbook {$reconciliation['cashbook_net']} vs ledger {$reconciliation['cash_account']})");
         }
 
-        $customerBalances = round((float) Customer::sum('balance'), 2);
-        $receivable = $this->accountBalance('accounts_receivable');
-
-        if (abs($customerBalances - $receivable) >= 0.01) {
-            $this->warn("Customer balances vs receivable: difference of ".round($customerBalances - $receivable, 2));
-        } else {
+        if ($reconciliation['customer_matched']) {
             $this->info('Customer balances vs receivable: OK');
+        } else {
+            $this->warn('Customer balances vs receivable: difference of '.$reconciliation['receivable_difference']);
+            $problems++;
         }
 
-        $supplierBalances = round((float) Supplier::sum('balance'), 2);
-        $payable = $this->accountBalance('accounts_payable');
-
-        if (abs($supplierBalances - $payable) >= 0.01) {
-            $this->warn("Supplier balances vs payable: difference of ".round($supplierBalances - $payable, 2));
-        } else {
+        if ($reconciliation['supplier_matched']) {
             $this->info('Supplier balances vs payable: OK');
+        } else {
+            $this->warn('Supplier balances vs payable: difference of '.$reconciliation['payable_difference']);
+            $problems++;
+        }
+
+        if (abs($reconciliation['unassigned_receivable']) >= 0.01) {
+            $this->line('Unassigned receivable (no customer on the source document): '.$reconciliation['unassigned_receivable']);
+        }
+
+        if (abs($reconciliation['unassigned_payable']) >= 0.01) {
+            $this->line('Unassigned payable (no supplier on the source document): '.$reconciliation['unassigned_payable']);
         }
 
         $broken = JournalEntry::posted()
@@ -132,24 +134,5 @@ class AccountingVerify extends Command
         }
 
         return $problems === 0 ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function accountBalance(string $systemKey): float
-    {
-        $account = Account::where('system_key', $systemKey)->first();
-
-        if (! $account) {
-            return 0.0;
-        }
-
-        $row = JournalLine::where('account_id', $account->id)
-            ->whereHas('entry', fn ($query) => $query->posted())
-            ->selectRaw('COALESCE(SUM(debit), 0) as debit, COALESCE(SUM(credit), 0) as credit')
-            ->first();
-
-        $debit = (float) ($row->debit ?? 0);
-        $credit = (float) ($row->credit ?? 0);
-
-        return round($account->normal_balance === 'debit' ? $debit - $credit : $credit - $debit, 2);
     }
 }

@@ -84,6 +84,13 @@
                 · Cash difference: <strong>{{ number_format($health['cash_difference'], 2) }}</strong>
                 · Receivable difference: <strong>{{ number_format($health['receivable_difference'], 2) }}</strong>
                 · Payable difference: <strong>{{ number_format($health['payable_difference'], 2) }}</strong>
+                @if(abs($health['unassigned_receivable']) >= 0.01 || abs($health['unassigned_payable']) >= 0.01)
+                    <br>
+                    <span style="font-size:12px;">
+                        Unassigned to a party: receivable {{ number_format($health['unassigned_receivable'], 2) }}
+                        · payable {{ number_format($health['unassigned_payable'], 2) }}
+                    </span>
+                @endif
             </div>
         </div>
     </div>

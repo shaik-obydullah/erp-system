@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Accounting\AccountingPoster;
 use App\Models\Cashbook;
 use App\Models\Configuration;
+use App\Models\JournalEntry;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SupplierTransactionController extends Controller
 {
@@ -89,14 +91,19 @@ class SupplierTransactionController extends Controller
             'csv_file' => 'required|file|mimes:csv,txt|max:5120',
         ]);
 
-        $file = fopen($request->file('csv_file')->getPathname(), 'r');
+        $upload = $request->file('csv_file');
+        $fileName = $upload->getClientOriginalName();
+        $file = fopen($upload->getPathname(), 'r');
         $header = fgetcsv($file);
 
         $imported = 0;
         $skipped = 0;
         $errors = [];
+        $line = 0;
 
         while (($row = fgetcsv($file)) !== false) {
+            $line++;
+
             if (count($row) < 1) {
                 $skipped++;
                 continue;
@@ -119,25 +126,37 @@ class SupplierTransactionController extends Controller
                 continue;
             }
 
-            try {
-                Cashbook::create([
-                    'table_name' => 'suppliers',
-                    'fk_reference_id' => $supplier->id,
-                    'description' => trim($data['Description'] ?? '') ?: null,
-                    'in_amount' => (float) ($data['In Amount'] ?? 0),
-                    'out_amount' => (float) ($data['Out Amount'] ?? 0),
-                    'amount_payable' => (float) ($data['Payable'] ?? 0),
-                    'amount_receivable' => (float) ($data['Receivable'] ?? 0),
-                    'created_by' => auth('admin')->id(),
-                ]);
+            // Stable per-file row key so re-importing the same file is
+            // idempotent while a different import never reuses a key.
+            $rowKey = md5($fileName.'|'.$line.'|'.json_encode($data));
 
-                app(AccountingPoster::class)->importSupplier($supplier, [
-                    'in' => (float) ($data['In Amount'] ?? 0),
-                    'out' => (float) ($data['Out Amount'] ?? 0),
-                    'payable' => (float) ($data['Payable'] ?? 0),
-                    'receivable' => (float) ($data['Receivable'] ?? 0),
-                    'description' => trim($data['Description'] ?? '') ?: null,
-                ], (string) ($imported + 1), auth('admin')->id());
+            if (JournalEntry::withTrashed()->where('source_key', "import:supplier:{$supplier->id}:{$rowKey}")->exists()) {
+                $skipped++;
+                continue;
+            }
+
+            try {
+                DB::transaction(function () use ($data, $supplier, $rowKey) {
+                    $cashbook = Cashbook::create([
+                        'table_name' => 'suppliers',
+                        'fk_reference_id' => $supplier->id,
+                        'description' => trim($data['Description'] ?? '') ?: null,
+                        'in_amount' => (float) ($data['In Amount'] ?? 0),
+                        'out_amount' => (float) ($data['Out Amount'] ?? 0),
+                        'amount_payable' => (float) ($data['Payable'] ?? 0),
+                        'amount_receivable' => (float) ($data['Receivable'] ?? 0),
+                        'created_by' => auth('admin')->id(),
+                    ]);
+
+                    app(AccountingPoster::class)->importSupplier($supplier, [
+                        'in' => (float) ($data['In Amount'] ?? 0),
+                        'out' => (float) ($data['Out Amount'] ?? 0),
+                        'payable' => (float) ($data['Payable'] ?? 0),
+                        'receivable' => (float) ($data['Receivable'] ?? 0),
+                        'description' => trim($data['Description'] ?? '') ?: null,
+                        'date' => trim($data['Date'] ?? '') ?: null,
+                    ], $rowKey, auth('admin')->id(), $cashbook->id);
+                });
 
                 $imported++;
             } catch (\Exception $e) {

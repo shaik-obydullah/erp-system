@@ -33,7 +33,9 @@ class ExpenseController extends Controller
 
     public function create()
     {
-        return view('expenses.create');
+        $currencySymbol = Configuration::get('currency_symbol', '$');
+
+        return view('expenses.create', compact('currencySymbol'));
     }
 
     public function store(Request $request)

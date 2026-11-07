@@ -92,7 +92,7 @@ class RolePermissionTest extends TestCase
         $admin = Admin::factory()->create();
         $role = Role::create(['name' => 'super-admin']);
         $admin->roles()->attach($role);
-        Permission::create(['fk_role_id' => $role->id, 'name' => 'manage-products']);
+        $role->permissions()->attach(Permission::create(['name' => 'manage-products']));
 
         $response = $this->actingAs($admin, 'admin')->get('/test-permission-required');
 
@@ -116,7 +116,7 @@ class RolePermissionTest extends TestCase
         $admin = Admin::factory()->create();
         $role = Role::create(['name' => 'cashier']);
         $admin->roles()->attach($role);
-        Permission::create(['fk_role_id' => $role->id, 'name' => 'sell-products']);
+        $role->permissions()->attach(Permission::create(['name' => 'sell-products']));
 
         $response = $this->actingAs($admin, 'admin')->get('/test-any-permission');
 

@@ -4,11 +4,17 @@ namespace Tests\Feature\Accounting;
 
 use App\Accounting\AccountingPoster;
 use App\Accounting\LedgerService;
+use App\Accounting\Reconciliation;
 use App\Accounting\UnbalancedEntryException;
+use App\Models\Admin;
+use App\Models\Cashbook;
 use App\Models\Customer;
 use App\Models\Expense;
+use App\Models\FiscalPeriod;
 use App\Models\Income;
 use App\Models\JournalEntry;
+use App\Models\Permission;
+use App\Models\Role;
 use App\Models\Sale;
 use App\Models\SaleReturn;
 use App\Models\Stock;
@@ -62,6 +68,23 @@ class AccountingPostingTest extends TestCase
         $poster->sale($sale, 500, 500, 300);
 
         $this->assertSame(2, JournalEntry::where('source_id', $sale->id)->where('source_type', 'sale')->count());
+    }
+
+    public function test_journal_entry_numbers_are_short_unique_and_sequential(): void
+    {
+        $sale = $this->makeSale();
+
+        app(AccountingPoster::class)->sale($sale, 600, 400, 350);
+
+        $income = $this->entry("sale:{$sale->id}:income");
+        $cogs = $this->entry("sale:{$sale->id}:cogs");
+
+        foreach ([$income, $cogs] as $entry) {
+            $this->assertLessThanOrEqual(30, strlen($entry->entry_no));
+            $this->assertMatchesRegularExpression('/^JE-\d{4}-\d{6}$/', $entry->entry_no);
+        }
+
+        $this->assertNotSame($income->entry_no, $cogs->entry_no);
     }
 
     public function test_sale_can_post_without_tax(): void
@@ -213,6 +236,89 @@ class AccountingPostingTest extends TestCase
         $this->artisan('accounting:verify')->assertSuccessful();
     }
 
+    public function test_backfill_is_idempotent(): void
+    {
+        $sale = $this->makeSale(['paid_amount' => 600, 'sale_due' => 400]);
+
+        Transaction::create([
+            'date' => now()->toDateString(),
+            'type' => Transaction::TYPE_SALE_INCOME,
+            'fk_reference_id' => $sale->id,
+            'amount' => 1000,
+            'paid_amount' => 600,
+            'due_amount' => 400,
+        ]);
+
+        $this->artisan('accounting:backfill', ['--only' => ['sales']])->assertSuccessful();
+        $firstCount = JournalEntry::count();
+
+        $this->artisan('accounting:backfill', ['--only' => ['sales']])->assertSuccessful();
+
+        $this->assertSame($firstCount, JournalEntry::count());
+        $this->assertSame(2, $firstCount);
+    }
+
+    public function test_posting_is_blocked_for_a_closed_fiscal_period(): void
+    {
+        $this->expectException(UnbalancedEntryException::class);
+
+        FiscalPeriod::create([
+            'name' => now()->format('F Y'),
+            'start_date' => now()->startOfMonth()->toDateString(),
+            'end_date' => now()->endOfMonth()->toDateString(),
+            'status' => 'closed',
+        ]);
+
+        app(LedgerService::class)->post(
+            'manual',
+            'manual',
+            null,
+            'manual:closed-period',
+            now(),
+            'Should be blocked',
+            [
+                ['account' => 'cash', 'debit' => 100],
+                ['account' => 'general_income', 'credit' => 100],
+            ]
+        );
+    }
+
+    public function test_reversal_is_idempotent(): void
+    {
+        $sale = $this->makeSale();
+        app(AccountingPoster::class)->sale($sale, 600, 400, 350);
+
+        $entry = $this->entry("sale:{$sale->id}:income");
+        $ledger = app(LedgerService::class);
+
+        $ledger->reverse($entry, 'First reversal');
+        $ledger->reverse($entry, 'Second reversal');
+
+        $this->assertSame(1, JournalEntry::where('source_key', "sale:{$sale->id}:income:reversal")->count());
+        $this->assertSame(3, JournalEntry::count());
+    }
+
+    public function test_income_posting_links_back_to_cashbook_and_transaction(): void
+    {
+        $income = $this->makeIncome(125, 'Consulting');
+
+        $cashbook = Cashbook::create([
+            'table_name' => 'incomes',
+            'fk_reference_id' => $income->fk_transaction_id,
+            'description' => 'Consulting',
+            'in_amount' => 125,
+            'out_amount' => 0,
+        ]);
+
+        app(AccountingPoster::class)->income($income);
+
+        $entry = $this->entry("income:{$income->id}:income");
+
+        $this->assertSame($entry->id, $income->fresh()->journal_entry_id);
+        $this->assertSame($entry->id, $cashbook->fresh()->journal_entry_id);
+        $this->assertSame($entry->id, $income->transaction->fresh()->journal_entry_id);
+    }
+
     public function test_ledger_rejects_unbalanced_entries(): void
     {
         $this->expectException(UnbalancedEntryException::class);
@@ -247,6 +353,74 @@ class AccountingPostingTest extends TestCase
                 ['account' => 'general_income', 'credit' => 100],
             ]
         );
+    }
+
+    public function test_accounting_pages_render_for_an_authorised_admin(): void
+    {
+        $admin = Admin::factory()->create();
+        $role = Role::create(['name' => 'accountant']);
+        $admin->roles()->attach($role);
+
+        foreach (['accounting.view', 'accounting.advanced', 'accounting.manage'] as $permission) {
+            $role->permissions()->attach(Permission::create(['name' => $permission]));
+        }
+
+        $routes = [
+            'accounting.index',
+            'accounting.journal',
+            'accounting.ledger',
+            'accounting.trial-balance',
+            'accounting.profit-loss',
+            'accounting.balance-sheet',
+            'accounting.cash-flow',
+            'accounting.chart-of-accounts',
+            'accounting.reconciliation',
+        ];
+
+        foreach ($routes as $route) {
+            $this->actingAs($admin, 'admin')->get(route($route))->assertOk();
+        }
+    }
+
+    public function test_reconciliation_matches_party_balances_and_flags_unassigned_receivables(): void
+    {
+        $customer = Customer::create([
+            'name' => 'Ledger Customer',
+            'email' => 'ledger-customer@example.com',
+            'password' => 'password',
+            'balance' => -250,
+            'status' => 'active',
+        ]);
+
+        $sale = $this->makeSale([
+            'fk_user_id' => $customer->id,
+            'paid_amount' => 750,
+            'sale_due' => 250,
+        ]);
+
+        app(AccountingPoster::class)->sale($sale, 750, 250, 0);
+
+        $summary = app(Reconciliation::class)->summary();
+
+        $this->assertSame(250.0, $summary['customer_due']);
+        $this->assertSame(250.0, $summary['customer_receivable']);
+        $this->assertTrue($summary['customer_matched']);
+        $this->assertSame(0.0, $summary['unassigned_receivable']);
+
+        $anonymous = $this->makeSale([
+            'paid_amount' => 0,
+            'sale_due' => 500,
+            'grand_total' => 500,
+            'vat_amount' => 0,
+        ]);
+
+        app(AccountingPoster::class)->sale($anonymous, 0, 500, 0);
+
+        $summary = app(Reconciliation::class)->summary();
+
+        $this->assertSame(250.0, $summary['customer_receivable']);
+        $this->assertTrue($summary['customer_matched']);
+        $this->assertSame(500.0, $summary['unassigned_receivable']);
     }
 
     private function makeSale(array $overrides = []): Sale

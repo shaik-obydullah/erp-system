@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Accounting\Reconciliation;
 use App\Models\Account;
 use App\Models\Cashbook;
 use App\Models\Configuration;
-use App\Models\Customer;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
-use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -37,6 +36,7 @@ class AccountingController extends Controller
             ->join('journal_lines as l', 'l.journal_entry_id', '=', 'e.id')
             ->whereNull('e.deleted_at')
             ->where('e.status', 'posted')
+            ->select('e.id')
             ->groupBy('e.id')
             ->havingRaw('ROUND(SUM(l.debit), 2) <> ROUND(SUM(l.credit), 2)')
             ->get()
@@ -48,9 +48,11 @@ class AccountingController extends Controller
             ->filter(fn ($entry) => $entry->lines_count < 2)
             ->count();
 
-        $cashDifference = round(($moneyIn - $moneyOut) - $cashBalance, 2);
-        $receivableDifference = round((float) Customer::sum('balance') - $receivable, 2);
-        $payableDifference = round((float) Supplier::sum('balance') - $payable, 2);
+        $reconciliation = app(Reconciliation::class)->summary();
+
+        $cashDifference = $reconciliation['cash_difference'];
+        $receivableDifference = $reconciliation['receivable_difference'];
+        $payableDifference = $reconciliation['payable_difference'];
 
         $health = [
             'balanced' => $balanced && $unbalancedCount === 0,
@@ -59,13 +61,15 @@ class AccountingController extends Controller
             'cash_difference' => $cashDifference,
             'receivable_difference' => $receivableDifference,
             'payable_difference' => $payableDifference,
+            'unassigned_receivable' => $reconciliation['unassigned_receivable'],
+            'unassigned_payable' => $reconciliation['unassigned_payable'],
         ];
 
         $health['healthy'] = $health['balanced']
             && $brokenCount === 0
-            && abs($cashDifference) < 0.01
-            && abs($receivableDifference) < 0.01
-            && abs($payableDifference) < 0.01;
+            && $reconciliation['cash_matched']
+            && $reconciliation['customer_matched']
+            && $reconciliation['supplier_matched'];
 
         return view('accounting.index', compact(
             'currencySymbol',
@@ -297,32 +301,118 @@ class AccountingController extends Controller
 
     public function chartOfAccounts()
     {
-        $accounts = Account::orderBy('code')->get()->groupBy('type');
+        $allAccounts = Account::orderBy('code')->get();
+        $accounts = $allAccounts->groupBy('type');
 
         return view('accounting.chart-of-accounts', [
             'accounts' => $accounts,
+            'parents' => $allAccounts->where('is_active', true),
             'currencySymbol' => $this->currency(),
         ]);
     }
 
+    public function storeAccount(Request $request)
+    {
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:20', 'unique:accounts,code'],
+            'name' => ['required', 'string', 'max:120'],
+            'type' => ['required', 'in:asset,liability,equity,revenue,expense'],
+            'parent_id' => ['nullable', 'exists:accounts,id'],
+            'description' => ['nullable', 'string', 'max:1000'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        Account::create([
+            'code' => $validated['code'],
+            'name' => $validated['name'],
+            'type' => $validated['type'],
+            'normal_balance' => $this->normalBalanceFor($validated['type']),
+            'parent_id' => $validated['parent_id'] ?? null,
+            'is_system' => false,
+            'is_active' => $validated['is_active'] ?? true,
+            'description' => $validated['description'] ?? null,
+            'created_by' => auth('admin')->id(),
+        ]);
+
+        return redirect()->route('accounting.chart-of-accounts')
+            ->with('success', 'Account created successfully.');
+    }
+
+    public function updateAccount(Request $request, Account $account)
+    {
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:20', 'unique:accounts,code,'.$account->id],
+            'name' => ['required', 'string', 'max:120'],
+            'type' => ['required', 'in:asset,liability,equity,revenue,expense'],
+            'parent_id' => ['nullable', 'exists:accounts,id'],
+            'description' => ['nullable', 'string', 'max:1000'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        // A system account's type drives report grouping; keep it stable.
+        // Any account with posted lines also keeps its type so history stays
+        // meaningful.
+        $typeChanged = $account->type !== $validated['type'];
+        if ($typeChanged && ($account->is_system || $account->journalLines()->exists())) {
+            return back()->with('error', 'The type of a default account or an account with journal activity cannot be changed.');
+        }
+
+        $account->update([
+            'code' => $validated['code'],
+            'name' => $validated['name'],
+            'type' => $validated['type'],
+            'normal_balance' => $typeChanged
+                ? $this->normalBalanceFor($validated['type'])
+                : $account->normal_balance,
+            'parent_id' => $validated['parent_id'] ?? null,
+            'is_active' => $validated['is_active'] ?? $account->is_active,
+            'description' => $validated['description'] ?? null,
+            'updated_by' => auth('admin')->id(),
+        ]);
+
+        return redirect()->route('accounting.chart-of-accounts')
+            ->with('success', 'Account updated successfully.');
+    }
+
+    public function destroyAccount(Account $account)
+    {
+        if ($account->is_system) {
+            return back()->with('error', 'Default accounts cannot be deleted. You can rename them or mark them inactive.');
+        }
+
+        if ($account->journalLines()->exists()) {
+            return back()->with('error', 'This account has journal activity and cannot be deleted. Mark it inactive instead.');
+        }
+
+        if ($account->children()->exists()) {
+            return back()->with('error', 'Move or delete the sub-accounts first.');
+        }
+
+        $account->update(['deleted_by' => auth('admin')->id()]);
+        $account->delete();
+
+        return redirect()->route('accounting.chart-of-accounts')
+            ->with('success', 'Account deleted successfully.');
+    }
+
+    private function normalBalanceFor(string $type): string
+    {
+        return in_array($type, ['asset', 'expense'], true) ? 'debit' : 'credit';
+    }
+
     public function reconciliation()
     {
-        $cashbookNet = (float) Cashbook::sum('in_amount') - (float) Cashbook::sum('out_amount');
-        $cashAccount = $this->accountBalance('cash');
-
-        $customerBalances = (float) Customer::sum('balance');
-        $receivable = $this->accountBalance('accounts_receivable');
-
-        $supplierBalances = (float) Supplier::sum('balance');
-        $payable = $this->accountBalance('accounts_payable');
+        $summary = app(Reconciliation::class)->summary();
 
         return view('accounting.reconciliation', [
-            'cashbookNet' => $cashbookNet,
-            'cashAccount' => $cashAccount,
-            'customerBalances' => $customerBalances,
-            'receivable' => $receivable,
-            'supplierBalances' => $supplierBalances,
-            'payable' => $payable,
+            'cashbookNet' => $summary['cashbook_net'],
+            'cashAccount' => $summary['cash_account'],
+            'customerBalances' => $summary['customer_due'],
+            'receivable' => $summary['customer_receivable'],
+            'supplierBalances' => $summary['supplier_due'],
+            'payable' => $summary['supplier_payable'],
+            'unassignedReceivable' => $summary['unassigned_receivable'],
+            'unassignedPayable' => $summary['unassigned_payable'],
             'currencySymbol' => $this->currency(),
         ]);
     }

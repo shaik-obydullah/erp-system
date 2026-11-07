@@ -2,6 +2,7 @@
 
 namespace App\Accounting;
 
+use App\Models\FiscalPeriod;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use Carbon\Carbon;
@@ -60,10 +61,16 @@ class LedgerService
             ? Carbon::instance($date)
             : Carbon::parse($date ?? now());
 
+        if (FiscalPeriod::isClosedOn($entryDate->toDateString())) {
+            throw new UnbalancedEntryException(
+                "Cannot post journal entry [{$sourceKey}] into the closed fiscal period containing {$entryDate->toDateString()}."
+            );
+        }
+
         try {
             return DB::transaction(function () use ($eventType, $sourceType, $sourceId, $sourceKey, $entryDate, $memo, $normalized, $createdBy) {
                 $entry = JournalEntry::create([
-                    'entry_no' => 'TMP-'.Str::uuid(),
+                    'entry_no' => $this->temporaryEntryNo(),
                     'date' => $entryDate->toDateString(),
                     'memo' => $memo,
                     'event_type' => $eventType,
@@ -109,6 +116,16 @@ class LedgerService
      */
     public function reverse(JournalEntry $entry, ?string $memo = null, ?int $createdBy = null): ?JournalEntry
     {
+        $reversalKey = $entry->source_key.':reversal';
+
+        if ($existing = JournalEntry::withTrashed()->where('source_key', $reversalKey)->first()) {
+            return $existing;
+        }
+
+        if (FiscalPeriod::isClosedOn(now()->toDateString())) {
+            throw new UnbalancedEntryException('Cannot reverse a journal entry inside the current closed fiscal period.');
+        }
+
         $lines = $entry->lines->map(fn (JournalLine $line) => [
             'account_id' => $line->account_id,
             'debit' => (float) $line->credit,
@@ -118,15 +135,15 @@ class LedgerService
             'party_id' => $line->party_id,
         ])->all();
 
-        return DB::transaction(function () use ($entry, $lines, $memo, $createdBy) {
+        return DB::transaction(function () use ($entry, $lines, $memo, $createdBy, $reversalKey) {
             $reversal = JournalEntry::create([
-                'entry_no' => 'TMP-'.Str::uuid(),
+                'entry_no' => $this->temporaryEntryNo(),
                 'date' => now()->toDateString(),
                 'memo' => $memo ?? "Reversal of {$entry->entry_no}",
                 'event_type' => $entry->event_type.'Reversal',
                 'source_type' => $entry->source_type,
                 'source_id' => $entry->source_id,
-                'source_key' => $entry->source_key.':reversal',
+                'source_key' => $reversalKey,
                 'status' => 'posted',
                 'is_auto' => true,
                 'posted_at' => now(),
@@ -152,6 +169,15 @@ class LedgerService
 
             return $reversal->fresh('lines');
         });
+    }
+
+    /**
+     * Generate a short unique placeholder that fits the entry_no column (30 chars).
+     * The final JE-YYYY-###### number is applied immediately after insertion.
+     */
+    private function temporaryEntryNo(): string
+    {
+        return 'TMP-'.substr(Str::uuid()->getHex(), 0, 20);
     }
 
     private function normalize(array $lines): array

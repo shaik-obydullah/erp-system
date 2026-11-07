@@ -450,6 +450,12 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
             Route::get('/cash-flow', [AccountingController::class, 'cashFlow'])->name('cash-flow');
             Route::get('/chart-of-accounts', [AccountingController::class, 'chartOfAccounts'])->name('chart-of-accounts');
             Route::get('/reconciliation', [AccountingController::class, 'reconciliation'])->name('reconciliation');
+
+            Route::middleware('permission:accounting.manage')->group(function () {
+                Route::post('/accounts', [AccountingController::class, 'storeAccount'])->name('accounts.store');
+                Route::put('/accounts/{account}', [AccountingController::class, 'updateAccount'])->name('accounts.update');
+                Route::delete('/accounts/{account}', [AccountingController::class, 'destroyAccount'])->name('accounts.destroy');
+            });
         });
     });
 

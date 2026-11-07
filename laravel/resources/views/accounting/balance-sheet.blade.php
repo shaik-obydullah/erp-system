@@ -11,7 +11,7 @@
 
     <form method="GET" action="{{ route('accounting.balance-sheet') }}" style="padding:16px; display:flex; gap:12px; flex-wrap:wrap; align-items:end; border-bottom:1px solid var(--border);">
         <label style="display:flex; flex-direction:column; gap:4px; font-size:12px;">As of
-            <input type="date" name="to" value="{{ $to }}" class="form-control">
+            <input type="date" name="to" value="{{ $to }}" class="form-input">
         </label>
         <button type="submit" class="btn btn-primary">Show</button>
     </form>

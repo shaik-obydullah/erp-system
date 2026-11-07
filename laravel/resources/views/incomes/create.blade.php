@@ -43,6 +43,12 @@
                     <label for="amount">Amount *</label>
                     <input type="number" id="amount" x-model="form.amount" step="0.01" min="0" required>
                     <span class="form-error" x-show="errors.amount" x-text="errors.amount"></span>
+                    <p x-show="form.amount > 0" x-cloak style="margin-top:6px; font-size:13px; color:var(--text-secondary);">
+                        Your books will record:
+                        <strong x-text="'Cash increases {{ $currencySymbol }}' + Number(form.amount || 0).toFixed(2)"></strong>
+                        ·
+                        <strong x-text="'Income increases {{ $currencySymbol }}' + Number(form.amount || 0).toFixed(2)"></strong>
+                    </p>
                 </div>
             </div>
 

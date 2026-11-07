@@ -33,7 +33,9 @@ class IncomeController extends Controller
 
     public function create()
     {
-        return view('incomes.create');
+        $currencySymbol = Configuration::get('currency_symbol', '$');
+
+        return view('incomes.create', compact('currencySymbol'));
     }
 
     public function store(Request $request)

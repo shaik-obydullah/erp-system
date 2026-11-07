@@ -12,7 +12,7 @@
     <form method="GET" action="{{ route('accounting.ledger') }}" style="padding:16px; display:flex; gap:12px; flex-wrap:wrap; align-items:end; border-bottom:1px solid var(--border);">
         <label style="display:flex; flex-direction:column; gap:4px; font-size:12px; min-width:260px;">
             Account
-            <select name="account_id" class="form-control">
+            <select name="account_id" class="form-input">
                 @foreach($accounts as $item)
                     <option value="{{ $item->id }}" @selected($account && $account->id === $item->id)>
                         {{ $item->code }} — {{ $item->name }}
@@ -22,11 +22,11 @@
         </label>
         <label style="display:flex; flex-direction:column; gap:4px; font-size:12px;">
             From
-            <input type="date" name="from" value="{{ $from }}" class="form-control">
+            <input type="date" name="from" value="{{ $from }}" class="form-input">
         </label>
         <label style="display:flex; flex-direction:column; gap:4px; font-size:12px;">
             To
-            <input type="date" name="to" value="{{ $to }}" class="form-control">
+            <input type="date" name="to" value="{{ $to }}" class="form-input">
         </label>
         <button type="submit" class="btn btn-primary">Show</button>
     </form>

@@ -167,13 +167,15 @@ class LedgerProjector
                     $amount = (float) ($transaction->amount ?: $transaction->paid_amount);
 
                     if ($transaction->type === Transaction::TYPE_USER_FUND) {
-                        $customer = Customer::find($transaction->fk_reference_id);
+                        // Include soft-deleted parties: their cashbook rows still
+                        // affect the cash reconciliation even after the party is archived.
+                        $customer = Customer::withTrashed()->find($transaction->fk_reference_id);
                         if ($customer) {
                             $this->poster->customerFund($customer, $amount, $transaction->id, null, $transaction->created_by);
                             $count++;
                         }
                     } else {
-                        $supplier = Supplier::find($transaction->fk_reference_id);
+                        $supplier = Supplier::withTrashed()->find($transaction->fk_reference_id);
                         if ($supplier) {
                             if ($transaction->type === Transaction::TYPE_SUPPLIER_PAYMENT) {
                                 $this->poster->supplierPayment($supplier, $amount, $transaction->id, null, $transaction->created_by);
