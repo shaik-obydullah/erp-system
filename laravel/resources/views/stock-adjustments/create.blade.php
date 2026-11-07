@@ -10,6 +10,11 @@
     </div>
     <div class="card-body">
 
+        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+            Use this to correct your stock count. <strong>Damage</strong> and <strong>Correction</strong> reduce stock;
+            <strong>Return</strong> adds stock back. A damage adjustment also records the cost as an inventory loss in accounting.
+        </p>
+
         <div x-show="successMessage" x-cloak class="alert alert-success show">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
@@ -76,9 +81,9 @@
                     <label for="reason">Reason *</label>
                     <select id="reason" x-model="form.reason" required>
                         <option value="">Select Reason</option>
-                        <option value="correction">Correction</option>
-                        <option value="damage">Damage</option>
-                        <option value="return">Return</option>
+                        <option value="correction">Correction (reduce stock)</option>
+                        <option value="damage">Damage (reduce stock, record loss)</option>
+                        <option value="return">Return (add stock back)</option>
                     </select>
                     <span class="form-error" x-show="errors.reason" x-text="errors.reason"></span>
                 </div>

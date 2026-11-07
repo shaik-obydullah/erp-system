@@ -13,6 +13,7 @@ use App\Models\Transaction;
 use App\Services\ActivityLogger;
 use App\Services\VatCalculator;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SaleReturnController extends Controller
 {
@@ -151,9 +152,18 @@ class SaleReturnController extends Controller
 
     public function destroy(Request $request, SaleReturn $saleReturn)
     {
-        $saleReturn->update(['deleted_by' => auth('admin')->id()]);
+        $adminId = auth('admin')->id();
+
+        DB::transaction(function () use ($saleReturn, $adminId) {
+            // Deleting a return must undo its refund/restock entries and the
+            // cashbook/transaction rows that were created when it was approved.
+            app(AccountingPoster::class)->reverseOperational('sale_return', $saleReturn->id, $adminId);
+
+            $saleReturn->update(['deleted_by' => $adminId, 'journal_entry_id' => null]);
+            $saleReturn->delete();
+        });
+
         ActivityLogger::deleted('Sale Return', $saleReturn);
-        $saleReturn->delete();
 
         if ($request->expectsJson()) {
             return response()->json([

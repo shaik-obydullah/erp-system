@@ -2,17 +2,25 @@
 
 namespace App\Accounting;
 
+use App\Models\Campaign;
 use App\Models\Cashbook;
 use App\Models\Customer;
 use App\Models\Expense;
+use App\Models\FixedAsset;
 use App\Models\Income;
+use App\Models\JournalEntry;
+use App\Models\Payroll;
+use App\Models\Production;
 use App\Models\PurchaseOrder;
 use App\Models\Sale;
 use App\Models\SaleReturn;
 use App\Models\ShipmentCost;
+use App\Models\ShipmentReturn;
 use App\Models\Stock;
+use App\Models\StockAdjustment;
 use App\Models\Supplier;
 use App\Models\Transaction;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class AccountingPoster
@@ -562,6 +570,521 @@ class AccountingPoster
                 }
             }
         });
+    }
+
+    /**
+     * Post a manual stock adjustment to the ledger.
+     *
+     * Damage and downward corrections write inventory off as a loss. A return
+     * adds stock back and reverses that loss. Value is taken at cost
+     * (stocks.buy_price), never sale price, because no sale happened.
+     */
+    public function stockAdjustment(StockAdjustment $adjustment, ?int $adminId = null): void
+    {
+        $this->safe(function () use ($adjustment, $adminId) {
+            $adjustment->loadMissing('stock.product');
+
+            $stock = $adjustment->stock;
+
+            if (! $stock) {
+                return;
+            }
+
+            $cost = round((int) $adjustment->quantity * (float) ($stock->buy_price ?? 0), 2);
+
+            if ($cost <= 0) {
+                return;
+            }
+
+            $label = $stock->product?->name ?? ('stock #'.$stock->id);
+            $description = ucfirst($adjustment->reason)." stock adjustment for {$label}";
+
+            // A return puts stock back on the shelf, so it reverses the loss.
+            // Damage and corrections take stock out, so they post a loss.
+            $lines = $adjustment->reason === 'return'
+                ? [
+                    ['account' => 'inventory', 'debit' => $cost, 'description' => $description],
+                    ['account' => 'inventory_adjustment', 'credit' => $cost, 'description' => $description],
+                ]
+                : [
+                    ['account' => 'inventory_adjustment', 'debit' => $cost, 'description' => $description],
+                    ['account' => 'inventory', 'credit' => $cost, 'description' => $description],
+                ];
+
+            $entry = $this->ledger->post(
+                'stockAdjustment',
+                'stock_adjustment',
+                $adjustment->id,
+                "stock_adjustment:{$adjustment->id}",
+                $adjustment->created_at ?? now(),
+                "Stock adjustment #{$adjustment->id}",
+                $lines,
+                $adminId
+            );
+
+            if ($entry) {
+                StockAdjustment::where('id', $adjustment->id)
+                    ->whereNull('journal_entry_id')
+                    ->update(['journal_entry_id' => $entry->id]);
+            }
+        });
+    }
+
+    /**
+     * Record the purchase of a fixed asset as a cash outflow.
+     */
+    public function fixedAsset(FixedAsset $asset, ?int $adminId = null): void
+    {
+        $this->safe(function () use ($asset, $adminId) {
+            $amount = round(max(0, (float) $asset->price), 2);
+
+            if ($amount <= 0) {
+                return;
+            }
+
+            $sourceKey = $this->operationalKey('fixed_asset', $asset->id, $asset->accounting_version);
+
+            if (JournalEntry::withTrashed()->where('source_key', $sourceKey)->exists()) {
+                return;
+            }
+
+            DB::transaction(function () use ($asset, $amount, $sourceKey, $adminId) {
+                $description = "Fixed asset: {$asset->name}";
+
+                $transaction = Transaction::create([
+                    'date' => now()->toDateString(),
+                    'type' => Transaction::TYPE_FIXED_ASSET,
+                    'fk_reference_id' => $asset->id,
+                    'amount' => $amount,
+                    'paid_amount' => $amount,
+                    'due_amount' => 0,
+                    'created_by' => $adminId,
+                ]);
+
+                $cashbook = Cashbook::create([
+                    'table_name' => 'fixed_assets',
+                    'fk_reference_id' => $asset->id,
+                    'description' => $description,
+                    'in_amount' => 0,
+                    'out_amount' => $amount,
+                    'amount_payable' => 0,
+                    'amount_receivable' => 0,
+                    'created_by' => $adminId,
+                ]);
+
+                $entry = $this->ledger->post(
+                    'fixedAsset',
+                    'fixed_asset',
+                    $asset->id,
+                    $sourceKey,
+                    now(),
+                    $description,
+                    [
+                        ['account' => 'fixed_assets', 'debit' => $amount, 'description' => $description],
+                        ['account' => 'cash', 'credit' => $amount, 'description' => $description],
+                    ],
+                    $adminId
+                );
+
+                if ($entry) {
+                    $transaction->update(['journal_entry_id' => $entry->id]);
+                    $cashbook->update(['journal_entry_id' => $entry->id]);
+                    FixedAsset::where('id', $asset->id)->update(['journal_entry_id' => $entry->id]);
+                }
+            });
+        });
+    }
+
+    /**
+     * Record a payroll run as salary expense paid from cash.
+     */
+    public function payroll(Payroll $payroll, ?int $adminId = null): void
+    {
+        $this->safe(function () use ($payroll, $adminId) {
+            $amount = round(max(0, (float) $payroll->net_salary), 2);
+
+            if ($amount <= 0) {
+                return;
+            }
+
+            $sourceKey = $this->operationalKey('payroll', $payroll->id, $payroll->accounting_version);
+
+            if (JournalEntry::withTrashed()->where('source_key', $sourceKey)->exists()) {
+                return;
+            }
+
+            DB::transaction(function () use ($payroll, $amount, $sourceKey, $adminId) {
+                $payroll->loadMissing('employee');
+                $name = trim(($payroll->employee->first_name ?? '').' '.($payroll->employee->last_name ?? ''));
+                $description = $name !== '' ? "Salary paid to {$name}" : "Salary payment #{$payroll->id}";
+                $date = $payroll->pay_date ?? now();
+
+                $transaction = Transaction::create([
+                    'date' => $date instanceof \DateTimeInterface ? $date->format('Y-m-d') : (string) $date,
+                    'type' => Transaction::TYPE_SALARY_PAYMENT,
+                    'fk_reference_id' => $payroll->id,
+                    'amount' => $amount,
+                    'paid_amount' => $amount,
+                    'due_amount' => 0,
+                    'created_by' => $adminId,
+                ]);
+
+                $cashbook = Cashbook::create([
+                    'table_name' => 'payrolls',
+                    'fk_reference_id' => $payroll->id,
+                    'description' => $description,
+                    'in_amount' => 0,
+                    'out_amount' => $amount,
+                    'amount_payable' => 0,
+                    'amount_receivable' => 0,
+                    'created_by' => $adminId,
+                ]);
+
+                $entry = $this->ledger->post(
+                    'salaryPayment',
+                    'payroll',
+                    $payroll->id,
+                    $sourceKey,
+                    $date,
+                    $description,
+                    [
+                        ['account' => 'salaries_expense', 'debit' => $amount, 'description' => $description],
+                        ['account' => 'cash', 'credit' => $amount, 'description' => $description],
+                    ],
+                    $adminId
+                );
+
+                if ($entry) {
+                    $transaction->update(['journal_entry_id' => $entry->id]);
+                    $cashbook->update(['journal_entry_id' => $entry->id]);
+                    Payroll::where('id', $payroll->id)->update(['journal_entry_id' => $entry->id]);
+                }
+            });
+        });
+    }
+
+    /**
+     * Post the actual spend of a campaign. The budget stays a memo only.
+     */
+    public function campaignSpend(Campaign $campaign, ?int $adminId = null): void
+    {
+        $this->safe(function () use ($campaign, $adminId) {
+            $amount = round(max(0, (float) $campaign->spent_amount), 2);
+
+            if ($amount <= 0) {
+                return;
+            }
+
+            $sourceKey = $this->operationalKey('campaign', $campaign->id, $campaign->accounting_version);
+
+            if (JournalEntry::withTrashed()->where('source_key', $sourceKey)->exists()) {
+                return;
+            }
+
+            DB::transaction(function () use ($campaign, $amount, $sourceKey, $adminId) {
+                $description = "Campaign spend: {$campaign->name}";
+
+                $transaction = Transaction::create([
+                    'date' => now()->toDateString(),
+                    'type' => Transaction::TYPE_CAMPAIGN_EXPENSE,
+                    'fk_reference_id' => $campaign->id,
+                    'amount' => $amount,
+                    'paid_amount' => $amount,
+                    'due_amount' => 0,
+                    'created_by' => $adminId,
+                ]);
+
+                $cashbook = Cashbook::create([
+                    'table_name' => 'campaigns',
+                    'fk_reference_id' => $campaign->id,
+                    'description' => $description,
+                    'in_amount' => 0,
+                    'out_amount' => $amount,
+                    'amount_payable' => 0,
+                    'amount_receivable' => 0,
+                    'created_by' => $adminId,
+                ]);
+
+                $entry = $this->ledger->post(
+                    'campaignExpense',
+                    'campaign',
+                    $campaign->id,
+                    $sourceKey,
+                    now(),
+                    $description,
+                    [
+                        ['account' => 'marketing_expense', 'debit' => $amount, 'description' => $description],
+                        ['account' => 'cash', 'credit' => $amount, 'description' => $description],
+                    ],
+                    $adminId
+                );
+
+                if ($entry) {
+                    $transaction->update(['journal_entry_id' => $entry->id]);
+                    $cashbook->update(['journal_entry_id' => $entry->id]);
+                    Campaign::where('id', $campaign->id)->update(['journal_entry_id' => $entry->id]);
+                }
+            });
+        });
+    }
+
+    /**
+     * Capitalise production cost (production + other cost) into inventory and
+     * record the matching cash outflow.
+     */
+    public function production(Production $production, ?int $adminId = null): void
+    {
+        $this->safe(function () use ($production, $adminId) {
+            $amount = round(max(0, (float) $production->production_cost) + max(0, (float) $production->other_cost), 2);
+
+            if ($amount <= 0) {
+                return;
+            }
+
+            $sourceKey = $this->operationalKey('production', $production->id, $production->accounting_version);
+
+            if (JournalEntry::withTrashed()->where('source_key', $sourceKey)->exists()) {
+                return;
+            }
+
+            DB::transaction(function () use ($production, $amount, $sourceKey, $adminId) {
+                $description = "Production run #{$production->id}";
+
+                $transaction = Transaction::create([
+                    'date' => now()->toDateString(),
+                    'type' => Transaction::TYPE_BOM_EXPENSE,
+                    'fk_reference_id' => $production->id,
+                    'amount' => $amount,
+                    'paid_amount' => $amount,
+                    'due_amount' => 0,
+                    'created_by' => $adminId,
+                ]);
+
+                $cashbook = Cashbook::create([
+                    'table_name' => 'productions',
+                    'fk_reference_id' => $production->id,
+                    'description' => $description,
+                    'in_amount' => 0,
+                    'out_amount' => $amount,
+                    'amount_payable' => 0,
+                    'amount_receivable' => 0,
+                    'created_by' => $adminId,
+                ]);
+
+                $entry = $this->ledger->post(
+                    'bomExpense',
+                    'production',
+                    $production->id,
+                    $sourceKey,
+                    now(),
+                    $description,
+                    [
+                        ['account' => 'inventory', 'debit' => $amount, 'description' => $description],
+                        ['account' => 'cash', 'credit' => $amount, 'description' => $description],
+                    ],
+                    $adminId
+                );
+
+                if ($entry) {
+                    $transaction->update(['journal_entry_id' => $entry->id]);
+                    $cashbook->update(['journal_entry_id' => $entry->id]);
+                    Production::where('id', $production->id)->update(['journal_entry_id' => $entry->id]);
+                }
+            });
+        });
+    }
+
+    /**
+     * Post a new stock line as opening stock. No cash moves: the value is
+     * balanced against opening-balance equity.
+     */
+    public function stockIn(Stock $stock, ?int $adminId = null): void
+    {
+        $this->safe(function () use ($stock, $adminId) {
+            $amount = round(max(0, (int) $stock->quantity) * max(0, (float) $stock->buy_price), 2);
+
+            if ($amount <= 0) {
+                return;
+            }
+
+            $sourceKey = $this->operationalKey('stock', $stock->id, $stock->accounting_version);
+
+            if (JournalEntry::withTrashed()->where('source_key', $sourceKey)->exists()) {
+                return;
+            }
+
+            $stock->loadMissing('product');
+            $label = $stock->product?->name ?? ('stock #'.$stock->id);
+            $description = "Opening stock for {$label}";
+
+            $entry = $this->ledger->post(
+                'stockIn',
+                'stock',
+                $stock->id,
+                $sourceKey,
+                now(),
+                $description,
+                [
+                    ['account' => 'inventory', 'debit' => $amount, 'description' => $description],
+                    ['account' => 'opening_balance_equity', 'credit' => $amount, 'description' => $description],
+                ],
+                $adminId
+            );
+
+            if ($entry) {
+                Stock::where('id', $stock->id)->update(['journal_entry_id' => $entry->id]);
+            }
+        });
+    }
+
+    /**
+     * Post a supplier opening balance. A positive balance is an advance paid
+     * to the supplier; a negative balance is money owed to the supplier.
+     */
+    public function supplierOpening(Supplier $supplier, ?int $adminId = null): void
+    {
+        $this->safe(function () use ($supplier, $adminId) {
+            $balance = round((float) $supplier->balance, 2);
+
+            if (abs($balance) < 0.01) {
+                return;
+            }
+
+            $sourceKey = $this->operationalKey('supplier_opening', $supplier->id, $supplier->accounting_version);
+
+            if (JournalEntry::withTrashed()->where('source_key', $sourceKey)->exists()) {
+                return;
+            }
+
+            $description = "Opening balance for {$supplier->name}";
+
+            $lines = $balance > 0
+                ? [
+                    ['account' => 'supplier_advances', 'debit' => $balance, 'party_type' => 'supplier', 'party_id' => $supplier->id, 'description' => $description],
+                    ['account' => 'opening_balance_equity', 'credit' => $balance, 'description' => $description],
+                ]
+                : [
+                    ['account' => 'opening_balance_equity', 'debit' => abs($balance), 'description' => $description],
+                    ['account' => 'accounts_payable', 'credit' => abs($balance), 'party_type' => 'supplier', 'party_id' => $supplier->id, 'description' => $description],
+                ];
+
+            $entry = $this->ledger->post(
+                'supplierOpening',
+                'supplier',
+                $supplier->id,
+                $sourceKey,
+                now(),
+                $description,
+                $lines,
+                $adminId
+            );
+
+            if ($entry) {
+                Supplier::where('id', $supplier->id)->update(['journal_entry_id' => $entry->id]);
+            }
+        });
+    }
+
+    /**
+     * Reverse a purchase by returning goods to the supplier. The payable is
+     * reduced first, then any supplier advance, and inventory comes out.
+     */
+    public function shipmentReturn(ShipmentReturn $return, ?int $adminId = null): void
+    {
+        $this->safe(function () use ($return, $adminId) {
+            if (! in_array($return->status, ['processed', 'completed'], true)) {
+                return;
+            }
+
+            $amount = round(max(0, (float) $return->invoice_amount), 2);
+
+            if ($amount <= 0) {
+                return;
+            }
+
+            $sourceKey = $this->operationalKey('shipment_return', $return->id, $return->accounting_version);
+
+            if (JournalEntry::withTrashed()->where('source_key', $sourceKey)->exists()) {
+                return;
+            }
+
+            $return->loadMissing('purchaseOrder');
+            $order = $return->purchaseOrder;
+            $due = round(min($amount, max(0, (float) ($order->due_amount ?? 0))), 2);
+            $advance = round($amount - $due, 2);
+            $supplierId = $order->fk_supplier_id ?? null;
+            $description = "Goods returned to supplier (return #{$return->id})";
+
+            $lines = [];
+
+            if ($due > 0) {
+                $lines[] = [
+                    'account' => 'accounts_payable',
+                    'debit' => $due,
+                    'party_type' => $supplierId ? 'supplier' : null,
+                    'party_id' => $supplierId,
+                    'description' => $description,
+                ];
+            }
+
+            if ($advance > 0) {
+                $lines[] = [
+                    'account' => 'supplier_advances',
+                    'debit' => $advance,
+                    'party_type' => $supplierId ? 'supplier' : null,
+                    'party_id' => $supplierId,
+                    'description' => $description,
+                ];
+            }
+
+            $lines[] = ['account' => 'inventory', 'credit' => $amount, 'description' => $description];
+
+            $entry = $this->ledger->post(
+                'shipmentReturn',
+                'shipment_return',
+                $return->id,
+                $sourceKey,
+                now(),
+                $description,
+                $lines,
+                $adminId
+            );
+
+            if ($entry) {
+                ShipmentReturn::where('id', $return->id)->update(['journal_entry_id' => $entry->id]);
+            }
+        });
+    }
+
+    /**
+     * Reverse every posted entry for a source and soft-delete the simple-layer
+     * rows that were linked to them. Used before a replacement posting and on
+     * delete.
+     */
+    public function reverseOperational(string $sourceType, int $sourceId, ?int $adminId = null): void
+    {
+        $this->safe(function () use ($sourceType, $sourceId, $adminId) {
+            $entries = JournalEntry::where('source_type', $sourceType)
+                ->where('source_id', $sourceId)
+                ->where('source_key', 'not like', '%:reversal')
+                ->get();
+
+            foreach ($entries as $entry) {
+                $reversalKey = $entry->source_key.':reversal';
+
+                if (! JournalEntry::withTrashed()->where('source_key', $reversalKey)->exists()) {
+                    $this->ledger->reverse($entry, "Reversal of {$entry->entry_no}", $adminId);
+                }
+
+                Transaction::where('journal_entry_id', $entry->id)->delete();
+                Cashbook::where('journal_entry_id', $entry->id)->delete();
+            }
+        });
+    }
+
+    private function operationalKey(string $base, int $id, ?int $version): string
+    {
+        return "{$base}:{$id}:v".max(1, (int) $version);
     }
 
     /**

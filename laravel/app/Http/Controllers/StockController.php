@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Accounting\AccountingPoster;
 use App\Models\Configuration;
 use App\Models\Product;
 use App\Models\Stock;
 use App\Models\Warehouse;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class StockController extends Controller
 {
@@ -63,19 +65,28 @@ class StockController extends Controller
             'status' => 'required|in:active,inactive,archive',
         ]);
 
-        Stock::create([
-            'fk_product_id' => $validated['fk_product_id'],
-            'fk_warehouses_id' => $validated['fk_warehouses_id'] ?? null,
-            'batch' => $validated['batch'] ?? null,
-            'lot' => $validated['lot'] ?? null,
-            'quantity' => $validated['quantity'],
-            'buy_price' => $validated['buy_price'],
-            'sale_price' => $validated['sale_price'],
-            'status' => $validated['status'],
-            'created_by' => auth('admin')->id(),
-        ]);
+        $adminId = auth('admin')->id();
 
-        ActivityLogger::created('Stock', Stock::latest('id')->first());
+        $stock = DB::transaction(function () use ($validated, $adminId) {
+            $stock = Stock::create([
+                'fk_product_id' => $validated['fk_product_id'],
+                'fk_warehouses_id' => $validated['fk_warehouses_id'] ?? null,
+                'batch' => $validated['batch'] ?? null,
+                'lot' => $validated['lot'] ?? null,
+                'quantity' => $validated['quantity'],
+                'buy_price' => $validated['buy_price'],
+                'sale_price' => $validated['sale_price'],
+                'status' => $validated['status'],
+                'accounting_version' => 1,
+                'created_by' => $adminId,
+            ]);
+
+            app(AccountingPoster::class)->stockIn($stock, $adminId);
+
+            return $stock;
+        });
+
+        ActivityLogger::created('Stock', $stock);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -110,18 +121,47 @@ class StockController extends Controller
         ]);
 
         $old = $stock->toArray();
+        $adminId = auth('admin')->id();
+        $valueChanged = (int) $stock->quantity !== (int) $validated['quantity']
+            || round((float) $stock->buy_price, 2) !== round((float) $validated['buy_price'], 2);
 
-        $stock->update([
-            'fk_product_id' => $validated['fk_product_id'],
-            'fk_warehouses_id' => $validated['fk_warehouses_id'] ?? null,
-            'batch' => $validated['batch'] ?? null,
-            'lot' => $validated['lot'] ?? null,
-            'quantity' => $validated['quantity'],
-            'buy_price' => $validated['buy_price'],
-            'sale_price' => $validated['sale_price'],
-            'status' => $validated['status'],
-            'updated_by' => auth('admin')->id(),
-        ]);
+        DB::transaction(function () use ($stock, $validated, $adminId, $valueChanged) {
+            $poster = app(AccountingPoster::class);
+
+            if ($valueChanged || (! $stock->journal_entry_id && (int) $validated['quantity'] > 0 && (float) $validated['buy_price'] > 0)) {
+                $poster->reverseOperational('stock', $stock->id, $adminId);
+
+                $stock->update([
+                    'fk_product_id' => $validated['fk_product_id'],
+                    'fk_warehouses_id' => $validated['fk_warehouses_id'] ?? null,
+                    'batch' => $validated['batch'] ?? null,
+                    'lot' => $validated['lot'] ?? null,
+                    'quantity' => $validated['quantity'],
+                    'buy_price' => $validated['buy_price'],
+                    'sale_price' => $validated['sale_price'],
+                    'status' => $validated['status'],
+                    'journal_entry_id' => null,
+                    'accounting_version' => max(1, (int) $stock->accounting_version) + 1,
+                    'updated_by' => $adminId,
+                ]);
+
+                $poster->stockIn($stock->fresh(), $adminId);
+
+                return;
+            }
+
+            $stock->update([
+                'fk_product_id' => $validated['fk_product_id'],
+                'fk_warehouses_id' => $validated['fk_warehouses_id'] ?? null,
+                'batch' => $validated['batch'] ?? null,
+                'lot' => $validated['lot'] ?? null,
+                'quantity' => $validated['quantity'],
+                'buy_price' => $validated['buy_price'],
+                'sale_price' => $validated['sale_price'],
+                'status' => $validated['status'],
+                'updated_by' => $adminId,
+            ]);
+        });
 
         ActivityLogger::updated('Stock', $stock, $stock->toArray());
 
@@ -138,10 +178,16 @@ class StockController extends Controller
 
     public function destroy(Request $request, Stock $stock)
     {
-        ActivityLogger::deleted('Stock', $stock);
+        $adminId = auth('admin')->id();
 
-        $stock->update(['deleted_by' => auth('admin')->id()]);
-        $stock->delete();
+        DB::transaction(function () use ($stock, $adminId) {
+            app(AccountingPoster::class)->reverseOperational('stock', $stock->id, $adminId);
+
+            $stock->update(['deleted_by' => $adminId, 'journal_entry_id' => null]);
+            $stock->delete();
+        });
+
+        ActivityLogger::deleted('Stock', $stock);
 
         if ($request->expectsJson()) {
             return response()->json([

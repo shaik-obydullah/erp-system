@@ -76,6 +76,10 @@
                 </div>
             </div>
 
+            <p style="font-size: 13px; color: var(--text-secondary); margin: 0 0 8px;">
+                When a return is processed or completed, it reduces what you owe the supplier and removes the goods from inventory.
+            </p>
+
             <div style="display: flex; gap: 12px; margin-top: 24px;">
                 <button type="submit" class="btn btn-primary" :disabled="submitting">
                     <span x-show="!submitting">Create Return</span>

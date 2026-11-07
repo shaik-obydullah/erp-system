@@ -54,6 +54,10 @@
                 </div>
             </div>
 
+            <p style="font-size: 13px; color: var(--text-secondary); margin: 0 0 8px;">
+                Buying an asset records the money as spent and adds the asset to your books.
+            </p>
+
             <div style="display: flex; gap: 12px; margin-top: 24px;">
                 <button type="submit" class="btn btn-primary" :disabled="submitting">
                     <span x-show="!submitting">Create Asset</span>

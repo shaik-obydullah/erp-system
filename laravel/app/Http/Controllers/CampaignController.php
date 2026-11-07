@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Accounting\AccountingPoster;
 use App\Models\Campaign;
 use App\Models\Configuration;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class CampaignController extends Controller
 {
@@ -46,19 +48,30 @@ class CampaignController extends Controller
             'end_date' => 'required|date|after_or_equal:start_date',
             'status' => 'required|in:planned,active,completed,canceled',
             'budget' => 'required|numeric|min:0',
+            'spent_amount' => 'nullable|numeric|min:0',
         ]);
 
-        Campaign::create([
-            'name' => $validated['name'],
-            'description' => $validated['description'] ?? null,
-            'start_date' => $validated['start_date'],
-            'end_date' => $validated['end_date'],
-            'status' => $validated['status'],
-            'budget' => $validated['budget'],
-            'created_by' => auth('admin')->id(),
-        ]);
+        $adminId = auth('admin')->id();
 
-        ActivityLogger::created('Campaign', Campaign::latest('id')->first());
+        $campaign = DB::transaction(function () use ($validated, $adminId) {
+            $campaign = Campaign::create([
+                'name' => $validated['name'],
+                'description' => $validated['description'] ?? null,
+                'start_date' => $validated['start_date'],
+                'end_date' => $validated['end_date'],
+                'status' => $validated['status'],
+                'budget' => $validated['budget'],
+                'spent_amount' => $validated['spent_amount'] ?? 0,
+                'accounting_version' => 1,
+                'created_by' => $adminId,
+            ]);
+
+            app(AccountingPoster::class)->campaignSpend($campaign, $adminId);
+
+            return $campaign;
+        });
+
+        ActivityLogger::created('Campaign', $campaign);
 
         return redirect()->route('campaigns.index')
             ->with('success', 'Campaign created successfully.');
@@ -78,17 +91,48 @@ class CampaignController extends Controller
             'end_date' => 'required|date|after_or_equal:start_date',
             'status' => 'required|in:planned,active,completed,canceled',
             'budget' => 'required|numeric|min:0',
+            'spent_amount' => 'nullable|numeric|min:0',
         ]);
 
-        $campaign->update([
-            'name' => $validated['name'],
-            'description' => $validated['description'] ?? null,
-            'start_date' => $validated['start_date'],
-            'end_date' => $validated['end_date'],
-            'status' => $validated['status'],
-            'budget' => $validated['budget'],
-            'updated_by' => auth('admin')->id(),
-        ]);
+        $adminId = auth('admin')->id();
+        $spent = $validated['spent_amount'] ?? 0;
+        $spendChanged = round((float) $campaign->spent_amount, 2) !== round((float) $spent, 2);
+
+        DB::transaction(function () use ($campaign, $validated, $spent, $adminId, $spendChanged) {
+            $poster = app(AccountingPoster::class);
+
+            if ($spendChanged || (! $campaign->journal_entry_id && $spent > 0)) {
+                $poster->reverseOperational('campaign', $campaign->id, $adminId);
+
+                $campaign->update([
+                    'name' => $validated['name'],
+                    'description' => $validated['description'] ?? null,
+                    'start_date' => $validated['start_date'],
+                    'end_date' => $validated['end_date'],
+                    'status' => $validated['status'],
+                    'budget' => $validated['budget'],
+                    'spent_amount' => $spent,
+                    'journal_entry_id' => null,
+                    'accounting_version' => max(1, (int) $campaign->accounting_version) + 1,
+                    'updated_by' => $adminId,
+                ]);
+
+                $poster->campaignSpend($campaign->fresh(), $adminId);
+
+                return;
+            }
+
+            $campaign->update([
+                'name' => $validated['name'],
+                'description' => $validated['description'] ?? null,
+                'start_date' => $validated['start_date'],
+                'end_date' => $validated['end_date'],
+                'status' => $validated['status'],
+                'budget' => $validated['budget'],
+                'spent_amount' => $spent,
+                'updated_by' => $adminId,
+            ]);
+        });
 
         ActivityLogger::updated('Campaign', $campaign, $campaign->toArray());
 
@@ -98,9 +142,16 @@ class CampaignController extends Controller
 
     public function destroy(Request $request, Campaign $campaign)
     {
+        $adminId = auth('admin')->id();
+
+        DB::transaction(function () use ($campaign, $adminId) {
+            app(AccountingPoster::class)->reverseOperational('campaign', $campaign->id, $adminId);
+
+            $campaign->update(['deleted_by' => $adminId, 'journal_entry_id' => null]);
+            $campaign->delete();
+        });
+
         ActivityLogger::deleted('Campaign', $campaign);
-        $campaign->update(['deleted_by' => auth('admin')->id()]);
-        $campaign->delete();
 
         return redirect()->route('campaigns.index')
             ->with('success', 'Campaign deleted successfully.');

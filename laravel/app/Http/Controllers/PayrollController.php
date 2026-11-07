@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Accounting\AccountingPoster;
 use App\Models\Configuration;
 use App\Models\Employee;
 use App\Models\Payroll;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PayrollController extends Controller
 {
@@ -53,17 +55,26 @@ class PayrollController extends Controller
         $deductions = $validated['deductions'] ?? 0;
         $netSalary = $validated['basic_salary'] + $allowances - $deductions;
 
-        Payroll::create([
-            'fk_employee_id' => $validated['fk_employee_id'],
-            'basic_salary' => $validated['basic_salary'],
-            'allowances' => $allowances,
-            'deductions' => $deductions,
-            'net_salary' => $netSalary,
-            'pay_date' => $validated['pay_date'],
-            'created_by' => auth('admin')->id(),
-        ]);
+        $adminId = auth('admin')->id();
 
-        ActivityLogger::created('Payroll', Payroll::latest('id')->first());
+        $payroll = DB::transaction(function () use ($validated, $allowances, $deductions, $netSalary, $adminId) {
+            $payroll = Payroll::create([
+                'fk_employee_id' => $validated['fk_employee_id'],
+                'basic_salary' => $validated['basic_salary'],
+                'allowances' => $allowances,
+                'deductions' => $deductions,
+                'net_salary' => $netSalary,
+                'pay_date' => $validated['pay_date'],
+                'accounting_version' => 1,
+                'created_by' => $adminId,
+            ]);
+
+            app(AccountingPoster::class)->payroll($payroll, $adminId);
+
+            return $payroll;
+        });
+
+        ActivityLogger::created('Payroll', $payroll);
 
         return redirect()->route('payrolls.index')
             ->with('success', 'Payroll entry created successfully.');
@@ -90,15 +101,43 @@ class PayrollController extends Controller
         $deductions = $validated['deductions'] ?? 0;
         $netSalary = $validated['basic_salary'] + $allowances - $deductions;
 
-        $payroll->update([
-            'fk_employee_id' => $validated['fk_employee_id'],
-            'basic_salary' => $validated['basic_salary'],
-            'allowances' => $allowances,
-            'deductions' => $deductions,
-            'net_salary' => $netSalary,
-            'pay_date' => $validated['pay_date'],
-            'updated_by' => auth('admin')->id(),
-        ]);
+        $adminId = auth('admin')->id();
+        $financialChanged = round((float) $payroll->net_salary, 2) !== round((float) $netSalary, 2)
+            || $payroll->pay_date?->toDateString() !== $validated['pay_date'];
+
+        DB::transaction(function () use ($payroll, $validated, $allowances, $deductions, $netSalary, $adminId, $financialChanged) {
+            $poster = app(AccountingPoster::class);
+
+            if ($financialChanged || (! $payroll->journal_entry_id && $netSalary > 0)) {
+                $poster->reverseOperational('payroll', $payroll->id, $adminId);
+
+                $payroll->update([
+                    'fk_employee_id' => $validated['fk_employee_id'],
+                    'basic_salary' => $validated['basic_salary'],
+                    'allowances' => $allowances,
+                    'deductions' => $deductions,
+                    'net_salary' => $netSalary,
+                    'pay_date' => $validated['pay_date'],
+                    'journal_entry_id' => null,
+                    'accounting_version' => max(1, (int) $payroll->accounting_version) + 1,
+                    'updated_by' => $adminId,
+                ]);
+
+                $poster->payroll($payroll->fresh(), $adminId);
+
+                return;
+            }
+
+            $payroll->update([
+                'fk_employee_id' => $validated['fk_employee_id'],
+                'basic_salary' => $validated['basic_salary'],
+                'allowances' => $allowances,
+                'deductions' => $deductions,
+                'net_salary' => $netSalary,
+                'pay_date' => $validated['pay_date'],
+                'updated_by' => $adminId,
+            ]);
+        });
 
         ActivityLogger::updated('Payroll', $payroll, $payroll->toArray());
 
@@ -108,9 +147,16 @@ class PayrollController extends Controller
 
     public function destroy(Request $request, Payroll $payroll)
     {
+        $adminId = auth('admin')->id();
+
+        DB::transaction(function () use ($payroll, $adminId) {
+            app(AccountingPoster::class)->reverseOperational('payroll', $payroll->id, $adminId);
+
+            $payroll->update(['deleted_by' => $adminId, 'journal_entry_id' => null]);
+            $payroll->delete();
+        });
+
         ActivityLogger::deleted('Payroll', $payroll);
-        $payroll->update(['deleted_by' => auth('admin')->id()]);
-        $payroll->delete();
 
         return redirect()->route('payrolls.index')
             ->with('success', 'Payroll entry deleted successfully.');

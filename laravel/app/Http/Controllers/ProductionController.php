@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Accounting\AccountingPoster;
 use App\Models\BillOfMaterial;
 use App\Models\Configuration;
 use App\Models\Production;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ProductionController extends Controller
 {
@@ -42,16 +44,25 @@ class ProductionController extends Controller
             'quantity' => 'required|integer|min:1',
         ]);
 
-        Production::create([
-            'fk_bill_of_material_id' => $validated['fk_bill_of_material_id'],
-            'production_cost' => $validated['production_cost'],
-            'other_cost' => $validated['other_cost'],
-            'expected_profit' => $validated['expected_profit'],
-            'quantity' => $validated['quantity'],
-            'created_by' => auth('admin')->id(),
-        ]);
+        $adminId = auth('admin')->id();
 
-        ActivityLogger::created('Production', Production::latest('id')->first());
+        $production = DB::transaction(function () use ($validated, $adminId) {
+            $production = Production::create([
+                'fk_bill_of_material_id' => $validated['fk_bill_of_material_id'],
+                'production_cost' => $validated['production_cost'],
+                'other_cost' => $validated['other_cost'],
+                'expected_profit' => $validated['expected_profit'],
+                'quantity' => $validated['quantity'],
+                'accounting_version' => 1,
+                'created_by' => $adminId,
+            ]);
+
+            app(AccountingPoster::class)->production($production, $adminId);
+
+            return $production;
+        });
+
+        ActivityLogger::created('Production', $production);
 
         return redirect()->route('productions.index')
             ->with('success', 'Production entry created successfully.');
@@ -80,14 +91,41 @@ class ProductionController extends Controller
             'quantity' => 'required|integer|min:1',
         ]);
 
-        $production->update([
-            'fk_bill_of_material_id' => $validated['fk_bill_of_material_id'],
-            'production_cost' => $validated['production_cost'],
-            'other_cost' => $validated['other_cost'],
-            'expected_profit' => $validated['expected_profit'],
-            'quantity' => $validated['quantity'],
-            'updated_by' => auth('admin')->id(),
-        ]);
+        $adminId = auth('admin')->id();
+        $oldTotal = round((float) $production->production_cost + (float) $production->other_cost, 2);
+        $newTotal = round((float) $validated['production_cost'] + (float) $validated['other_cost'], 2);
+
+        DB::transaction(function () use ($production, $validated, $adminId, $oldTotal, $newTotal) {
+            $poster = app(AccountingPoster::class);
+
+            if ($oldTotal !== $newTotal || (! $production->journal_entry_id && $newTotal > 0)) {
+                $poster->reverseOperational('production', $production->id, $adminId);
+
+                $production->update([
+                    'fk_bill_of_material_id' => $validated['fk_bill_of_material_id'],
+                    'production_cost' => $validated['production_cost'],
+                    'other_cost' => $validated['other_cost'],
+                    'expected_profit' => $validated['expected_profit'],
+                    'quantity' => $validated['quantity'],
+                    'journal_entry_id' => null,
+                    'accounting_version' => max(1, (int) $production->accounting_version) + 1,
+                    'updated_by' => $adminId,
+                ]);
+
+                $poster->production($production->fresh(), $adminId);
+
+                return;
+            }
+
+            $production->update([
+                'fk_bill_of_material_id' => $validated['fk_bill_of_material_id'],
+                'production_cost' => $validated['production_cost'],
+                'other_cost' => $validated['other_cost'],
+                'expected_profit' => $validated['expected_profit'],
+                'quantity' => $validated['quantity'],
+                'updated_by' => $adminId,
+            ]);
+        });
 
         ActivityLogger::updated('Production', $production, $production->toArray());
 
@@ -97,9 +135,16 @@ class ProductionController extends Controller
 
     public function destroy(Request $request, Production $production)
     {
+        $adminId = auth('admin')->id();
+
+        DB::transaction(function () use ($production, $adminId) {
+            app(AccountingPoster::class)->reverseOperational('production', $production->id, $adminId);
+
+            $production->update(['deleted_by' => $adminId, 'journal_entry_id' => null]);
+            $production->delete();
+        });
+
         ActivityLogger::deleted('Production', $production);
-        $production->update(['deleted_by' => auth('admin')->id()]);
-        $production->delete();
 
         return redirect()->route('productions.index')
             ->with('success', 'Production entry deleted successfully.');

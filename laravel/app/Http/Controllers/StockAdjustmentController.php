@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Accounting\AccountingPoster;
 use App\Models\Configuration;
 use App\Models\Stock;
 use App\Models\StockAdjustment;
 use App\Models\Warehouse;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class StockAdjustmentController extends Controller
 {
@@ -44,7 +46,7 @@ class StockAdjustmentController extends Controller
         return view('stock-adjustments.create', compact('stocks', 'warehouses'));
     }
 
-    public function store(Request $request)
+    public function store(Request $request, AccountingPoster $poster)
     {
         $validated = $request->validate([
             'fk_stock_id' => 'required|exists:stocks,id',
@@ -55,30 +57,39 @@ class StockAdjustmentController extends Controller
             'reason' => 'required|in:correction,damage,return',
         ]);
 
-        $stock = Stock::findOrFail($validated['fk_stock_id']);
+        $adminId = auth('admin')->id();
 
-        if ($validated['reason'] === 'damage' || $validated['reason'] === 'return') {
-            $newQty = $stock->quantity + $validated['quantity'];
-        } else {
-            $newQty = $stock->quantity - $validated['quantity'];
-        }
+        $adjustment = DB::transaction(function () use ($validated, $adminId, $poster) {
+            $stock = Stock::findOrFail($validated['fk_stock_id']);
 
-        $stock->update([
-            'quantity' => max(0, $newQty),
-            'updated_by' => auth('admin')->id(),
-        ]);
+            // A return puts stock back on the shelf. Damage and corrections
+            // take stock out, so the quantity must go down for those reasons.
+            $newQty = $validated['reason'] === 'return'
+                ? $stock->quantity + $validated['quantity']
+                : $stock->quantity - $validated['quantity'];
 
-        StockAdjustment::create([
-            'fk_stock_id' => $validated['fk_stock_id'],
-            'fk_warehouse_id' => $validated['fk_warehouse_id'] ?? null,
-            'batch' => $validated['batch'] ?? null,
-            'lot' => $validated['lot'] ?? null,
-            'quantity' => $validated['quantity'],
-            'reason' => $validated['reason'],
-            'created_by' => auth('admin')->id(),
-        ]);
+            $stock->update([
+                'quantity' => max(0, $newQty),
+                'updated_by' => $adminId,
+            ]);
 
-        ActivityLogger::created('Stock Adjustment', StockAdjustment::latest('id')->first());
+            $adjustment = StockAdjustment::create([
+                'fk_stock_id' => $validated['fk_stock_id'],
+                'fk_warehouse_id' => $validated['fk_warehouse_id'] ?? null,
+                'batch' => $validated['batch'] ?? null,
+                'lot' => $validated['lot'] ?? null,
+                'quantity' => $validated['quantity'],
+                'reason' => $validated['reason'],
+                'created_by' => $adminId,
+            ]);
+
+            // Write the loss (or the restock) into the double-entry ledger.
+            $poster->stockAdjustment($adjustment, $adminId);
+
+            return $adjustment;
+        });
+
+        ActivityLogger::created('Stock Adjustment', $adjustment);
 
         if ($request->expectsJson()) {
             return response()->json([

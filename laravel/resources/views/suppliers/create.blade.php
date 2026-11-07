@@ -63,8 +63,11 @@
                 </div>
                 <div class="form-group">
                     <label for="balance">Opening Balance</label>
-                    <input type="number" id="balance" x-model="form.balance" step="0.01" min="0">
+                    <input type="number" id="balance" x-model="form.balance" step="0.01">
                     <span class="form-error" x-show="errors.balance" x-text="errors.balance"></span>
+                    <small style="color: var(--text-secondary); display: block; margin-top: 6px;">
+                        Use a positive amount if you have paid this supplier in advance, or a negative amount if you still owe them.
+                    </small>
                 </div>
             </div>
 

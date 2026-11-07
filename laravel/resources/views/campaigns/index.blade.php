@@ -26,9 +26,10 @@
                 <input type="text" name="search" value="{{ request('search') }}" class="form-input" placeholder="Search campaigns..." style="flex: 1; min-width: 200px;">
                 <select name="status" class="form-input" style="max-width: 180px;">
                     <option value="">All Status</option>
+                    <option value="planned" {{ request('status') === 'planned' ? 'selected' : '' }}>Planned</option>
                     <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Active</option>
-                    <option value="paused" {{ request('status') === 'paused' ? 'selected' : '' }}>Paused</option>
                     <option value="completed" {{ request('status') === 'completed' ? 'selected' : '' }}>Completed</option>
+                    <option value="canceled" {{ request('status') === 'canceled' ? 'selected' : '' }}>Canceled</option>
                 </select>
                 <button type="submit" class="btn btn-primary">Filter</button>
                 @if(request()->hasAny(['search', 'status']))
@@ -45,6 +46,7 @@
                     <th>End Date</th>
                     <th>Status</th>
                     <th>Budget</th>
+                    <th>Actually Spent</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -55,11 +57,12 @@
                         <td>{{ $campaign->start_date ? \Carbon\Carbon::parse($campaign->start_date)->format('d M Y') : '—' }}</td>
                         <td>{{ $campaign->end_date ? \Carbon\Carbon::parse($campaign->end_date)->format('d M Y') : '—' }}</td>
                         <td>
-                            <span class="badge {{ $campaign->status === 'active' ? 'badge-green' : ($campaign->status === 'paused' ? 'badge-orange' : 'badge-red') }}">
+                            <span class="badge {{ $campaign->status === 'active' ? 'badge-green' : ($campaign->status === 'planned' ? 'badge-orange' : 'badge-red') }}">
                                 {{ ucfirst($campaign->status) }}
                             </span>
                         </td>
                         <td>{{ $currencySymbol }}{{ number_format($campaign->budget, 2) }}</td>
+                        <td>{{ $currencySymbol }}{{ number_format($campaign->spent_amount, 2) }}</td>
                         <td>
                             <div class="actions">
                                 <a href="{{ route('campaigns.edit', $campaign) }}" class="btn btn-ghost btn-sm">
@@ -75,11 +78,15 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="empty-state">No campaigns found.</td>
+                        <td colspan="7" class="empty-state">No campaigns found.</td>
                     </tr>
                 @endforelse
             </tbody>
         </table>
+
+        <p style="padding: 0 16px 16px; margin: 0; font-size: 13px; color: var(--text-secondary);">
+            Budget is your plan. "Actually Spent" is the real money that goes into accounting.
+        </p>
 
         @if($campaigns->hasPages())
         <div style="padding: 16px;">

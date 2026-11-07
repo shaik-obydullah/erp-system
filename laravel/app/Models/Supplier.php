@@ -27,6 +27,8 @@ class Supplier extends Authenticatable
         'vat_treatment',
         'balance',
         'status',
+        'journal_entry_id',
+        'accounting_version',
         'created_by',
         'updated_by',
         'deleted_by',
@@ -43,11 +45,17 @@ class Supplier extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'balance' => 'decimal:2',
+            'accounting_version' => 'integer',
         ];
     }
 
     public function isActive(): bool
     {
         return $this->status === 'active';
+    }
+
+    public function journalEntry()
+    {
+        return $this->belongsTo(JournalEntry::class, 'journal_entry_id');
     }
 }

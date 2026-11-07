@@ -15,11 +15,17 @@ class FixedAsset extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'name', 'price', 'description',
+        'name', 'price', 'description', 'journal_entry_id', 'accounting_version',
         'created_by', 'updated_by', 'deleted_by',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
+        'accounting_version' => 'integer',
     ];
+
+    public function journalEntry()
+    {
+        return $this->belongsTo(JournalEntry::class, 'journal_entry_id');
+    }
 }

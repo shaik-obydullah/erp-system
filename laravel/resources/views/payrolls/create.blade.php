@@ -69,6 +69,10 @@
                 </div>
             </div>
 
+            <p style="font-size: 13px; color: var(--text-secondary); margin: 0 0 8px;">
+                Paying a salary records the salary as an expense and the money as spent.
+            </p>
+
             <div style="display: flex; gap: 12px; margin-top: 24px;">
                 <button type="submit" class="btn btn-primary" :disabled="submitting">
                     <span x-show="!submitting">Create Payroll</span>

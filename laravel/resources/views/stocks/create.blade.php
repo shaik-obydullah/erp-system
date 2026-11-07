@@ -99,6 +99,10 @@
                 </div>
             </div>
 
+            <p style="font-size: 13px; color: var(--text-secondary); margin: 0 0 8px;">
+                New stock is added to inventory at cost. It does not move cash until you buy or sell it.
+            </p>
+
             <div style="display: flex; gap: 12px; margin-top: 24px;">
                 <button type="submit" class="btn btn-primary" :disabled="submitting">
                     <span x-show="!submitting">Create Stock</span>

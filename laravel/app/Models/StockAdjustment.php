@@ -16,7 +16,7 @@ class StockAdjustment extends Model
 
     protected $fillable = [
         'fk_stock_id', 'fk_warehouse_id', 'batch', 'lot',
-        'quantity', 'reason',
+        'quantity', 'reason', 'journal_entry_id',
         'created_by', 'updated_by', 'deleted_by',
     ];
 
@@ -32,5 +32,10 @@ class StockAdjustment extends Model
     public function warehouse()
     {
         return $this->belongsTo(Warehouse::class, 'fk_warehouse_id');
+    }
+
+    public function journalEntry()
+    {
+        return $this->belongsTo(JournalEntry::class);
     }
 }

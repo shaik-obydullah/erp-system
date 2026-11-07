@@ -365,6 +365,8 @@ class SyncController extends Controller
         $stock->updated_at = now();
         $stock->save();
 
+        app(AccountingPoster::class)->stockAdjustment($adjustment, $adminId);
+
         return ['uuid' => $uuid, 'id' => $adjustment->id];
     }
 

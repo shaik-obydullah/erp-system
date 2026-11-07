@@ -17,15 +17,22 @@ class ShipmentReturn extends Model
     protected $fillable = [
         'fk_po_id', 'invoice_amount', 'return_reason',
         'status', 'remark',
+        'journal_entry_id', 'accounting_version',
         'created_by', 'updated_by', 'deleted_by',
     ];
 
     protected $casts = [
         'invoice_amount' => 'decimal:2',
+        'accounting_version' => 'integer',
     ];
 
     public function purchaseOrder()
     {
         return $this->belongsTo(PurchaseOrder::class, 'fk_po_id');
+    }
+
+    public function journalEntry()
+    {
+        return $this->belongsTo(JournalEntry::class, 'journal_entry_id');
     }
 }

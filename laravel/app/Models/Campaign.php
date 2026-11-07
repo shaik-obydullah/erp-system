@@ -14,7 +14,8 @@ class Campaign extends Model
 
     protected $fillable = [
         'name', 'description', 'start_date', 'end_date',
-        'status', 'budget',
+        'status', 'budget', 'spent_amount',
+        'journal_entry_id', 'accounting_version',
         'created_by', 'updated_by', 'deleted_by',
     ];
 
@@ -22,5 +23,12 @@ class Campaign extends Model
         'start_date' => 'date',
         'end_date' => 'date',
         'budget' => 'decimal:2',
+        'spent_amount' => 'decimal:2',
+        'accounting_version' => 'integer',
     ];
+
+    public function journalEntry()
+    {
+        return $this->belongsTo(JournalEntry::class, 'journal_entry_id');
+    }
 }

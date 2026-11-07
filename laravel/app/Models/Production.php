@@ -15,6 +15,7 @@ class Production extends Model
     protected $fillable = [
         'fk_bill_of_material_id', 'production_cost', 'other_cost',
         'expected_profit', 'quantity',
+        'journal_entry_id', 'accounting_version',
         'created_by', 'updated_by', 'deleted_by',
     ];
 
@@ -22,10 +23,16 @@ class Production extends Model
         'production_cost' => 'decimal:2',
         'other_cost' => 'decimal:2',
         'expected_profit' => 'decimal:2',
+        'accounting_version' => 'integer',
     ];
 
     public function billOfMaterial()
     {
         return $this->belongsTo(BillOfMaterial::class, 'fk_bill_of_material_id');
+    }
+
+    public function journalEntry()
+    {
+        return $this->belongsTo(JournalEntry::class, 'journal_entry_id');
     }
 }

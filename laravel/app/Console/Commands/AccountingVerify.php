@@ -3,14 +3,21 @@
 namespace App\Console\Commands;
 
 use App\Accounting\Reconciliation;
+use App\Models\Campaign;
 use App\Models\Expense;
 use App\Models\FiscalPeriod;
+use App\Models\FixedAsset;
 use App\Models\Income;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
+use App\Models\Payroll;
+use App\Models\Production;
 use App\Models\Sale;
 use App\Models\SaleReturn;
 use App\Models\ShipmentCost;
+use App\Models\ShipmentReturn;
+use App\Models\Stock;
+use App\Models\Supplier;
 use App\Models\Transaction;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -116,6 +123,13 @@ class AccountingVerify extends Command
             'incomes' => max(0, Income::where('table_name', '!=', 'sales')->count() - JournalEntry::where('event_type', 'income')->distinct()->count('source_id')),
             'expenses' => max(0, Expense::count() - JournalEntry::where('event_type', 'expense')->distinct()->count('source_id')),
             'shipment costs' => max(0, ShipmentCost::count() - JournalEntry::where('event_type', 'shipmentCost')->distinct()->count('source_id')),
+            'fixed assets' => max(0, FixedAsset::where('price', '>', 0)->count() - JournalEntry::where('source_type', 'fixed_asset')->distinct()->count('source_id')),
+            'payrolls' => max(0, Payroll::where('net_salary', '>', 0)->count() - JournalEntry::where('source_type', 'payroll')->distinct()->count('source_id')),
+            'campaign spend' => max(0, Campaign::where('spent_amount', '>', 0)->count() - JournalEntry::where('source_type', 'campaign')->distinct()->count('source_id')),
+            'productions' => max(0, Production::whereRaw('(production_cost + other_cost) > 0')->count() - JournalEntry::where('source_type', 'production')->distinct()->count('source_id')),
+            'opening stock' => max(0, Stock::where('quantity', '>', 0)->where('buy_price', '>', 0)->count() - JournalEntry::where('source_type', 'stock')->distinct()->count('source_id')),
+            'supplier balances' => max(0, Supplier::whereRaw('ABS(balance) >= 0.01')->count() - JournalEntry::where('source_type', 'supplier')->distinct()->count('source_id')),
+            'shipment returns' => max(0, ShipmentReturn::whereIn('status', ['processed', 'completed'])->where('invoice_amount', '>', 0)->count() - JournalEntry::where('source_type', 'shipment_return')->distinct()->count('source_id')),
         ];
 
         foreach ($missing as $label => $count) {

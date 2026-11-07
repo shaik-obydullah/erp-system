@@ -394,6 +394,8 @@ class ApiController extends Controller
             'sale_price' => 'required|numeric|min:0',
         ]);
 
+        $adminId = Auth::guard('admin')->id();
+
         $stock = Stock::create([
             'fk_product_id' => $request->fk_product_id,
             'fk_inventory_id' => $request->input('fk_inventory_id'),
@@ -404,8 +406,11 @@ class ApiController extends Controller
             'buy_price' => $request->buy_price,
             'sale_price' => $request->sale_price,
             'status' => $request->input('status', 'active'),
-            'created_by' => Auth::guard('admin')->id(),
+            'accounting_version' => 1,
+            'created_by' => $adminId,
         ]);
+
+        app(AccountingPoster::class)->stockIn($stock, $adminId);
 
         ActivityLogger::created('Stock', $stock);
 

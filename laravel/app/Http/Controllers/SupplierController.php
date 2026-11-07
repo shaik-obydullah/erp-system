@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Accounting\AccountingPoster;
 use App\Models\Configuration;
 use App\Models\Supplier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class SupplierController extends Controller
@@ -54,23 +56,30 @@ class SupplierController extends Controller
             'vat_number' => 'nullable|string|max:30',
             'country' => 'nullable|string|size:2',
             'vat_treatment' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
-            'balance' => 'nullable|numeric|min:0',
+            'balance' => 'nullable|numeric',
             'status' => 'required|in:active,inactive',
         ]);
 
-        Supplier::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => $validated['password'],
-            'mobile' => $validated['mobile'] ?? null,
-            'address' => $validated['address'] ?? null,
-            'vat_number' => $validated['vat_number'] ?? null,
-            'country' => isset($validated['country']) ? strtoupper($validated['country']) : null,
-            'vat_treatment' => $validated['vat_treatment'] ?? null,
-            'balance' => $validated['balance'] ?? 0,
-            'status' => $validated['status'],
-            'created_by' => auth('admin')->id(),
-        ]);
+        $adminId = auth('admin')->id();
+
+        DB::transaction(function () use ($validated, $adminId) {
+            $supplier = Supplier::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => $validated['password'],
+                'mobile' => $validated['mobile'] ?? null,
+                'address' => $validated['address'] ?? null,
+                'vat_number' => $validated['vat_number'] ?? null,
+                'country' => isset($validated['country']) ? strtoupper($validated['country']) : null,
+                'vat_treatment' => $validated['vat_treatment'] ?? null,
+                'balance' => $validated['balance'] ?? 0,
+                'status' => $validated['status'],
+                'accounting_version' => 1,
+                'created_by' => $adminId,
+            ]);
+
+            app(AccountingPoster::class)->supplierOpening($supplier, $adminId);
+        });
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -106,28 +115,63 @@ class SupplierController extends Controller
             'vat_number' => 'nullable|string|max:30',
             'country' => 'nullable|string|size:2',
             'vat_treatment' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
-            'balance' => 'nullable|numeric|min:0',
+            'balance' => 'nullable|numeric',
             'status' => 'required|in:active,inactive',
         ]);
 
-        $data = [
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'mobile' => $validated['mobile'] ?? null,
-            'address' => $validated['address'] ?? null,
-            'vat_number' => $validated['vat_number'] ?? null,
-            'country' => isset($validated['country']) ? strtoupper($validated['country']) : null,
-            'vat_treatment' => $validated['vat_treatment'] ?? null,
-            'balance' => $validated['balance'] ?? 0,
-            'status' => $validated['status'],
-            'updated_by' => auth('admin')->id(),
-        ];
+        $adminId = auth('admin')->id();
+        $newBalance = $validated['balance'] ?? 0;
+        $balanceChanged = round((float) $supplier->balance, 2) !== round((float) $newBalance, 2);
 
-        if (! empty($validated['password'])) {
-            $data['password'] = $validated['password'];
-        }
+        DB::transaction(function () use ($supplier, $validated, $adminId, $newBalance, $balanceChanged) {
+            $poster = app(AccountingPoster::class);
 
-        $supplier->update($data);
+            if ($balanceChanged || (! $supplier->journal_entry_id && abs((float) $newBalance) >= 0.01)) {
+                $poster->reverseOperational('supplier', $supplier->id, $adminId);
+
+                $supplier->update([
+                    'name' => $validated['name'],
+                    'email' => $validated['email'],
+                    'mobile' => $validated['mobile'] ?? null,
+                    'address' => $validated['address'] ?? null,
+                    'vat_number' => $validated['vat_number'] ?? null,
+                    'country' => isset($validated['country']) ? strtoupper($validated['country']) : null,
+                    'vat_treatment' => $validated['vat_treatment'] ?? null,
+                    'balance' => $newBalance,
+                    'status' => $validated['status'],
+                    'journal_entry_id' => null,
+                    'accounting_version' => max(1, (int) $supplier->accounting_version) + 1,
+                    'updated_by' => $adminId,
+                ]);
+
+                if (! empty($validated['password'])) {
+                    $supplier->update(['password' => $validated['password']]);
+                }
+
+                $poster->supplierOpening($supplier->fresh(), $adminId);
+
+                return;
+            }
+
+            $data = [
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'mobile' => $validated['mobile'] ?? null,
+                'address' => $validated['address'] ?? null,
+                'vat_number' => $validated['vat_number'] ?? null,
+                'country' => isset($validated['country']) ? strtoupper($validated['country']) : null,
+                'vat_treatment' => $validated['vat_treatment'] ?? null,
+                'balance' => $newBalance,
+                'status' => $validated['status'],
+                'updated_by' => $adminId,
+            ];
+
+            if (! empty($validated['password'])) {
+                $data['password'] = $validated['password'];
+            }
+
+            $supplier->update($data);
+        });
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -142,7 +186,14 @@ class SupplierController extends Controller
 
     public function destroy(Request $request, Supplier $supplier)
     {
-        $supplier->delete();
+        $adminId = auth('admin')->id();
+
+        DB::transaction(function () use ($supplier, $adminId) {
+            app(AccountingPoster::class)->reverseOperational('supplier', $supplier->id, $adminId);
+
+            $supplier->update(['journal_entry_id' => null, 'deleted_by' => $adminId]);
+            $supplier->delete();
+        });
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -222,7 +273,9 @@ class SupplierController extends Controller
             }
 
             try {
-                Supplier::create([
+                $adminId = auth('admin')->id();
+
+                $supplier = Supplier::create([
                     'name' => $name,
                     'email' => $email,
                     'password' => Hash::make('password123'),
@@ -230,8 +283,12 @@ class SupplierController extends Controller
                     'address' => trim($data['Address'] ?? '') ?: null,
                     'balance' => (float) ($data['Balance'] ?? 0),
                     'status' => strtolower(trim($data['Status'] ?? 'active')) === 'inactive' ? 'inactive' : 'active',
-                    'created_by' => auth('admin')->id(),
+                    'accounting_version' => 1,
+                    'created_by' => $adminId,
                 ]);
+
+                app(AccountingPoster::class)->supplierOpening($supplier, $adminId);
+
                 $imported++;
             } catch (\Exception $e) {
                 $errors[] = "{$email}: " . $e->getMessage();

@@ -32,14 +32,14 @@
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="fk_bom_id">Bill of Material *</label>
-                    <select id="fk_bom_id" x-model="form.fk_bom_id" required>
+                    <label for="fk_bill_of_material_id">Bill of Material *</label>
+                    <select id="fk_bill_of_material_id" x-model="form.fk_bill_of_material_id" required>
                         <option value="">Select BOM</option>
                         @foreach($boms as $bom)
                             <option value="{{ $bom->id }}">{{ $bom->name }}</option>
                         @endforeach
                     </select>
-                    <span class="form-error" x-show="errors.fk_bom_id" x-text="errors.fk_bom_id"></span>
+                    <span class="form-error" x-show="errors.fk_bill_of_material_id" x-text="errors.fk_bill_of_material_id"></span>
                 </div>
                 <div class="form-group">
                     <label for="quantity">Quantity *</label>
@@ -69,6 +69,10 @@
                 </div>
             </div>
 
+            <p style="font-size: 13px; color: var(--text-secondary); margin: 0 0 8px;">
+                Production cost plus other cost is added to the value of your stock, and recorded as money spent.
+            </p>
+
             <div style="display: flex; gap: 12px; margin-top: 24px;">
                 <button type="submit" class="btn btn-primary" :disabled="submitting">
                     <span x-show="!submitting">Create Production</span>
@@ -84,7 +88,7 @@
     function formHandler(url, method) {
         return {
             form: {
-                fk_bom_id: '',
+                fk_bill_of_material_id: '',
                 production_cost: '',
                 other_cost: '',
                 expected_profit: '',

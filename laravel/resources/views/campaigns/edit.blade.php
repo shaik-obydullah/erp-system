@@ -46,6 +46,17 @@
 
             <div class="form-row">
                 <div class="form-group">
+                    <label for="spent_amount">Actually Spent</label>
+                    <input type="number" id="spent_amount" x-model="form.spent_amount" value="{{ old('spent_amount', $campaign->spent_amount) }}" step="0.01" min="0">
+                    <span class="form-error" x-show="errors.spent_amount" x-text="errors.spent_amount"></span>
+                    <small style="color: var(--text-secondary); display: block; margin-top: 6px;">
+                        Only the money you have actually spent is recorded in accounting. The budget is just a plan.
+                    </small>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
                     <label for="description">Description</label>
                     <textarea id="description" x-model="form.description" rows="4">{{ old('description', $campaign->description) }}</textarea>
                     <span class="form-error" x-show="errors.description" x-text="errors.description"></span>
@@ -69,9 +80,10 @@
                 <div class="form-group">
                     <label for="status">Status *</label>
                     <select id="status" x-model="form.status" required>
+                        <option value="planned" {{ $campaign->status == 'planned' ? 'selected' : '' }}>Planned</option>
                         <option value="active" {{ $campaign->status == 'active' ? 'selected' : '' }}>Active</option>
-                        <option value="paused" {{ $campaign->status == 'paused' ? 'selected' : '' }}>Paused</option>
                         <option value="completed" {{ $campaign->status == 'completed' ? 'selected' : '' }}>Completed</option>
+                        <option value="canceled" {{ $campaign->status == 'canceled' ? 'selected' : '' }}>Canceled</option>
                     </select>
                     <span class="form-error" x-show="errors.status" x-text="errors.status"></span>
                 </div>
@@ -98,6 +110,7 @@
                 end_date: '{{ old('end_date', $campaign->end_date) }}',
                 status: '{{ old('status', $campaign->status) }}',
                 budget: '{{ old('budget', $campaign->budget) }}',
+                spent_amount: '{{ old('spent_amount', $campaign->spent_amount) }}',
             },
             errors: {},
             errorMessage: '',

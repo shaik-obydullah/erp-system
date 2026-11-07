@@ -15,6 +15,7 @@ class Stock extends Model
     protected $fillable = [
         'fk_product_id', 'fk_inventory_id', 'fk_warehouses_id',
         'batch', 'lot', 'quantity', 'buy_price', 'sale_price', 'status',
+        'journal_entry_id', 'accounting_version',
         'created_by', 'updated_by', 'deleted_by',
     ];
 
@@ -22,6 +23,7 @@ class Stock extends Model
         'buy_price' => 'decimal:2',
         'sale_price' => 'decimal:2',
         'quantity' => 'integer',
+        'accounting_version' => 'integer',
     ];
 
     public function product()
@@ -32,5 +34,10 @@ class Stock extends Model
     public function warehouse()
     {
         return $this->belongsTo(Warehouse::class, 'fk_warehouses_id');
+    }
+
+    public function journalEntry()
+    {
+        return $this->belongsTo(JournalEntry::class, 'journal_entry_id');
     }
 }

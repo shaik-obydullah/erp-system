@@ -58,7 +58,9 @@
                                 —
                             @endif
                         </td>
-                        <td style="font-weight: 600;">{{ $adjustment->quantity }}</td>
+                        <td style="font-weight: 600; color: {{ $adjustment->reason === 'return' ? '#15803d' : '#b91c1c' }};">
+                            {{ $adjustment->reason === 'return' ? '+' : '−' }}{{ $adjustment->quantity }}
+                        </td>
                         <td>
                             <span class="badge {{ $adjustment->reason === 'damage' ? 'badge-red' : ($adjustment->reason === 'return' ? 'badge-orange' : 'badge-green') }}">
                                 {{ ucfirst($adjustment->reason) }}

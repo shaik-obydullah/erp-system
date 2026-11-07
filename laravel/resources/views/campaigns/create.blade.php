@@ -45,6 +45,17 @@
 
             <div class="form-row">
                 <div class="form-group">
+                    <label for="spent_amount">Actually Spent</label>
+                    <input type="number" id="spent_amount" x-model="form.spent_amount" step="0.01" min="0">
+                    <span class="form-error" x-show="errors.spent_amount" x-text="errors.spent_amount"></span>
+                    <small style="color: var(--text-secondary); display: block; margin-top: 6px;">
+                        Only the money you have actually spent is recorded in accounting. The budget is just a plan.
+                    </small>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
                     <label for="description">Description</label>
                     <textarea id="description" x-model="form.description" rows="4"></textarea>
                     <span class="form-error" x-show="errors.description" x-text="errors.description"></span>
@@ -68,9 +79,10 @@
                 <div class="form-group">
                     <label for="status">Status *</label>
                     <select id="status" x-model="form.status" required>
+                        <option value="planned">Planned</option>
                         <option value="active">Active</option>
-                        <option value="paused">Paused</option>
                         <option value="completed">Completed</option>
+                        <option value="canceled">Canceled</option>
                     </select>
                     <span class="form-error" x-show="errors.status" x-text="errors.status"></span>
                 </div>
@@ -95,8 +107,9 @@
                 description: '',
                 start_date: '',
                 end_date: '',
-                status: 'active',
+                status: 'planned',
                 budget: '',
+                spent_amount: '',
             },
             errors: {},
             errorMessage: '',

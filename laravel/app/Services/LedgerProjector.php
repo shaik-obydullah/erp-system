@@ -3,12 +3,19 @@
 namespace App\Services;
 
 use App\Accounting\AccountingPoster;
+use App\Models\Campaign;
 use App\Models\Customer;
 use App\Models\Expense;
+use App\Models\FixedAsset;
 use App\Models\Income;
+use App\Models\Payroll;
+use App\Models\Production;
 use App\Models\Sale;
 use App\Models\SaleReturn;
 use App\Models\ShipmentCost;
+use App\Models\ShipmentReturn;
+use App\Models\Stock;
+use App\Models\StockAdjustment;
 use App\Models\Supplier;
 use App\Models\Transaction;
 
@@ -29,6 +36,9 @@ class LedgerProjector
      */
     public function run(?array $only = null): array
     {
+        // Stock adjustments are opt-in: legacy rows predate the accounting
+        // posting and may have been recorded with the old quantity direction,
+        // so they should be reviewed before replaying.
         $only = $only ?: ['sales', 'dues', 'returns', 'incomes', 'expenses', 'funds', 'shipment_costs'];
         $counts = [];
 
@@ -41,6 +51,13 @@ class LedgerProjector
                 'expenses' => $this->expenses(),
                 'funds' => $this->funds(),
                 'shipment_costs' => $this->shipmentCosts(),
+                'stock_adjustments' => $this->stockAdjustments(),
+                'fixed_assets' => $this->fixedAssets(),
+                'payrolls' => $this->payrolls(),
+                'campaign_spend' => $this->campaignSpend(),
+                'productions' => $this->productions(),
+                'opening_stock' => $this->openingStock(),
+                'shipment_returns' => $this->shipmentReturns(),
                 default => 0,
             };
         }
@@ -203,6 +220,124 @@ class LedgerProjector
                 $count++;
             }
         });
+
+        return $count;
+    }
+
+    public function stockAdjustments(): int
+    {
+        $count = 0;
+
+        StockAdjustment::query()->orderBy('id')->chunkById(200, function ($adjustments) use (&$count) {
+            foreach ($adjustments as $adjustment) {
+                $this->poster->stockAdjustment($adjustment, $adjustment->created_by);
+                $count++;
+            }
+        });
+
+        return $count;
+    }
+
+    public function fixedAssets(): int
+    {
+        $count = 0;
+
+        FixedAsset::query()
+            ->where('price', '>', 0)
+            ->orderBy('id')
+            ->chunkById(200, function ($assets) use (&$count) {
+                foreach ($assets as $asset) {
+                    $this->poster->fixedAsset($asset, $asset->created_by);
+                    $count++;
+                }
+            });
+
+        return $count;
+    }
+
+    public function payrolls(): int
+    {
+        $count = 0;
+
+        Payroll::query()
+            ->where('net_salary', '>', 0)
+            ->orderBy('id')
+            ->chunkById(200, function ($payrolls) use (&$count) {
+                foreach ($payrolls as $payroll) {
+                    $this->poster->payroll($payroll, $payroll->created_by);
+                    $count++;
+                }
+            });
+
+        return $count;
+    }
+
+    public function campaignSpend(): int
+    {
+        $count = 0;
+
+        Campaign::query()
+            ->where('spent_amount', '>', 0)
+            ->orderBy('id')
+            ->chunkById(200, function ($campaigns) use (&$count) {
+                foreach ($campaigns as $campaign) {
+                    $this->poster->campaignSpend($campaign, $campaign->created_by);
+                    $count++;
+                }
+            });
+
+        return $count;
+    }
+
+    public function productions(): int
+    {
+        $count = 0;
+
+        Production::query()
+            ->whereRaw('(production_cost + other_cost) > 0')
+            ->orderBy('id')
+            ->chunkById(200, function ($productions) use (&$count) {
+                foreach ($productions as $production) {
+                    $this->poster->production($production, $production->created_by);
+                    $count++;
+                }
+            });
+
+        return $count;
+    }
+
+    public function openingStock(): int
+    {
+        $count = 0;
+
+        Stock::query()
+            ->where('quantity', '>', 0)
+            ->where('buy_price', '>', 0)
+            ->orderBy('id')
+            ->chunkById(200, function ($stocks) use (&$count) {
+                foreach ($stocks as $stock) {
+                    $this->poster->stockIn($stock, $stock->created_by);
+                    $count++;
+                }
+            });
+
+        return $count;
+    }
+
+    public function shipmentReturns(): int
+    {
+        $count = 0;
+
+        ShipmentReturn::query()
+            ->whereIn('status', ['processed', 'completed'])
+            ->where('invoice_amount', '>', 0)
+            ->orderBy('id')
+            ->chunkById(200, function ($returns) use (&$count) {
+                foreach ($returns as $return) {
+                    $this->poster->shipmentReturn($return, $return->created_by);
+                    $count++;
+                }
+            });
 
         return $count;
     }

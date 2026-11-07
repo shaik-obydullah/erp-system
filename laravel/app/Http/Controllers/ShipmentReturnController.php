@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Accounting\AccountingPoster;
 use App\Models\Configuration;
 use App\Models\PurchaseOrder;
 use App\Models\ShipmentReturn;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ShipmentReturnController extends Controller
 {
@@ -50,16 +52,25 @@ class ShipmentReturnController extends Controller
             'remark' => 'nullable|string',
         ]);
 
-        ShipmentReturn::create([
-            'fk_po_id' => $validated['fk_po_id'],
-            'invoice_amount' => $validated['invoice_amount'],
-            'return_reason' => $validated['return_reason'],
-            'status' => $validated['status'],
-            'remark' => $validated['remark'] ?? null,
-            'created_by' => auth('admin')->id(),
-        ]);
+        $adminId = auth('admin')->id();
 
-        ActivityLogger::created('Shipment Return', ShipmentReturn::latest('id')->first());
+        $shipmentReturn = DB::transaction(function () use ($validated, $adminId) {
+            $shipmentReturn = ShipmentReturn::create([
+                'fk_po_id' => $validated['fk_po_id'],
+                'invoice_amount' => $validated['invoice_amount'],
+                'return_reason' => $validated['return_reason'],
+                'status' => $validated['status'],
+                'remark' => $validated['remark'] ?? null,
+                'accounting_version' => 1,
+                'created_by' => $adminId,
+            ]);
+
+            app(AccountingPoster::class)->shipmentReturn($shipmentReturn, $adminId);
+
+            return $shipmentReturn;
+        });
+
+        ActivityLogger::created('Shipment Return', $shipmentReturn);
 
         return redirect()->route('shipment-returns.index')
             ->with('success', 'Shipment return created successfully.');
@@ -82,14 +93,47 @@ class ShipmentReturnController extends Controller
             'remark' => 'nullable|string',
         ]);
 
-        $shipmentReturn->update([
-            'fk_po_id' => $validated['fk_po_id'],
-            'invoice_amount' => $validated['invoice_amount'],
-            'return_reason' => $validated['return_reason'],
-            'status' => $validated['status'],
-            'remark' => $validated['remark'] ?? null,
-            'updated_by' => auth('admin')->id(),
-        ]);
+        $adminId = auth('admin')->id();
+        $postable = ['processed', 'completed'];
+        $wasPosted = in_array($shipmentReturn->status, $postable, true);
+        $willPost = in_array($validated['status'], $postable, true);
+        $financialChanged = $wasPosted !== $willPost
+            || ($willPost && (
+                round((float) $shipmentReturn->invoice_amount, 2) !== round((float) $validated['invoice_amount'], 2)
+                || (int) $shipmentReturn->fk_po_id !== (int) $validated['fk_po_id']
+            ));
+
+        DB::transaction(function () use ($shipmentReturn, $validated, $adminId, $financialChanged) {
+            $poster = app(AccountingPoster::class);
+
+            if ($financialChanged) {
+                $poster->reverseOperational('shipment_return', $shipmentReturn->id, $adminId);
+
+                $shipmentReturn->update([
+                    'fk_po_id' => $validated['fk_po_id'],
+                    'invoice_amount' => $validated['invoice_amount'],
+                    'return_reason' => $validated['return_reason'],
+                    'status' => $validated['status'],
+                    'remark' => $validated['remark'] ?? null,
+                    'journal_entry_id' => null,
+                    'accounting_version' => max(1, (int) $shipmentReturn->accounting_version) + 1,
+                    'updated_by' => $adminId,
+                ]);
+
+                $poster->shipmentReturn($shipmentReturn->fresh(), $adminId);
+
+                return;
+            }
+
+            $shipmentReturn->update([
+                'fk_po_id' => $validated['fk_po_id'],
+                'invoice_amount' => $validated['invoice_amount'],
+                'return_reason' => $validated['return_reason'],
+                'status' => $validated['status'],
+                'remark' => $validated['remark'] ?? null,
+                'updated_by' => $adminId,
+            ]);
+        });
 
         ActivityLogger::updated('Shipment Return', $shipmentReturn, $shipmentReturn->toArray());
 
@@ -99,9 +143,16 @@ class ShipmentReturnController extends Controller
 
     public function destroy(Request $request, ShipmentReturn $shipmentReturn)
     {
+        $adminId = auth('admin')->id();
+
+        DB::transaction(function () use ($shipmentReturn, $adminId) {
+            app(AccountingPoster::class)->reverseOperational('shipment_return', $shipmentReturn->id, $adminId);
+
+            $shipmentReturn->update(['deleted_by' => $adminId, 'journal_entry_id' => null]);
+            $shipmentReturn->delete();
+        });
+
         ActivityLogger::deleted('Shipment Return', $shipmentReturn);
-        $shipmentReturn->update(['deleted_by' => auth('admin')->id()]);
-        $shipmentReturn->delete();
 
         return redirect()->route('shipment-returns.index')
             ->with('success', 'Shipment return deleted successfully.');
