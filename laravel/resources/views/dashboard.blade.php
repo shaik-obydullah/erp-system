@@ -151,7 +151,7 @@
                                     </div>
                                 </td>
                                 <td>{{ $product->total_sold ?? $product->stocks_count ?? 0 }}</td>
-                                <td>{{ $product->stock_quantity }}</td>
+                                <td>{{ $product->stocks->sum('quantity') }}</td>
                             </tr>
                             @empty
                             <tr><td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 24px;">No products yet</td></tr>

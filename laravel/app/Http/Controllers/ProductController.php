@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Brand;
 use App\Models\Category;
-use App\Models\Configuration;
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\Unit;
@@ -15,15 +14,13 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::with(['brand', 'category', 'supplier', 'unit', 'stocks' => function ($q) {
-            $q->where('status', 'active');
-        }]);
+        $query = Product::with(['brand', 'category', 'supplier', 'unit']);
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%")
-                  ->orWhere('barcode', 'like', "%{$search}%");
+                    ->orWhere('sku', 'like', "%{$search}%")
+                    ->orWhere('barcode', 'like', "%{$search}%");
             });
         }
 
@@ -45,10 +42,6 @@ class ProductController extends Controller
 
         $products = $query->orderBy('name')->paginate(15)->withQueryString();
 
-        $products->each(function ($product) {
-            $product->stock_quantity = $product->stocks->sum('quantity');
-        });
-
         if ($request->expectsJson()) {
             return response()->json($products);
         }
@@ -56,16 +49,15 @@ class ProductController extends Controller
         $brands = Brand::where('status', 'active')->orderBy('name')->get();
         $categories = Category::whereNull('fk_category_id')->where('status', 'active')->get();
         $suppliers = Supplier::where('status', 'active')->orderBy('name')->get();
-        $currencySymbol = Configuration::get('currency_symbol', '$');
 
-        return view('products.index', compact('products', 'brands', 'categories', 'suppliers', 'currencySymbol'));
+        return view('products.index', compact('products', 'brands', 'categories', 'suppliers'));
     }
 
     public function create()
     {
         $brands = Brand::where('status', 'active')->orderBy('name')->get();
         $categories = Category::whereNull('fk_category_id')->where('status', 'active')
-            ->with(['children' => fn($q) => $q->where('status', 'active')->orderBy('name')])
+            ->with(['children' => fn ($q) => $q->where('status', 'active')->orderBy('name')])
             ->orderBy('name')->get();
         $units = Unit::where('status', 'active')->get();
         $suppliers = Supplier::where('status', 'active')->get();
@@ -88,8 +80,6 @@ class ProductController extends Controller
             'color' => 'nullable',
             'description' => 'nullable',
             'status' => 'required|in:active,inactive,archive',
-            'vat_code' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
-            'vat_rate' => 'nullable|numeric|min:0|max:100',
             'images.*' => 'nullable|file|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
         ]);
 
@@ -113,10 +103,8 @@ class ProductController extends Controller
             'size' => $validated['size'] ?? null,
             'color' => $validated['color'] ?? null,
             'description' => $validated['description'] ?? null,
-            'image' => !empty($images) ? json_encode($images) : null,
+            'image' => ! empty($images) ? json_encode($images) : null,
             'status' => $validated['status'],
-            'vat_code' => $validated['vat_code'] ?? null,
-            'vat_rate' => $validated['vat_rate'] ?? null,
             'created_by' => auth('admin')->id(),
         ]);
 
@@ -135,7 +123,7 @@ class ProductController extends Controller
     {
         $brands = Brand::where('status', 'active')->orderBy('name')->get();
         $categories = Category::whereNull('fk_category_id')->where('status', 'active')
-            ->with(['children' => fn($q) => $q->where('status', 'active')->orderBy('name')])
+            ->with(['children' => fn ($q) => $q->where('status', 'active')->orderBy('name')])
             ->orderBy('name')->get();
         $units = Unit::where('status', 'active')->get();
         $suppliers = Supplier::where('status', 'active')->get();
@@ -158,8 +146,6 @@ class ProductController extends Controller
             'color' => 'nullable',
             'description' => 'nullable',
             'status' => 'required|in:active,inactive,archive',
-            'vat_code' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
-            'vat_rate' => 'nullable|numeric|min:0|max:100',
             'images.*' => 'nullable|file|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
         ]);
 
@@ -170,7 +156,7 @@ class ProductController extends Controller
             foreach ($removeIndexes as $index) {
                 $index = (int) trim($index);
                 if (isset($existingImages[$index])) {
-                    $path = public_path('uploads/products/' . $existingImages[$index]);
+                    $path = public_path('uploads/products/'.$existingImages[$index]);
                     if (file_exists($path)) {
                         unlink($path);
                     }
@@ -202,10 +188,8 @@ class ProductController extends Controller
             'size' => $validated['size'] ?? null,
             'color' => $validated['color'] ?? null,
             'description' => $validated['description'] ?? null,
-            'image' => !empty($allImages) ? json_encode($allImages) : null,
+            'image' => ! empty($allImages) ? json_encode($allImages) : null,
             'status' => $validated['status'],
-            'vat_code' => $validated['vat_code'] ?? null,
-            'vat_rate' => $validated['vat_rate'] ?? null,
             'updated_by' => auth('admin')->id(),
         ]);
 
@@ -225,7 +209,7 @@ class ProductController extends Controller
         if ($product->image) {
             $images = json_decode($product->image, true) ?? [];
             foreach ($images as $img) {
-                $path = public_path('uploads/products/' . $img);
+                $path = public_path('uploads/products/'.$img);
                 if (file_exists($path)) {
                     unlink($path);
                 }
@@ -253,8 +237,8 @@ class ProductController extends Controller
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%")
-                  ->orWhere('barcode', 'like', "%{$search}%");
+                    ->orWhere('sku', 'like', "%{$search}%")
+                    ->orWhere('barcode', 'like', "%{$search}%");
             });
         }
 
@@ -267,7 +251,7 @@ class ProductController extends Controller
     {
         $products = Product::with(['brand', 'category', 'supplier'])->orderBy('name')->get();
 
-        $filename = 'products_' . now()->format('Y-m-d_His') . '.csv';
+        $filename = 'products_'.now()->format('Y-m-d_His').'.csv';
         $headers = [
             'Content-Type' => 'text/csv',
             'Content-Disposition' => "attachment; filename=\"{$filename}\"",
@@ -314,6 +298,7 @@ class ProductController extends Controller
         while (($row = fgetcsv($file)) !== false) {
             if (count($row) < 2) {
                 $skipped++;
+
                 continue;
             }
 
@@ -323,6 +308,7 @@ class ProductController extends Controller
 
             if (empty($name)) {
                 $skipped++;
+
                 continue;
             }
 
@@ -332,21 +318,27 @@ class ProductController extends Controller
                 $supplierId = null;
 
                 $brandName = trim($data['Brand'] ?? '');
-                if (!empty($brandName)) {
+                if (! empty($brandName)) {
                     $brand = Brand::where('name', $brandName)->first();
-                    if ($brand) $brandId = $brand->id;
+                    if ($brand) {
+                        $brandId = $brand->id;
+                    }
                 }
 
                 $categoryName = trim($data['Category'] ?? '');
-                if (!empty($categoryName)) {
+                if (! empty($categoryName)) {
                     $category = Category::where('name', $categoryName)->first();
-                    if ($category) $categoryId = $category->id;
+                    if ($category) {
+                        $categoryId = $category->id;
+                    }
                 }
 
                 $supplierName = trim($data['Supplier'] ?? '');
-                if (!empty($supplierName)) {
+                if (! empty($supplierName)) {
                     $supplier = Supplier::where('name', $supplierName)->first();
-                    if ($supplier) $supplierId = $supplier->id;
+                    if ($supplier) {
+                        $supplierId = $supplier->id;
+                    }
                 }
 
                 Product::create([
@@ -365,7 +357,7 @@ class ProductController extends Controller
                 ]);
                 $imported++;
             } catch (\Exception $e) {
-                $errors[] = "{$name}: " . $e->getMessage();
+                $errors[] = "{$name}: ".$e->getMessage();
                 $skipped++;
             }
         }
@@ -373,8 +365,12 @@ class ProductController extends Controller
         fclose($file);
 
         $message = "{$imported} products imported.";
-        if ($skipped > 0) $message .= " {$skipped} skipped.";
-        if (!empty($errors)) $message .= " Errors: " . implode('; ', array_slice($errors, 0, 5));
+        if ($skipped > 0) {
+            $message .= " {$skipped} skipped.";
+        }
+        if (! empty($errors)) {
+            $message .= ' Errors: '.implode('; ', array_slice($errors, 0, 5));
+        }
 
         return redirect()->route('products.index')
             ->with($imported > 0 ? 'success' : 'error', $message);
@@ -387,16 +383,16 @@ class ProductController extends Controller
         ]);
 
         $dir = public_path('uploads/products');
-        if (!is_dir($dir)) {
+        if (! is_dir($dir)) {
             mkdir($dir, 0755, true);
         }
 
         $file = $request->file('file');
-        $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
+        $filename = Str::uuid().'.'.$file->getClientOriginalExtension();
         $file->move($dir, $filename);
 
         return response()->json([
-            'url' => asset('uploads/products/' . $filename),
+            'url' => asset('uploads/products/'.$filename),
             'filename' => $filename,
         ]);
     }
@@ -404,12 +400,12 @@ class ProductController extends Controller
     private function processImage($file, int $maxWidth = 800, int $quality = 85): string
     {
         $dir = public_path('uploads/products');
-        if (!is_dir($dir)) {
+        if (! is_dir($dir)) {
             mkdir($dir, 0755, true);
         }
 
         $original = imagecreatefromstring(file_get_contents($file->getRealPath()));
-        if (!$original) {
+        if (! $original) {
             throw new \RuntimeException('Failed to process image.');
         }
 
@@ -429,8 +425,8 @@ class ProductController extends Controller
         imagesavealpha($resized, true);
         imagecopyresampled($resized, $original, 0, 0, 0, 0, $newW, $newH, $origW, $origH);
 
-        $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
-        $path = $dir . '/' . $filename;
+        $filename = Str::uuid().'.'.$file->getClientOriginalExtension();
+        $path = $dir.'/'.$filename;
 
         $ext = strtolower($file->getClientOriginalExtension());
         if ($ext === 'png') {

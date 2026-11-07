@@ -20,9 +20,7 @@ use Illuminate\Support\Facades\DB;
 
 class PosController extends Controller
 {
-    public function __construct(private readonly VatCalculator $vat)
-    {
-    }
+    public function __construct(private readonly VatCalculator $vat) {}
 
     public function index()
     {
@@ -44,7 +42,7 @@ class PosController extends Controller
             ->get();
 
         $products = $stocks->map(function ($stock) {
-            $treatment = $this->vat->forProduct($stock->product);
+            $treatment = $this->vat->forStock($stock);
 
             return [
                 'id' => $stock->id,
@@ -88,7 +86,7 @@ class PosController extends Controller
             ]
         );
 
-        $treatment = $this->vat->forProduct($stock->product);
+        $treatment = $this->vat->forStock($stock);
 
         $existingDetail = CartDetail::where('fk_cart_id', $cart->id)
             ->where('fk_stock_id', $stock->id)
@@ -204,7 +202,7 @@ class PosController extends Controller
             $lines
         )), 2);
 
-        $invoiceId = 'INV-' . strtoupper(uniqid());
+        $invoiceId = 'INV-'.strtoupper(uniqid());
 
         DB::beginTransaction();
 
@@ -333,7 +331,8 @@ class PosController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Checkout failed: ' . $e->getMessage()], 500);
+
+            return response()->json(['message' => 'Checkout failed: '.$e->getMessage()], 500);
         }
     }
 
@@ -362,7 +361,7 @@ class PosController extends Controller
                     continue;
                 }
 
-                $treatment = $this->vat->forProduct($stock->product);
+                $treatment = $this->vat->forStock($stock);
                 $gross = round((float) $stock->sale_price * $quantity, 2);
 
                 $lines[] = $this->vat->line($gross, $treatment['code'], $treatment['rate']) + [
@@ -388,7 +387,7 @@ class PosController extends Controller
 
         foreach ($cart->details as $detail) {
             $product = $detail->stock?->product;
-            $treatment = $this->vat->forProduct($product);
+            $treatment = $this->vat->forStock($detail->stock);
             $gross = round((float) $detail->subtotal, 2);
 
             $lines[] = $this->vat->line($gross, $treatment['code'], $treatment['rate']) + [
@@ -411,7 +410,7 @@ class PosController extends Controller
         $cart->load('details.stock.product');
 
         $lines = $cart->details->map(function ($detail) {
-            $treatment = $this->vat->forProduct($detail->stock?->product);
+            $treatment = $this->vat->forStock($detail->stock);
 
             return $this->vat->line((float) $detail->subtotal, $treatment['code'], $treatment['rate']);
         })->all();

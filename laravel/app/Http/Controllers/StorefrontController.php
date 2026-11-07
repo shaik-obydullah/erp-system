@@ -22,8 +22,8 @@ use App\Services\VatCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Str;
 
 class StorefrontController extends Controller
 {
@@ -56,10 +56,10 @@ class StorefrontController extends Controller
         $categories = Category::whereNull('fk_category_id')
             ->where('status', 'active')
             ->with('children')
-            ->withCount(['products' => fn($q) => $q->where('status', 'active')])
+            ->withCount(['products' => fn ($q) => $q->where('status', 'active')])
             ->orderBy('name')
             ->get()
-            ->each(function ($cat) use ($childCategoryIds, $childProductCounts) {
+            ->each(function ($cat) use ($childProductCounts) {
                 $childIds = $cat->children->pluck('id');
                 $cat->products_count += $childProductCounts->only($childIds)->sum();
             });
@@ -68,7 +68,7 @@ class StorefrontController extends Controller
 
         $featuredProducts = Product::where('status', 'active')
             ->whereNotNull('fk_supplier_id')
-            ->with(['stocks' => fn($q) => $q->where('status', 'active'), 'brand', 'category', 'supplier'])
+            ->with(['stocks' => fn ($q) => $q->where('status', 'active'), 'brand', 'category', 'supplier'])
             ->inRandomOrder()
             ->limit(8)
             ->get();
@@ -79,12 +79,12 @@ class StorefrontController extends Controller
             ->get();
 
         $brands = Brand::where('status', 'active')
-            ->withCount(['products' => fn($q) => $q->where('status', 'active')])
+            ->withCount(['products' => fn ($q) => $q->where('status', 'active')])
             ->orderBy('name')
             ->get();
 
         $newArrivals = Product::where('status', 'active')
-            ->with(['stocks' => fn($q) => $q->where('status', 'active'), 'brand', 'supplier'])
+            ->with(['stocks' => fn ($q) => $q->where('status', 'active'), 'brand', 'supplier'])
             ->orderBy('id', 'desc')
             ->limit(8)
             ->get();
@@ -103,13 +103,13 @@ class StorefrontController extends Controller
     public function products(Request $request)
     {
         $query = Product::where('status', 'active')
-            ->with(['stocks' => fn($q) => $q->where('status', 'active'), 'brand', 'category', 'supplier']);
+            ->with(['stocks' => fn ($q) => $q->where('status', 'active'), 'brand', 'category', 'supplier']);
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('sku', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -126,11 +126,11 @@ class StorefrontController extends Controller
         }
 
         if ($minPrice = $request->input('min_price')) {
-            $query->whereHas('stocks', fn($q) => $q->where('sale_price', '>=', $minPrice));
+            $query->whereHas('stocks', fn ($q) => $q->where('sale_price', '>=', $minPrice));
         }
 
         if ($maxPrice = $request->input('max_price')) {
-            $query->whereHas('stocks', fn($q) => $q->where('sale_price', '<=', $maxPrice));
+            $query->whereHas('stocks', fn ($q) => $q->where('sale_price', '<=', $maxPrice));
         }
 
         $sort = $request->input('sort', 'newest');
@@ -163,16 +163,16 @@ class StorefrontController extends Controller
         $product = Product::where('url_slug', $slug)
             ->where('status', 'active')
             ->with([
-                'stocks' => fn($q) => $q->where('status', 'active'),
+                'stocks' => fn ($q) => $q->where('status', 'active'),
                 'brand', 'category', 'supplier', 'category.parent',
-                'reviews' => fn($q) => $q->where('status', 'published')->orderBy('id', 'desc')->limit(10)->with('customer'),
+                'reviews' => fn ($q) => $q->where('status', 'published')->orderBy('id', 'desc')->limit(10)->with('customer'),
             ])
             ->firstOrFail();
 
         $relatedProducts = Product::where('fk_category_id', $product->fk_category_id)
             ->where('id', '!=', $product->id)
             ->where('status', 'active')
-            ->with(['stocks' => fn($q) => $q->where('status', 'active'), 'brand', 'supplier', 'reviews'])
+            ->with(['stocks' => fn ($q) => $q->where('status', 'active'), 'brand', 'supplier', 'reviews'])
             ->limit(4)
             ->get();
 
@@ -221,7 +221,7 @@ class StorefrontController extends Controller
 
         $products = Product::where('fk_supplier_id', $vendor->id)
             ->where('status', 'active')
-            ->with(['stocks' => fn($q) => $q->where('status', 'active'), 'brand', 'category'])
+            ->with(['stocks' => fn ($q) => $q->where('status', 'active'), 'brand', 'category'])
             ->paginate(12);
 
         return view('storefront.vendor-store', compact('vendor', 'products') + ['currencySymbol' => $this->currencySymbol]);
@@ -276,7 +276,7 @@ class StorefrontController extends Controller
                 return response()->json(['message' => "Insufficient stock for {$product->name}."], 422);
             }
 
-            $treatment = $vat->forProduct($product);
+            $treatment = $vat->forStock($stock);
             $quantity = (int) $item['qty'];
             $gross = round((float) $stock->sale_price * $quantity, 2);
 
@@ -344,7 +344,7 @@ class StorefrontController extends Controller
             );
 
             $prefix = Configuration::get('invoice_prefix', 'INV') ?: 'INV';
-            $invoiceId = $prefix . '-' . strtoupper(Str::random(8)) . '-' . time();
+            $invoiceId = $prefix.'-'.strtoupper(Str::random(8)).'-'.time();
 
             $sale = Sale::create([
                 'table_name' => 'sales',
@@ -361,7 +361,7 @@ class StorefrontController extends Controller
                 'buy_price' => $buyPrice,
                 'sale_due' => $grandTotal,
                 'status' => 'completed',
-                'note' => trim(($validated['notes'] ?? '') . ' ' . ($validated['payment_method'] ?? '')),
+                'note' => trim(($validated['notes'] ?? '').' '.($validated['payment_method'] ?? '')),
                 'vat_breakdown' => $summary['breakdown'],
             ]);
 
@@ -432,7 +432,7 @@ class StorefrontController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json(['message' => 'Unable to place order: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Unable to place order: '.$e->getMessage()], 500);
         }
     }
 
@@ -441,14 +441,14 @@ class StorefrontController extends Controller
         $country = strtoupper((string) $request->input('country', ''));
         $subtotal = (float) $request->input('subtotal', 0);
 
-        $zones = ShippingZone::with(['methods' => fn($q) => $q->where('status', 'active')->orderBy('sort_order')])
+        $zones = ShippingZone::with(['methods' => fn ($q) => $q->where('status', 'active')->orderBy('sort_order')])
             ->where('status', 'active')
             ->orderBy('sort_order')
             ->get();
 
-        $matchedZone = $zones->first(fn($zone) => $zone->matchesCountry($country));
+        $matchedZone = $zones->first(fn ($zone) => $zone->matchesCountry($country));
 
-        if (!$matchedZone) {
+        if (! $matchedZone) {
             return response()->json([
                 'zone' => null,
                 'methods' => [],
@@ -457,9 +457,9 @@ class StorefrontController extends Controller
         }
 
         $methods = $matchedZone->methods
-            ->filter(fn($method) => $method->isAvailable($subtotal))
+            ->filter(fn ($method) => $method->isAvailable($subtotal))
             ->values()
-            ->map(fn($method) => [
+            ->map(fn ($method) => [
                 'id' => $method->id,
                 'name' => $method->name,
                 'type' => $method->type,

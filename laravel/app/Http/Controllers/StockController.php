@@ -20,7 +20,7 @@ class StockController extends Controller
         if ($search = $request->input('search')) {
             $query->whereHas('product', function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%");
+                    ->orWhere('sku', 'like', "%{$search}%");
             });
         }
 
@@ -62,6 +62,8 @@ class StockController extends Controller
             'quantity' => 'required|integer|min:0',
             'buy_price' => 'required|numeric|min:0',
             'sale_price' => 'required|numeric|min:0',
+            'vat_code' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
+            'vat_rate' => 'nullable|numeric|min:0|max:100',
             'status' => 'required|in:active,inactive,archive',
         ]);
 
@@ -76,6 +78,8 @@ class StockController extends Controller
                 'quantity' => $validated['quantity'],
                 'buy_price' => $validated['buy_price'],
                 'sale_price' => $validated['sale_price'],
+                'vat_code' => $validated['vat_code'] ?? null,
+                'vat_rate' => $validated['vat_rate'] ?? null,
                 'status' => $validated['status'],
                 'accounting_version' => 1,
                 'created_by' => $adminId,
@@ -117,6 +121,8 @@ class StockController extends Controller
             'quantity' => 'required|integer|min:0',
             'buy_price' => 'required|numeric|min:0',
             'sale_price' => 'required|numeric|min:0',
+            'vat_code' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
+            'vat_rate' => 'nullable|numeric|min:0|max:100',
             'status' => 'required|in:active,inactive,archive',
         ]);
 
@@ -139,6 +145,8 @@ class StockController extends Controller
                     'quantity' => $validated['quantity'],
                     'buy_price' => $validated['buy_price'],
                     'sale_price' => $validated['sale_price'],
+                    'vat_code' => $validated['vat_code'] ?? null,
+                    'vat_rate' => $validated['vat_rate'] ?? null,
                     'status' => $validated['status'],
                     'journal_entry_id' => null,
                     'accounting_version' => max(1, (int) $stock->accounting_version) + 1,
@@ -158,6 +166,8 @@ class StockController extends Controller
                 'quantity' => $validated['quantity'],
                 'buy_price' => $validated['buy_price'],
                 'sale_price' => $validated['sale_price'],
+                'vat_code' => $validated['vat_code'] ?? null,
+                'vat_rate' => $validated['vat_rate'] ?? null,
                 'status' => $validated['status'],
                 'updated_by' => $adminId,
             ]);

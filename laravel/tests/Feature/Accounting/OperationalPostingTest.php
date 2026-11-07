@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Accounting;
 
+use App\Accounting\AccountingPoster;
 use App\Models\Admin;
 use App\Models\BillOfMaterial;
 use App\Models\Campaign;
@@ -22,7 +23,6 @@ use App\Models\ShipmentReturn;
 use App\Models\Stock;
 use App\Models\Supplier;
 use App\Models\Transaction;
-use App\Accounting\AccountingPoster;
 use App\Services\LedgerProjector;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -243,11 +243,16 @@ class OperationalPostingTest extends TestCase
             'quantity' => 10,
             'buy_price' => 20,
             'sale_price' => 40,
+            'vat_code' => 'standard',
+            'vat_rate' => 20,
             'status' => 'active',
         ])->assertRedirect(route('stocks.index'));
 
         $stock = Stock::firstOrFail();
         $created = $this->entry("stock:{$stock->id}:v1");
+
+        $this->assertSame('standard', $stock->vat_code);
+        $this->assertSame(20.00, (float) $stock->vat_rate);
 
         $this->assertSame(200.0, $this->lines($created)['inventory']['debit']);
         $this->assertSame(200.0, $this->lines($created)['opening_balance_equity']['credit']);
@@ -259,11 +264,15 @@ class OperationalPostingTest extends TestCase
             'quantity' => 12,
             'buy_price' => 20,
             'sale_price' => 40,
+            'vat_code' => 'zero',
+            'vat_rate' => 0,
             'status' => 'active',
         ])->assertRedirect(route('stocks.index'));
 
         $stock->refresh();
 
+        $this->assertSame('zero', $stock->vat_code);
+        $this->assertSame(0.00, (float) $stock->vat_rate);
         $this->assertSame(2, $stock->accounting_version);
         $this->assertSame(240.0, $this->lines($this->entry("stock:{$stock->id}:v2"))['inventory']['debit']);
 

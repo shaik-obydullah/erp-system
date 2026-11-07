@@ -19,12 +19,7 @@ class Product extends Model
         'name', 'url_slug', 'image', 'sku', 'barcode',
         'size', 'color', 'specification', 'attribute',
         'review_number', 'review_avg', 'description', 'status',
-        'vat_code', 'vat_rate',
         'created_by', 'updated_by', 'deleted_by',
-    ];
-
-    protected $casts = [
-        'vat_rate' => 'decimal:2',
     ];
 
     protected static function booted(): void
@@ -71,23 +66,6 @@ class Product extends Model
         return $this->hasMany(Review::class, 'fk_product_id');
     }
 
-    public function getSalePriceAttribute()
-    {
-        $stock = $this->stocks()->where('status', 'active')->first();
-        return $stock ? $stock->sale_price : 0;
-    }
-
-    public function getBuyPriceAttribute()
-    {
-        $stock = $this->stocks()->where('status', 'active')->first();
-        return $stock ? $stock->buy_price : 0;
-    }
-
-    public function getStockQuantityAttribute()
-    {
-        return $this->stocks()->where('status', 'active')->sum('quantity');
-    }
-
     public function getParsedImagesAttribute()
     {
         if (empty($this->image)) {
@@ -97,6 +75,7 @@ class Product extends Model
         if (is_array($decoded)) {
             return $decoded;
         }
+
         return [$this->image];
     }
 
@@ -108,9 +87,10 @@ class Product extends Model
         }
         $first = $images[0];
         if (str_starts_with($first, 'http')) {
-            return $first . '?v=' . $this->id;
+            return $first.'?v='.$this->id;
         }
         $cleanPath = preg_replace('#^products/#', '', $first);
-        return asset('uploads/products/' . $cleanPath) . '?v=' . $this->id;
+
+        return asset('uploads/products/'.$cleanPath).'?v='.$this->id;
     }
 }

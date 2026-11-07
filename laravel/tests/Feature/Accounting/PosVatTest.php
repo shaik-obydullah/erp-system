@@ -96,14 +96,92 @@ class PosVatTest extends TestCase
         $this->assertSame(39.34, $lines['sales_tax_payable']['credit']);
     }
 
+    public function test_stock_vat_overrides_the_company_default(): void
+    {
+        $admin = Admin::factory()->create();
+        $role = Role::create(['name' => 'cashier']);
+        $permission = Permission::create(['name' => 'pos.save']);
+        $role->permissions()->attach($permission);
+        $admin->roles()->attach($role);
+
+        // The company default is standard-rate, but this stock batch is
+        // zero-rated. The stock line must win.
+        $product = Product::create([
+            'name' => 'Mixed Treatment Product',
+            'url_slug' => 'mixed-treatment-'.Str::random(6),
+            'status' => 'active',
+        ]);
+
+        $stock = Stock::create([
+            'fk_product_id' => $product->id,
+            'quantity' => 10,
+            'buy_price' => 0,
+            'sale_price' => 50.00,
+            'status' => 'active',
+            'vat_code' => 'zero',
+            'vat_rate' => 0.00,
+        ]);
+
+        $response = $this->actingAs($admin, 'admin')->postJson(route('pos.checkout'), [
+            'cart' => [
+                ['stock_id' => $stock->id, 'quantity' => 1],
+            ],
+            'paid_amount' => 50.00,
+        ]);
+
+        $response->assertOk();
+
+        $line = SaleDetail::where('fk_stock_id', $stock->id)->firstOrFail();
+
+        $this->assertSame('zero', $line->vat_code);
+        $this->assertSame(0.00, (float) $line->vat_rate);
+        $this->assertSame(0.00, (float) $line->vat_amount);
+    }
+
+    public function test_stock_without_vat_falls_back_to_company_default(): void
+    {
+        $admin = Admin::factory()->create();
+        $role = Role::create(['name' => 'cashier']);
+        $permission = Permission::create(['name' => 'pos.save']);
+        $role->permissions()->attach($permission);
+        $admin->roles()->attach($role);
+
+        $product = Product::create([
+            'name' => 'Default Rate Product',
+            'url_slug' => 'default-rate-'.Str::random(6),
+            'status' => 'active',
+        ]);
+
+        $stock = Stock::create([
+            'fk_product_id' => $product->id,
+            'quantity' => 10,
+            'buy_price' => 0,
+            'sale_price' => 120.00,
+            'status' => 'active',
+        ]);
+
+        $response = $this->actingAs($admin, 'admin')->postJson(route('pos.checkout'), [
+            'cart' => [
+                ['stock_id' => $stock->id, 'quantity' => 1],
+            ],
+            'paid_amount' => 120.00,
+        ]);
+
+        $response->assertOk();
+
+        $line = SaleDetail::where('fk_stock_id', $stock->id)->firstOrFail();
+
+        $this->assertSame('standard', $line->vat_code);
+        $this->assertSame(20.00, (float) $line->vat_rate);
+        $this->assertSame(20.00, (float) $line->vat_amount);
+    }
+
     private function makeStock(string $name, float $price, string $vatCode, float $vatRate): Stock
     {
         $product = Product::create([
             'name' => $name,
             'url_slug' => Str::slug($name).'-'.Str::random(6),
             'status' => 'active',
-            'vat_code' => $vatCode,
-            'vat_rate' => $vatRate,
         ]);
 
         return Stock::create([
@@ -112,6 +190,8 @@ class PosVatTest extends TestCase
             'buy_price' => 0,
             'sale_price' => $price,
             'status' => 'active',
+            'vat_code' => $vatCode,
+            'vat_rate' => $vatRate,
         ]);
     }
 }

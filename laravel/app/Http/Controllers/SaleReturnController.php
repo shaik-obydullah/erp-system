@@ -285,7 +285,7 @@ class SaleReturnController extends Controller
 
         if ($code === null && $rate === null) {
             $stock = Stock::with('product')->find($data['fk_stock_id']);
-            $treatment = $vat->forProduct($stock?->product);
+            $treatment = $vat->forStock($stock);
             $code = $treatment['code'];
             $rate = $treatment['rate'];
         }

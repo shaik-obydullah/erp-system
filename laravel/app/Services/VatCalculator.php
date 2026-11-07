@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\Configuration;
-use App\Models\Product;
+use App\Models\Stock;
 
 /**
  * Central UK VAT calculator.
@@ -134,19 +134,21 @@ class VatCalculator
     }
 
     /**
-     * VAT treatment for a product, falling back to the configured default.
+     * VAT treatment for a stock line. Stock carries its own treatment because a
+     * product can be bought and sold in several batches at different rates.
+     * Stock without an explicit treatment uses the configured default.
      *
      * @return array{code: string, rate: float}
      */
-    public function forProduct(?Product $product, ?float $fallback = null): array
+    public function forStock(?Stock $stock, ?float $fallback = null): array
     {
-        if (! $product) {
+        if (! $stock) {
             return $this->resolve(null, null, $fallback);
         }
 
         return $this->resolve(
-            $product->vat_code,
-            $product->vat_rate !== null ? (float) $product->vat_rate : null,
+            $stock->vat_code,
+            $stock->vat_rate !== null ? (float) $stock->vat_rate : null,
             $fallback
         );
     }

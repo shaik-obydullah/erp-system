@@ -4,60 +4,16 @@
 
 @push('head')
 <link href="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote-lite.min.css" rel="stylesheet">
-<style>
-    .image-upload-zone {
-        border: 2px dashed #d1d5db;
-        border-radius: 8px;
-        padding: 32px;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.2s;
-        background: #f9fafb;
-    }
-    .image-upload-zone:hover, .image-upload-zone.dragover {
-        border-color: #3b82f6;
-        background: #eff6ff;
-    }
-    .image-upload-zone svg { width: 48px; height: 48px; margin: 0 auto 12px; color: #9ca3af; }
-    .image-upload-zone p { color: #6b7280; margin: 0; }
-    .image-upload-zone .hint { font-size: 12px; color: #9ca3af; margin-top: 4px; }
-    .image-preview-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-        gap: 12px;
-        margin-top: 12px;
-    }
-    .image-preview-item {
-        position: relative;
-        border-radius: 8px;
-        overflow: hidden;
-        border: 1px solid #e5e7eb;
-        aspect-ratio: 1;
-    }
-    .image-preview-item img { width: 100%; height: 100%; object-fit: cover; }
-    .image-preview-item .remove-btn {
-        position: absolute; top: 4px; right: 4px;
-        width: 24px; height: 24px; border-radius: 50%;
-        background: #ef4444; color: white; border: none; cursor: pointer;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 14px; line-height: 1; opacity: 0; transition: opacity 0.2s;
-    }
-    .image-preview-item:hover .remove-btn { opacity: 1; }
-    .image-preview-item .file-name {
-        position: absolute; bottom: 0; left: 0; right: 0;
-        background: rgba(0,0,0,0.6); color: white; font-size: 10px;
-        padding: 2px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .note-editor { border-radius: 8px !important; border: 1px solid #d1d5db !important; }
-    .note-toolbar { border-radius: 8px 8px 0 0 !important; background: #f9fafb !important; }
-    .note-editing-area { border-radius: 0 0 8px 8px !important; }
-</style>
+@include('products._form-styles')
 @endpush
 
 @section('content')
-<div class="card" x-data="productForm()" x-init="init()">
+<div class="card product-form" x-data="productForm()" x-init="init()">
     <div class="card-header">
-        <h2 class="card-title">Create Product</h2>
+        <div>
+            <h2 class="card-title">Create Product</h2>
+            <p class="card-subtitle">Add the catalog details, media and visibility for this product.</p>
+        </div>
         <a href="{{ route('products.index') }}" class="btn btn-secondary">Back to Products</a>
     </div>
     <div class="card-body">
@@ -75,123 +31,121 @@
         <form @submit.prevent="submit($event)" enctype="multipart/form-data">
             @csrf
 
-            <div class="form-row">
+            <section class="form-section">
+                <div class="section-heading">
+                    <div class="section-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="section-title">Basic information</h3>
+                        <p class="section-hint">Name and classify the product so it is easy to find in the catalog.</p>
+                    </div>
+                </div>
+
                 <div class="form-group">
-                    <label for="name">Name *</label>
-                    <input type="text" id="name" x-model="form.name" required autofocus>
+                    <label for="name">Product name <span class="required">*</span></label>
+                    <input type="text" id="name" x-model="form.name" placeholder="e.g. Wireless Noise-Cancelling Headphones" required autofocus>
                     <span class="form-error" x-show="errors.name" x-text="errors.name"></span>
                 </div>
-            </div>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="fk_brand_id">Brand</label>
-                    <select id="fk_brand_id" x-model="form.fk_brand_id">
-                        <option value="">Select Brand</option>
-                        @foreach($brands as $brand)
-                            <option value="{{ $brand->id }}">{{ $brand->name }}</option>
-                        @endforeach
-                    </select>
-                    <span class="form-error" x-show="errors.fk_brand_id" x-text="errors.fk_brand_id"></span>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="fk_brand_id">Brand</label>
+                        <select id="fk_brand_id" x-model="form.fk_brand_id">
+                            <option value="">Select Brand</option>
+                            @foreach($brands as $brand)
+                                <option value="{{ $brand->id }}">{{ $brand->name }}</option>
+                            @endforeach
+                        </select>
+                        <span class="form-error" x-show="errors.fk_brand_id" x-text="errors.fk_brand_id"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="fk_category_id">Category</label>
+                        <select id="fk_category_id" x-model="form.fk_category_id" @change="form.fk_subcategory_id = ''">
+                            <option value="">Select Category</option>
+                            @foreach($categories as $category)
+                                <option value="{{ $category->id }}">{{ $category->name }}</option>
+                            @endforeach
+                        </select>
+                        <span class="form-error" x-show="errors.fk_category_id" x-text="errors.fk_category_id"></span>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="fk_category_id">Category</label>
-                    <select id="fk_category_id" x-model="form.fk_category_id" @change="form.fk_subcategory_id = ''">
-                        <option value="">Select Category</option>
-                        @foreach($categories as $category)
-                            <option value="{{ $category->id }}">{{ $category->name }}</option>
-                        @endforeach
-                    </select>
-                    <span class="form-error" x-show="errors.fk_category_id" x-text="errors.fk_category_id"></span>
-                </div>
-            </div>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="fk_subcategory_id">Subcategory</label>
-                    <select id="fk_subcategory_id" x-model="form.fk_subcategory_id" :disabled="!form.fk_category_id">
-                        <option value="">Select Subcategory</option>
-                        <template x-for="sub in availableSubcategories" :key="sub.id">
-                            <option :value="sub.id" x-text="sub.name"></option>
-                        </template>
-                    </select>
-                    <span class="form-error" x-show="errors.fk_subcategory_id" x-text="errors.fk_subcategory_id"></span>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="fk_subcategory_id">Subcategory</label>
+                        <select id="fk_subcategory_id" x-model="form.fk_subcategory_id" :disabled="!form.fk_category_id">
+                            <option value="">Select Subcategory</option>
+                            <template x-for="sub in availableSubcategories" :key="sub.id">
+                                <option :value="sub.id" x-text="sub.name"></option>
+                            </template>
+                        </select>
+                        <span class="form-error" x-show="errors.fk_subcategory_id" x-text="errors.fk_subcategory_id"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="fk_unit_id">Unit</label>
+                        <select id="fk_unit_id" x-model="form.fk_unit_id">
+                            <option value="">Select Unit</option>
+                            @foreach($units as $unit)
+                                <option value="{{ $unit->id }}">{{ $unit->name }}</option>
+                            @endforeach
+                        </select>
+                        <span class="form-error" x-show="errors.fk_unit_id" x-text="errors.fk_unit_id"></span>
+                    </div>
                 </div>
-            </div>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="fk_unit_id">Unit</label>
-                    <select id="fk_unit_id" x-model="form.fk_unit_id">
-                        <option value="">Select Unit</option>
-                        @foreach($units as $unit)
-                            <option value="{{ $unit->id }}">{{ $unit->name }}</option>
-                        @endforeach
-                    </select>
-                    <span class="form-error" x-show="errors.fk_unit_id" x-text="errors.fk_unit_id"></span>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="sku">SKU</label>
+                        <input type="text" id="sku" x-model="form.sku" placeholder="e.g. AUD-WH-1000">
+                        <span class="form-hint">Unique stock keeping unit. Optional.</span>
+                        <span class="form-error" x-show="errors.sku" x-text="errors.sku"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="barcode">Barcode</label>
+                        <input type="text" id="barcode" x-model="form.barcode" placeholder="e.g. 5012345678900">
+                        <span class="form-hint">Used for scanning at the point of sale. Optional.</span>
+                        <span class="form-error" x-show="errors.barcode" x-text="errors.barcode"></span>
+                    </div>
                 </div>
-            </div>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="sku">SKU</label>
-                    <input type="text" id="sku" x-model="form.sku">
-                    <span class="form-error" x-show="errors.sku" x-text="errors.sku"></span>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="size">Size</label>
+                        <input type="text" id="size" x-model="form.size" placeholder="e.g. Medium, 42, 500ml">
+                        <span class="form-error" x-show="errors.size" x-text="errors.size"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="color">Color</label>
+                        <input type="text" id="color" x-model="form.color" placeholder="e.g. Midnight Black">
+                        <span class="form-error" x-show="errors.color" x-text="errors.color"></span>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="barcode">Barcode</label>
-                    <input type="text" id="barcode" x-model="form.barcode">
-                    <span class="form-error" x-show="errors.barcode" x-text="errors.barcode"></span>
-                </div>
-            </div>
+            </section>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="size">Size</label>
-                    <input type="text" id="size" x-model="form.size">
-                    <span class="form-error" x-show="errors.size" x-text="errors.size"></span>
+            <section class="form-section">
+                <div class="section-heading">
+                    <div class="section-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="section-title">Product images</h3>
+                        <p class="section-hint">Upload clear images for the catalog and storefront. The first image is used as the cover.</p>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="color">Color</label>
-                    <input type="text" id="color" x-model="form.color">
-                    <span class="form-error" x-show="errors.color" x-text="errors.color"></span>
-                </div>
-            </div>
 
-            <div class="form-row">
                 <div class="form-group">
-                    <label for="vat_code">VAT Code</label>
-                    <select id="vat_code" x-model="form.vat_code" @change="applyVatCode()">
-                        <option value="">Use company default</option>
-                        <option value="standard">Standard rate (20%)</option>
-                        <option value="reduced">Reduced rate (5%)</option>
-                        <option value="zero">Zero rate (0%)</option>
-                        <option value="exempt">Exempt</option>
-                        <option value="outside_scope">Outside the scope of VAT</option>
-                    </select>
-                    <span class="form-error" x-show="errors.vat_code" x-text="errors.vat_code"></span>
-                </div>
-                <div class="form-group">
-                    <label for="vat_rate">VAT Rate (%)</label>
-                    <input type="number" id="vat_rate" x-model="form.vat_rate" min="0" max="100" step="0.01"
-                        placeholder="e.g. 20">
-                    <small class="form-hint">Selling prices are entered VAT-inclusive.</small>
-                    <span class="form-error" x-show="errors.vat_rate" x-text="errors.vat_rate"></span>
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Product Images</label>
                     <div class="image-upload-zone"
                          @click="$refs.imageInput.click()"
                          @dragover.prevent="dragOver = true"
                          @dragleave.prevent="dragOver = false"
                          @drop.prevent="handleDrop($event); dragOver = false"
                          :class="{ 'dragover': dragOver }">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                        <p>Drop images here or click to browse</p>
-                        <p class="hint">JPEG, PNG, GIF, WebP - Max 2MB each</p>
+                        <div class="upload-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        </div>
+                        <p class="upload-text">Drop images here or <span>browse files</span></p>
+                        <p class="hint">JPEG, PNG, GIF or WebP &middot; Up to 2MB per image</p>
                     </div>
                     <input type="file" x-ref="imageInput" multiple accept="image/*" style="display:none" @change="handleFiles($event)">
                     <span class="form-error" x-show="errors.images" x-text="errors.images"></span>
@@ -199,35 +153,44 @@
                         <template x-for="(preview, index) in imagePreviews" :key="index">
                             <div class="image-preview-item">
                                 <img :src="preview.url" :alt="preview.name">
-                                <button type="button" class="remove-btn" @click="removeNewImage(index)">&times;</button>
+                                <button type="button" class="remove-btn" @click="removeNewImage(index)" aria-label="Remove image">&times;</button>
                                 <div class="file-name" x-text="preview.name"></div>
                             </div>
                         </template>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <div class="form-row">
+            <section class="form-section">
+                <div class="section-heading">
+                    <div class="section-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="section-title">Description &amp; visibility</h3>
+                        <p class="section-hint">Tell customers what makes this product special and control where it appears.</p>
+                    </div>
+                </div>
+
                 <div class="form-group">
-                    <label>Description</label>
+                    <label for="description">Description</label>
                     <textarea id="description" x-model="form.description"></textarea>
                     <span class="form-error" x-show="errors.description" x-text="errors.description"></span>
                 </div>
-            </div>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="status">Status *</label>
+                <div class="form-group narrow">
+                    <label for="status">Status <span class="required">*</span></label>
                     <select id="status" x-model="form.status" required>
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
                         <option value="archive">Archive</option>
                     </select>
+                    <span class="form-hint">Inactive and archived products stay in the catalog but are hidden from sales.</span>
                     <span class="form-error" x-show="errors.status" x-text="errors.status"></span>
                 </div>
-            </div>
+            </section>
 
-            <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <div class="form-actions">
                 <button type="submit" class="btn btn-primary" :disabled="submitting">
                     <span x-show="!submitting">Create Product</span>
                     <span x-show="submitting">Saving...</span>
@@ -248,14 +211,7 @@
             form: {
                 name: '', fk_brand_id: '', fk_category_id: '', fk_subcategory_id: '', fk_supplier_id: '',
                 fk_unit_id: '', sku: '', barcode: '', size: '', color: '',
-                vat_code: '', vat_rate: '', description: '', status: 'active',
-            },
-            vatRates: { standard: 20, reduced: 5, zero: 0, exempt: 0, outside_scope: 0 },
-
-            applyVatCode() {
-                if (this.form.vat_code && this.vatRates[this.form.vat_code] !== undefined) {
-                    this.form.vat_rate = this.vatRates[this.form.vat_code];
-                }
+                description: '', status: 'active',
             },
             categoriesData: @json($categories),
             errors: {},
@@ -375,8 +331,6 @@
                 if (this.form.barcode) formData.append('barcode', this.form.barcode);
                 if (this.form.size) formData.append('size', this.form.size);
                 if (this.form.color) formData.append('color', this.form.color);
-                if (this.form.vat_code) formData.append('vat_code', this.form.vat_code);
-                if (this.form.vat_rate !== '' && this.form.vat_rate !== null) formData.append('vat_rate', this.form.vat_rate);
                 if (this.form.description) formData.append('description', this.form.description);
 
                 for (var i = 0; i < this.newImageFiles.length; i++) {

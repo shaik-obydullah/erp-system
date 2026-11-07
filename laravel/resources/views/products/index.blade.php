@@ -69,8 +69,6 @@
                     <th>Brand</th>
                     <th>Category</th>
                     <th>Supplier</th>
-                    <th>Stock Qty</th>
-                    <th>Price</th>
                     <th>Status</th>
                     <th>Actions</th>
                 </tr>
@@ -102,12 +100,6 @@
                         <td>{{ $product->category->name ?? '—' }}</td>
                         <td>{{ $product->supplier->name ?? '—' }}</td>
                         <td>
-                            <span style="color: {{ $product->stock_quantity > 0 ? 'var(--success, #22c55e)' : 'var(--error)' }}; font-weight: 600;">
-                                {{ $product->stock_quantity }}
-                            </span>
-                        </td>
-                        <td>{{ $currencySymbol }}{{ number_format($product->sale_price, 2) }}</td>
-                        <td>
                             <span class="badge {{ $product->status === 'active' ? 'badge-green' : ($product->status === 'inactive' ? 'badge-orange' : '') }}">
                                 {{ ucfirst($product->status) }}
                             </span>
@@ -127,7 +119,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="empty-state">No products found.</td>
+                        <td colspan="6" class="empty-state">No products found.</td>
                     </tr>
                 @endforelse
             </tbody>

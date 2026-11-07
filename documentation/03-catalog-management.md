@@ -40,9 +40,8 @@ The catalog module is split into two layers:
 
 - **Product** (`app/Models/Product.php`) — `brand()`, `category()`, `subcategory()`, `supplier()`, `unit()`, `stocks()` (1:N), `reviews()` (1:N). Auto-generates `url_slug` on create when empty.
 - **Product computed attributes:**
-  - `sale_price` / `buy_price` — from the first active stock record.
-  - `stock_quantity` — sum of quantity across active stocks.
   - `parsed_images` / `first_image_url` — JSON image array handling; resolves storage or external URLs.
+- **No finance data:** pricing, tax/VAT, stock quantities and ledger links belong to stock lines, not products. Product CRUD must not post journal entries or touch finance tables.
 - **Category** — self-referencing: `parent()` and `children()`, plus `products()`.
 - **Brand** — self-referencing for brand → model hierarchy; `fk_brand_id` points to the parent brand row.
 

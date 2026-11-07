@@ -4,11 +4,24 @@ namespace App\Http\Controllers\Api;
 
 use App\Accounting\AccountingPoster;
 use App\Http\Controllers\Controller;
-use App\Models\{Admin, Cashbook, Category, Configuration, Customer, Expense, Income, Product, Sale, SaleDetail, Stock, Transaction};
+use App\Models\Admin;
+use App\Models\Cashbook;
+use App\Models\Category;
+use App\Models\Configuration;
+use App\Models\Customer;
+use App\Models\Expense;
+use App\Models\Income;
+use App\Models\Product;
+use App\Models\Sale;
+use App\Models\SaleDetail;
+use App\Models\Stock;
+use App\Models\Transaction;
 use App\Services\ActivityLogger;
 use App\Services\VatCalculator;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\{Auth, Hash, DB};
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class ApiController extends Controller
@@ -24,6 +37,7 @@ class ApiController extends Controller
 
         if (! $admin || ! Hash::check($request->password, $admin->password)) {
             ActivityLogger::failedLogin($request->email, 'Invalid credentials');
+
             return response()->json(['error' => 'Invalid credentials'], 401);
         }
 
@@ -41,6 +55,7 @@ class ApiController extends Controller
     {
         $request->user()->currentAccessToken()->delete();
         ActivityLogger::logout();
+
         return response()->json(['message' => 'Logged out successfully']);
     }
 
@@ -125,8 +140,8 @@ class ApiController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
             });
         }
 
@@ -171,7 +186,7 @@ class ApiController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:customers,email,' . $id,
+            'email' => 'required|email|unique:customers,email,'.$id,
             'vat_number' => 'nullable|string|max:30',
             'country' => 'nullable|string|size:2',
             'vat_treatment' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
@@ -279,8 +294,8 @@ class ApiController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%")
-                  ->orWhere('barcode', 'like', "%{$search}%");
+                    ->orWhere('sku', 'like', "%{$search}%")
+                    ->orWhere('barcode', 'like', "%{$search}%");
             });
         }
 
@@ -295,8 +310,6 @@ class ApiController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'fk_category_id' => 'required|exists:categories,id',
-            'vat_code' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
-            'vat_rate' => 'nullable|numeric|min:0|max:100',
         ]);
 
         $product = Product::create([
@@ -309,8 +322,6 @@ class ApiController extends Controller
             'barcode' => $request->input('barcode', ''),
             'description' => $request->input('description', ''),
             'status' => $request->input('status', 'active'),
-            'vat_code' => $request->input('vat_code'),
-            'vat_rate' => $request->input('vat_rate'),
             'image' => $request->hasFile('image') ? $request->file('image')->store('products', 'public') : null,
             'created_by' => Auth::guard('admin')->id(),
         ]);
@@ -327,8 +338,6 @@ class ApiController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'fk_category_id' => 'required|exists:categories,id',
-            'vat_code' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
-            'vat_rate' => 'nullable|numeric|min:0|max:100',
         ]);
 
         $data = [
@@ -341,8 +350,6 @@ class ApiController extends Controller
             'barcode' => $request->input('barcode', $product->barcode),
             'description' => $request->input('description', $product->description),
             'status' => $request->input('status', $product->status),
-            'vat_code' => $request->input('vat_code', $product->vat_code),
-            'vat_rate' => $request->input('vat_rate', $product->vat_rate),
             'updated_by' => Auth::guard('admin')->id(),
         ];
 
@@ -459,9 +466,11 @@ class ApiController extends Controller
             ActivityLogger::deleted('Sale', $sale);
 
             DB::commit();
+
             return response()->json(['message' => 'Sale deleted successfully']);
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json(['error' => 'Failed to delete sale'], 500);
         }
     }
@@ -484,7 +493,7 @@ class ApiController extends Controller
         DB::beginTransaction();
 
         try {
-            $invoiceId = 'INV-' . strtoupper(Str::random(8)) . '-' . time();
+            $invoiceId = 'INV-'.strtoupper(Str::random(8)).'-'.time();
             $adminId = Auth::guard('admin')->id();
             $today = now()->toDateString();
             $vat = app(VatCalculator::class);
@@ -502,7 +511,7 @@ class ApiController extends Controller
                 }
 
                 $quantity = (int) $item['sale_stock'];
-                $treatment = $vat->forProduct($stock->product);
+                $treatment = $vat->forStock($stock);
                 $gross = round((float) $stock->sale_price * $quantity, 2);
 
                 $lines[] = $vat->line($gross, $treatment['code'], $treatment['rate']) + [
@@ -516,6 +525,7 @@ class ApiController extends Controller
 
             if (empty($lines)) {
                 DB::rollBack();
+
                 return response()->json(['error' => 'No valid items in sale'], 422);
             }
 
@@ -602,6 +612,7 @@ class ApiController extends Controller
             ActivityLogger::created('Sale', $sale);
 
             DB::commit();
+
             return response()->json([
                 'message' => 'Sale completed successfully',
                 'sale' => $sale,
@@ -612,6 +623,7 @@ class ApiController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json(['error' => 'Failed to process sale'], 500);
         }
     }
@@ -691,9 +703,11 @@ class ApiController extends Controller
             ActivityLogger::created('Income', $income);
 
             DB::commit();
+
             return response()->json(['message' => 'Income saved successfully', 'income' => $income]);
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json(['error' => 'Failed to save income'], 500);
         }
     }
@@ -773,9 +787,11 @@ class ApiController extends Controller
             ActivityLogger::created('Expense', $expense);
 
             DB::commit();
+
             return response()->json(['message' => 'Expense saved successfully', 'expense' => $expense]);
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json(['error' => 'Failed to save expense'], 500);
         }
     }
@@ -792,8 +808,8 @@ class ApiController extends Controller
             ->value('total') ?? 0;
 
         $monthlySales = Sale::whereHas('transaction', function ($q) use ($currentYear) {
-                $q->whereYear('date', $currentYear);
-            })
+            $q->whereYear('date', $currentYear);
+        })
             ->join('transactions', 'transactions.fk_reference_id', '=', 'sales.id')
             ->where('transactions.type', Transaction::TYPE_SALE_INCOME)
             ->selectRaw('MONTH(transactions.date) as month, SUM(sales.grand_total) as total')
@@ -816,8 +832,8 @@ class ApiController extends Controller
             ->toArray();
 
         $lastYearMonthlySales = Sale::whereHas('transaction', function ($q) use ($lastYear) {
-                $q->whereYear('date', $lastYear);
-            })
+            $q->whereYear('date', $lastYear);
+        })
             ->join('transactions', 'transactions.fk_reference_id', '=', 'sales.id')
             ->where('transactions.type', Transaction::TYPE_SALE_INCOME)
             ->selectRaw('MONTH(transactions.date) as month, SUM(sales.grand_total) as total')

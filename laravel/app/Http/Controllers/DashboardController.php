@@ -6,13 +6,10 @@ use App\Models\Configuration;
 use App\Models\Customer;
 use App\Models\Employee;
 use App\Models\Expense;
-use App\Models\Income;
 use App\Models\Product;
 use App\Models\Sale;
-use App\Models\SaleDetail;
 use App\Models\Stock;
 use App\Models\Supplier;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
@@ -38,6 +35,7 @@ class DashboardController extends Controller
         $recentSales = Sale::orderBy('id', 'desc')->limit(5)->get();
 
         $topProducts = Product::select('products.*')
+            ->with('stocks')
             ->selectSub(function ($query) {
                 $query->selectRaw('COALESCE(SUM(sale_details.sale_stock), 0)')
                     ->from('sale_details')
@@ -53,7 +51,7 @@ class DashboardController extends Controller
 
         if ($topProducts->isEmpty() || $topProducts->first()->total_sold == 0) {
             $topProducts = Product::where('status', 'active')
-                ->withCount('stocks')
+                ->with('stocks')
                 ->orderBy('id', 'desc')
                 ->limit(5)
                 ->get();

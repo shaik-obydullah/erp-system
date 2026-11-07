@@ -90,6 +90,29 @@
 
             <div class="form-row">
                 <div class="form-group">
+                    <label for="vat_code">VAT Code</label>
+                    <select id="vat_code" x-model="form.vat_code" @change="applyVatCode()">
+                        <option value="">Use company default</option>
+                        <option value="standard">Standard rate (20%)</option>
+                        <option value="reduced">Reduced rate (5%)</option>
+                        <option value="zero">Zero rate (0%)</option>
+                        <option value="exempt">Exempt</option>
+                        <option value="outside_scope">Outside the scope of VAT</option>
+                    </select>
+                    <small class="form-hint">VAT treatment for this stock batch when it is sold.</small>
+                    <span class="form-error" x-show="errors.vat_code" x-text="errors.vat_code"></span>
+                </div>
+                <div class="form-group">
+                    <label for="vat_rate">VAT Rate (%)</label>
+                    <input type="number" id="vat_rate" x-model="form.vat_rate" min="0" max="100" step="0.01"
+                        placeholder="e.g. 20">
+                    <small class="form-hint">Selling prices are entered VAT-inclusive.</small>
+                    <span class="form-error" x-show="errors.vat_rate" x-text="errors.vat_rate"></span>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
                     <label for="status">Status *</label>
                     <select id="status" x-model="form.status" required>
                         <option value="active" {{ $stock->status == 'active' ? 'selected' : '' }}>Active</option>
@@ -122,7 +145,15 @@
                 quantity: '{{ old('quantity', $stock->quantity) }}',
                 buy_price: '{{ old('buy_price', $stock->buy_price) }}',
                 sale_price: '{{ old('sale_price', $stock->sale_price) }}',
+                vat_code: @json(old('vat_code', $stock->vat_code)),
+                vat_rate: @json(old('vat_rate', $stock->vat_rate)),
                 status: '{{ old('status', $stock->status) }}',
+            },
+            vatRates: { standard: 20, reduced: 5, zero: 0, exempt: 0, outside_scope: 0 },
+            applyVatCode() {
+                if (this.form.vat_code && this.vatRates[this.form.vat_code] !== undefined) {
+                    this.form.vat_rate = this.vatRates[this.form.vat_code];
+                }
             },
             errors: {},
             errorMessage: '',
