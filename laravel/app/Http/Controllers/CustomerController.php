@@ -4,8 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Configuration;
 use App\Models\Customer;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -18,8 +16,8 @@ class CustomerController extends Controller
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
             });
         }
 
@@ -136,26 +134,11 @@ class CustomerController extends Controller
             ->with('success', 'Customer updated successfully.');
     }
 
-    public function destroy(Request $request, Customer $customer)
-    {
-        $customer->delete();
-
-        if ($request->expectsJson()) {
-            return response()->json([
-                'message' => 'Customer deleted successfully.',
-                'redirect' => route('customers.index'),
-            ]);
-        }
-
-        return redirect()->route('customers.index')
-            ->with('success', 'Customer deleted successfully.');
-    }
-
     public function export()
     {
         $customers = Customer::orderBy('name')->get();
 
-        $filename = 'customers_' . now()->format('Y-m-d_His') . '.csv';
+        $filename = 'customers_'.now()->format('Y-m-d_His').'.csv';
         $headers = [
             'Content-Type' => 'text/csv',
             'Content-Disposition' => "attachment; filename=\"{$filename}\"",
@@ -198,6 +181,7 @@ class CustomerController extends Controller
         while (($row = fgetcsv($file)) !== false) {
             if (count($row) < 2) {
                 $skipped++;
+
                 continue;
             }
 
@@ -208,12 +192,14 @@ class CustomerController extends Controller
 
             if (empty($name) || empty($email)) {
                 $skipped++;
+
                 continue;
             }
 
             if (Customer::where('email', $email)->exists()) {
                 $errors[] = "{$email} already exists";
                 $skipped++;
+
                 continue;
             }
 
@@ -230,7 +216,7 @@ class CustomerController extends Controller
                 ]);
                 $imported++;
             } catch (\Exception $e) {
-                $errors[] = "{$email}: " . $e->getMessage();
+                $errors[] = "{$email}: ".$e->getMessage();
                 $skipped++;
             }
         }
@@ -241,8 +227,8 @@ class CustomerController extends Controller
         if ($skipped > 0) {
             $message .= " {$skipped} skipped.";
         }
-        if (!empty($errors)) {
-            $message .= " Errors: " . implode('; ', array_slice($errors, 0, 5));
+        if (! empty($errors)) {
+            $message .= ' Errors: '.implode('; ', array_slice($errors, 0, 5));
         }
 
         return redirect()->route('customers.index')

@@ -17,6 +17,8 @@
                 <option value="income" {{ request('type') === 'income' ? 'selected' : '' }}>Income</option>
                 <option value="expense" {{ request('type') === 'expense' ? 'selected' : '' }}>Expense</option>
                 <option value="shipmentCost" {{ request('type') === 'shipmentCost' ? 'selected' : '' }}>Shipment Cost</option>
+                <option value="purchase" {{ request('type') === 'purchase' ? 'selected' : '' }}>Purchase</option>
+                <option value="purchaseReturn" {{ request('type') === 'purchaseReturn' ? 'selected' : '' }}>Purchase Return</option>
                 <option value="supplierPayment" {{ request('type') === 'supplierPayment' ? 'selected' : '' }}>Supplier Payment</option>
                 <option value="supplierDeposit" {{ request('type') === 'supplierDeposit' ? 'selected' : '' }}>Supplier Advance</option>
                 <option value="userFund" {{ request('type') === 'userFund' ? 'selected' : '' }}>Customer Fund</option>

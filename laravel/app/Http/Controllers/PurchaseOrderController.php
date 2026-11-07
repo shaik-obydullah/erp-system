@@ -3,11 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Accounting\AccountingPoster;
-use App\Accounting\LedgerService;
+use App\Models\Cashbook;
 use App\Models\JournalEntry;
 use App\Models\Need;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
+use App\Models\Transaction;
 use App\Services\ActivityLogger;
 use App\Services\VatCalculator;
 use Illuminate\Http\Request;
@@ -114,13 +115,19 @@ class PurchaseOrderController extends Controller
         $suffix = null;
 
         DB::transaction(function () use ($purchaseOrder, $validated, $calculated, &$suffix) {
-            if ($purchaseOrder->journal_entry_id) {
-                $entry = JournalEntry::find($purchaseOrder->journal_entry_id);
+            $adminId = auth('admin')->id();
+            $poster = app(AccountingPoster::class);
 
-                if ($entry) {
-                    app(LedgerService::class)->reverse($entry, "Purchase order {$purchaseOrder->order_number} updated");
-                    $suffix = ':v' . $entry->id;
-                }
+            if ($purchaseOrder->journal_entry_id) {
+                $oldEntryId = (int) $purchaseOrder->journal_entry_id;
+                $suffix = ':v'.$oldEntryId;
+
+                // Reverse the old ledger entry and remove the finance rows that
+                // were mirrored from it, so the replacement posts exactly once.
+                $poster->reverseOperational('purchase_order', $purchaseOrder->id, $adminId);
+
+                Transaction::where('journal_entry_id', $oldEntryId)->delete();
+                Cashbook::where('journal_entry_id', $oldEntryId)->delete();
             }
 
             $purchaseOrder->update([
@@ -145,23 +152,5 @@ class PurchaseOrderController extends Controller
 
         return redirect()->route('purchase-orders.index')
             ->with('success', 'Purchase order updated successfully.');
-    }
-
-    public function destroy(Request $request, PurchaseOrder $purchaseOrder)
-    {
-        if ($purchaseOrder->journal_entry_id) {
-            $entry = JournalEntry::find($purchaseOrder->journal_entry_id);
-
-            if ($entry) {
-                app(LedgerService::class)->reverse($entry, "Purchase order {$purchaseOrder->order_number} deleted");
-            }
-        }
-
-        ActivityLogger::deleted('Purchase Order', $purchaseOrder);
-        $purchaseOrder->update(['deleted_by' => auth('admin')->id()]);
-        $purchaseOrder->delete();
-
-        return redirect()->route('purchase-orders.index')
-            ->with('success', 'Purchase order deleted successfully.');
     }
 }

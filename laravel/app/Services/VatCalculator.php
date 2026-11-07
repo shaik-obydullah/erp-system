@@ -234,10 +234,16 @@ class VatCalculator
             $remaining = round($remaining - $lineDiscount, 2);
 
             $discountedGross = round($gross - $lineDiscount, 2);
+
+            // Preserve an explicit line rate (e.g. a custom stock rate) instead
+            // of falling back to the code's default rate after the discount.
+            $vatCode = $line['vat_code'] ?? $line['code'] ?? null;
+            $vatRate = $line['vat_rate'] ?? $line['rate'] ?? null;
+
             $calculated = $this->extract(
                 $discountedGross,
-                $line['vat_code'] ?? $line['code'] ?? null,
-                isset($line['vat_rate']) ? (float) $line['vat_rate'] : null
+                $vatCode,
+                $vatRate !== null ? (float) $vatRate : null
             );
 
             $lines[$index] = array_merge($line, $calculated, [

@@ -114,21 +114,4 @@ class FixedAssetController extends Controller
         return redirect()->route('fixed-assets.index')
             ->with('success', 'Fixed asset updated successfully.');
     }
-
-    public function destroy(Request $request, FixedAsset $fixedAsset)
-    {
-        $adminId = auth('admin')->id();
-
-        DB::transaction(function () use ($fixedAsset, $adminId) {
-            app(AccountingPoster::class)->reverseOperational('fixed_asset', $fixedAsset->id, $adminId);
-
-            $fixedAsset->update(['deleted_by' => $adminId, 'journal_entry_id' => null]);
-            $fixedAsset->delete();
-        });
-
-        ActivityLogger::deleted('Fixed Asset', $fixedAsset);
-
-        return redirect()->route('fixed-assets.index')
-            ->with('success', 'Fixed asset deleted successfully.');
-    }
 }

@@ -84,37 +84,46 @@
                             <td style="color:{{ $account->is_active ? '#15803d' : '#b91c1c' }};">{{ $account->is_active ? 'Active' : 'Inactive' }}</td>
                             @if(auth('admin')->user()?->hasPermission('accounting.manage'))
                                 <td style="text-align:right; white-space:nowrap;">
-                                    <details style="display:inline-block; text-align:left;">
-                                        <summary class="btn btn-secondary" style="display:inline-block; cursor:pointer; padding:6px 10px;">Edit</summary>
-                                        <form method="POST" action="{{ route('accounting.accounts.update', $account) }}" style="position:absolute; z-index:20; background:var(--card-bg, #fff); border:1px solid var(--border); border-radius:8px; padding:12px; margin-top:6px; width:320px; display:grid; gap:8px;">
-                                            @csrf
-                                            @method('PUT')
-                                            <label style="display:flex; flex-direction:column; gap:4px; font-size:12px;">Code
-                                                <input type="text" name="code" value="{{ $account->code }}" class="form-input" required>
-                                            </label>
-                                            <label style="display:flex; flex-direction:column; gap:4px; font-size:12px;">Name
-                                                <input type="text" name="name" value="{{ $account->name }}" class="form-input" required>
-                                            </label>
-                                            <label style="display:flex; flex-direction:column; gap:4px; font-size:12px;">Type
-                                                <select name="type" class="form-input" @disabled($account->is_system)>
-                                                    @foreach(['asset' => 'Asset', 'liability' => 'Liability', 'equity' => 'Equity', 'revenue' => 'Revenue', 'expense' => 'Expense'] as $value => $typeLabel)
-                                                        <option value="{{ $value }}" @selected($account->type === $value)>{{ $typeLabel }}</option>
-                                                    @endforeach
-                                                </select>
-                                                @if($account->is_system)
-                                                    <input type="hidden" name="type" value="{{ $account->type }}">
-                                                @endif
-                                            </label>
-                                            <label style="display:flex; flex-direction:column; gap:4px; font-size:12px;">Description
-                                                <input type="text" name="description" value="{{ $account->description }}" class="form-input">
-                                            </label>
-                                            <label style="display:flex; align-items:center; gap:8px; font-size:12px;">
-                                                <input type="hidden" name="is_active" value="0">
-                                                <input type="checkbox" name="is_active" value="1" @checked($account->is_active)> Active
-                                            </label>
-                                            <button type="submit" class="btn btn-primary">Save</button>
-                                        </form>
-                                    </details>
+                                    <div x-data="{ open: false }" style="display:inline-block;">
+                                        <button type="button" class="btn btn-secondary" style="padding:6px 10px;" @click="open = true">Edit</button>
+
+                                        <div x-show="open" x-cloak class="modal-overlay" :class="{ show: open }" @click.self="open = false">
+                                            <div class="modal" @click.stop>
+                                                <h2>Edit {{ $account->name }}</h2>
+                                                <form method="POST" action="{{ route('accounting.accounts.update', $account) }}" style="display:grid; gap:12px;">
+                                                    @csrf
+                                                    @method('PUT')
+                                                    <label style="display:flex; flex-direction:column; gap:4px; font-size:12px;">Code
+                                                        <input type="text" name="code" value="{{ $account->code }}" class="form-input" required>
+                                                    </label>
+                                                    <label style="display:flex; flex-direction:column; gap:4px; font-size:12px;">Name
+                                                        <input type="text" name="name" value="{{ $account->name }}" class="form-input" required>
+                                                    </label>
+                                                    <label style="display:flex; flex-direction:column; gap:4px; font-size:12px;">Type
+                                                        <select name="type" class="form-input" @disabled($account->is_system)>
+                                                            @foreach(['asset' => 'Asset', 'liability' => 'Liability', 'equity' => 'Equity', 'revenue' => 'Revenue', 'expense' => 'Expense'] as $value => $typeLabel)
+                                                                <option value="{{ $value }}" @selected($account->type === $value)>{{ $typeLabel }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        @if($account->is_system)
+                                                            <input type="hidden" name="type" value="{{ $account->type }}">
+                                                        @endif
+                                                    </label>
+                                                    <label style="display:flex; flex-direction:column; gap:4px; font-size:12px;">Description
+                                                        <input type="text" name="description" value="{{ $account->description }}" class="form-input">
+                                                    </label>
+                                                    <label style="display:flex; align-items:center; gap:8px; font-size:12px;">
+                                                        <input type="hidden" name="is_active" value="0">
+                                                        <input type="checkbox" name="is_active" value="1" @checked($account->is_active)> Active
+                                                    </label>
+                                                    <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:4px;">
+                                                        <button type="button" class="btn btn-secondary" @click="open = false">Cancel</button>
+                                                        <button type="submit" class="btn btn-primary">Save</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
 
                                     @unless($account->is_system)
                                         <form method="POST" action="{{ route('accounting.accounts.destroy', $account) }}" style="display:inline-block;" onsubmit="return confirm('Delete this account?');">

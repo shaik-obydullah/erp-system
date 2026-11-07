@@ -101,15 +101,6 @@ export const updateCustomer = async (customer) => {
   }
 };
 
-export const deleteCustomer = async (id) => {
-  try {
-    const response = await api.delete(`/delete-customer/${id}`);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to delete customer" };
-  }
-};
-
 // Categories
 export const fetchCategories = async (data) => {
   try {

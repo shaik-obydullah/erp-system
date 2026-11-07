@@ -3,6 +3,13 @@
 @section('title', 'Incomes')
 
 @section('content')
+@php
+    $sourceLabels = [
+        'sales' => 'Sale',
+        'stock_adjustments' => 'Stock adjustment',
+        'productions' => 'Production',
+    ];
+@endphp
 <div class="card">
     <div class="card-header">
         <h2 class="card-title">Incomes</h2>
@@ -27,8 +34,8 @@
                         <td>{{ $income->id }}</td>
                         <td>
                             {{ $income->description }}
-                            @if($income->table_name === 'stock_adjustments')
-                                <span class="badge badge-blue" style="margin-left: 6px;">Stock adjustment</span>
+                            @if(isset($sourceLabels[$income->table_name]))
+                                <span class="badge badge-blue" style="margin-left: 6px;">{{ $sourceLabels[$income->table_name] }}</span>
                             @endif
                         </td>
                         <td style="color: var(--success, #22c55e); font-weight: 600;">{{ $currencySymbol }}{{ number_format($income->amount, 2) }}</td>

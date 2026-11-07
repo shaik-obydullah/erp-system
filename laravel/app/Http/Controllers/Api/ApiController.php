@@ -17,6 +17,7 @@ use App\Models\SaleDetail;
 use App\Models\Stock;
 use App\Models\Transaction;
 use App\Services\ActivityLogger;
+use App\Services\ProductDeletionGuard;
 use App\Services\VatCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -209,17 +210,6 @@ class ApiController extends Controller
         return response()->json(['message' => 'Customer updated successfully', 'customer' => $customer]);
     }
 
-    public function deleteCustomer($id)
-    {
-        $customer = Customer::findOrFail($id);
-        $customer->update(['deleted_by' => Auth::guard('admin')->id()]);
-        $customer->delete();
-
-        ActivityLogger::deleted('Customer', $customer);
-
-        return response()->json(['message' => 'Customer deleted successfully']);
-    }
-
     public function category(Request $request)
     {
         $query = Category::query();
@@ -367,6 +357,17 @@ class ApiController extends Controller
     public function deleteProduct($id)
     {
         $product = Product::findOrFail($id);
+
+        $guard = app(ProductDeletionGuard::class);
+        $blockers = $guard->blockers($product);
+
+        if ($blockers !== []) {
+            return response()->json([
+                'message' => $guard->message($blockers),
+                'blockers' => $blockers,
+            ], 422);
+        }
+
         $product->update(['deleted_by' => Auth::guard('admin')->id()]);
         $product->delete();
 

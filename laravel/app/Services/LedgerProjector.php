@@ -141,8 +141,10 @@ class LedgerProjector
         $count = 0;
 
         Income::query()
-            ->where('table_name', '!=', 'sales')
-            ->where('table_name', '!=', 'stock_adjustments')
+            ->where(function ($query) {
+                $query->whereNull('table_name')
+                    ->orWhereNotIn('table_name', AccountingPoster::OPERATIONAL_FINANCE_TABLES);
+            })
             ->orderBy('id')
             ->chunkById(200, function ($incomes) use (&$count) {
                 foreach ($incomes as $income) {
@@ -161,7 +163,7 @@ class LedgerProjector
         Expense::query()
             ->where(function ($query) {
                 $query->whereNull('table_name')
-                    ->orWhere('table_name', '!=', 'stock_adjustments');
+                    ->orWhereNotIn('table_name', AccountingPoster::OPERATIONAL_FINANCE_TABLES);
             })
             ->orderBy('id')
             ->chunkById(200, function ($expenses) use (&$count) {

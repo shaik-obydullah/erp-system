@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Accounting\AccountingPoster;
 use App\Accounting\Reconciliation;
 use App\Models\Campaign;
 use App\Models\Expense;
@@ -120,10 +121,13 @@ class AccountingVerify extends Command
             'sales' => max(0, Sale::count() - JournalEntry::where('event_type', 'saleIncome')->distinct()->count('source_id')),
             'sale dues' => max(0, Transaction::where('type', Transaction::TYPE_SALE_DUE)->count() - JournalEntry::where('event_type', 'saleDue')->count()),
             'sale returns' => max(0, SaleReturn::where('status', 'approved')->count() - JournalEntry::where('event_type', 'saleReturn')->count()),
-            'incomes' => max(0, Income::where('table_name', '!=', 'sales')->where('table_name', '!=', 'stock_adjustments')->count() - JournalEntry::where('event_type', 'income')->distinct()->count('source_id')),
+            'incomes' => max(0, Income::where(function ($query) {
+                $query->whereNull('table_name')
+                    ->orWhereNotIn('table_name', AccountingPoster::OPERATIONAL_FINANCE_TABLES);
+            })->count() - JournalEntry::where('event_type', 'income')->distinct()->count('source_id')),
             'expenses' => max(0, Expense::where(function ($query) {
                 $query->whereNull('table_name')
-                    ->orWhere('table_name', '!=', 'stock_adjustments');
+                    ->orWhereNotIn('table_name', AccountingPoster::OPERATIONAL_FINANCE_TABLES);
             })->count() - JournalEntry::where('event_type', 'expense')->distinct()->count('source_id')),
             'shipment costs' => max(0, ShipmentCost::count() - JournalEntry::where('event_type', 'shipmentCost')->distinct()->count('source_id')),
             'fixed assets' => max(0, FixedAsset::where('price', '>', 0)->count() - JournalEntry::where('source_type', 'fixed_asset')->distinct()->count('source_id')),

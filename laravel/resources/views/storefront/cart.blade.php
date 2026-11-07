@@ -24,6 +24,8 @@
                         <div class="flex-1 min-w-0">
                             <h3 class="font-semibold text-sm line-clamp-1" x-text="item.name"></h3>
                             <p class="text-primary-600 font-bold mt-1" x-text="'{{ $currencySymbol }}' + parseFloat(item.price).toFixed(2)"></p>
+                            <p class="text-xs text-gray-400 mt-0.5" x-show="itemVatRate(item) > 0"
+                               x-text="'VAT ' + formatRate(itemVatRate(item)) + '% included'"></p>
                         </div>
                         <div class="flex items-center border border-gray-300 rounded-lg flex-shrink-0">
                             <button @click="updateQty(index, -1)" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-100 transition rounded-l-lg text-sm">−</button>
@@ -47,8 +49,16 @@
                 <h2 class="font-bold text-lg mb-4">Order Summary</h2>
                 <div class="space-y-3 text-sm mb-6">
                     <div class="flex justify-between">
-                        <span class="text-gray-500">Subtotal (<span x-text="totalItems"></span> items)</span>
+                        <span class="text-gray-500">Subtotal (<span x-text="totalItems"></span> items, incl. VAT)</span>
                         <span class="font-medium" x-text="'{{ $currencySymbol }}' + subtotal().toFixed(2)"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Net (excl. VAT)</span>
+                        <span class="font-medium" x-text="'{{ $currencySymbol }}' + cartNet.toFixed(2)"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">VAT</span>
+                        <span class="font-medium" x-text="'{{ $currencySymbol }}' + cartVat.toFixed(2)"></span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-500">Shipping</span>
@@ -56,7 +66,7 @@
                     </div>
                     <div class="border-t pt-3 flex justify-between">
                         <span class="font-bold">Total</span>
-                        <span class="font-bold text-lg text-primary-600" x-text="'{{ $currencySymbol }}' + subtotal().toFixed(2)"></span>
+                        <span class="font-bold text-lg text-primary-600" x-text="'{{ $currencySymbol }}' + total().toFixed(2)"></span>
                     </div>
                 </div>
                 <a href="{{ route('store.checkout') }}"
@@ -75,8 +85,40 @@
     function cartPage() {
         return {
             items: JSON.parse(localStorage.getItem('cart') || '[]'),
+            defaultVatRate: {{ (float) $defaultVatRate }},
+            vatRates: { standard: 20, reduced: 5, zero: 0, exempt: 0, outside_scope: 0 },
             get totalItems() { return this.items.reduce((s, i) => s + i.qty, 0); },
-            subtotal() { return this.items.reduce((s, i) => s + (i.price * i.qty), 0); },
+            subtotal() { return this.round(this.items.reduce((s, i) => s + (parseFloat(i.price) * i.qty), 0)); },
+            itemVatRate(item) {
+                const raw = item.vat_rate;
+                if (raw !== null && raw !== undefined && raw !== '') {
+                    return Math.max(0, parseFloat(raw) || 0);
+                }
+                if (item.vat_code && Object.prototype.hasOwnProperty.call(this.vatRates, item.vat_code)) {
+                    return this.vatRates[item.vat_code];
+                }
+                return this.defaultVatRate;
+            },
+            formatRate(rate) {
+                const value = parseFloat(rate) || 0;
+                return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2);
+            },
+            vatSplit(gross, rate) {
+                gross = Math.max(0, parseFloat(gross) || 0);
+                rate = Math.max(0, parseFloat(rate) || 0);
+                const net = Math.round((gross / (1 + rate / 100)) * 100) / 100;
+                return { net, vat: Math.round((gross - net) * 100) / 100 };
+            },
+            get vatLines() {
+                return this.items.map(item => this.vatSplit(
+                    parseFloat(item.price || 0) * item.qty,
+                    this.itemVatRate(item)
+                ));
+            },
+            get cartNet() { return this.round(this.vatLines.reduce((s, l) => s + l.net, 0)); },
+            get cartVat() { return this.round(this.vatLines.reduce((s, l) => s + l.vat, 0)); },
+            total() { return this.round(this.cartNet + this.cartVat); },
+            round(value) { return Math.round((parseFloat(value) || 0) * 100) / 100; },
             updateQty(index, delta) {
                 this.items[index].qty += delta;
                 if (this.items[index].qty <= 0) this.items.splice(index, 1);

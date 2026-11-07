@@ -300,7 +300,7 @@
                             <span class="text-lg font-bold text-primary-600">{{ $currencySymbol }}{{ number_format($stock->sale_price, 2) }}</span>
                             @endif
                             <button class="px-3 py-1.5 bg-primary-600 text-white text-xs font-medium rounded-lg hover:bg-primary-700 transition"
-                                onclick="event.preventDefault(); addToCart('{{ $product->id }}', '{{ e($product->name) }}', '{{ $stock ? $stock->sale_price : 0 }}')">
+                                onclick="event.preventDefault(); addToCart('{{ $product->id }}', '{{ e($product->name) }}', '{{ $stock ? $stock->sale_price : 0 }}', '{{ $stock ? $stock->vat_code : '' }}', '{{ $stock ? $stock->vat_rate : '' }}')">
                                 Add
                             </button>
                         </div>
@@ -313,6 +313,8 @@
                         'category' => $product->category->name ?? null,
                         'price' => $stock ? $stock->sale_price : 0,
                         'sale_price' => $stock ? $stock->sale_price : null,
+                        'vat_code' => $stock ? $stock->vat_code : null,
+                        'vat_rate' => $stock ? $stock->vat_rate : null,
                         'sku' => $product->sku ?? null,
                         'description' => $product->description ?? null,
                         'review_avg' => $product->review_avg ?? 0,
@@ -386,6 +388,8 @@
                                     'brand' => $product->brand->name ?? null,
                                     'category' => $product->category->name ?? null,
                                     'price' => $stock ? $stock->sale_price : 0,
+                                    'vat_code' => $stock ? $stock->vat_code : null,
+                                    'vat_rate' => $stock ? $stock->vat_rate : null,
                                     'sku' => $product->sku ?? null,
                                     'description' => $product->description ?? null,
                                     'review_avg' => $product->review_avg ?? 0,
@@ -397,7 +401,7 @@
                                     Quick View
                                 </button>
                                 <button class="px-3 py-1.5 bg-primary-600 text-white text-xs font-medium rounded-lg hover:bg-primary-700 transition"
-                                    onclick="event.preventDefault(); addToCart('{{ $product->id }}', '{{ e($product->name) }}', '{{ $stock ? $stock->sale_price : 0 }}')">
+                                    onclick="event.preventDefault(); addToCart('{{ $product->id }}', '{{ e($product->name) }}', '{{ $stock ? $stock->sale_price : 0 }}', '{{ $stock ? $stock->vat_code : '' }}', '{{ $stock ? $stock->vat_rate : '' }}')">
                                     Add to Cart
                                 </button>
                             </div>
@@ -495,7 +499,7 @@
                     <div class="flex gap-3">
                         <a :href="'{{ route('store.products') }}/' + quickView.data.slug" class="flex-1 text-center px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition">View Full Details</a>
                         <button class="px-4 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition"
-                            @click="addToCart(quickView.data.id, quickView.data.name, quickView.data.price); quickView.open = false">
+                            @click="addToCart(quickView.data.id, quickView.data.name, quickView.data.price, quickView.data.vat_code, quickView.data.vat_rate); quickView.open = false">
                             Add to Cart
                         </button>
                     </div>
@@ -540,11 +544,15 @@
         window.location.href = url.toString();
     }
 
-    function addToCart(id, name, price) {
+    function addToCart(id, name, price, vatCode = null, vatRate = null) {
         let cart = JSON.parse(localStorage.getItem('cart') || '[]');
         let existing = cart.find(i => i.id == id);
-        if (existing) { existing.qty += 1; }
-        else { cart.push({ id, name, price: parseFloat(price), qty: 1 }); }
+        const vat = {
+            vat_code: vatCode || null,
+            vat_rate: (vatRate === null || vatRate === undefined || vatRate === '') ? null : parseFloat(vatRate),
+        };
+        if (existing) { existing.qty += 1; Object.assign(existing, vat); }
+        else { cart.push({ id, name, price: parseFloat(price), qty: 1, ...vat }); }
         localStorage.setItem('cart', JSON.stringify(cart));
         localStorage.setItem('cartCount', cart.reduce((s, i) => s + i.qty, 0));
         alert('Added to cart!');

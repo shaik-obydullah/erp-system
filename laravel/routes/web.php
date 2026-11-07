@@ -169,10 +169,6 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     Route::put('/customers/{customer}', [CustomerController::class, 'update'])
         ->middleware('permission:customers.edit')
         ->name('customers.update');
-    Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])
-        ->middleware('permission:customers.delete')
-        ->name('customers.destroy');
-
     // Suppliers
     Route::get('/suppliers', [SupplierController::class, 'index'])
         ->middleware('permission:suppliers.view')
@@ -314,9 +310,6 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     Route::put('/stocks/{stock}', [StockController::class, 'update'])
         ->middleware('permission:stocks.edit')
         ->name('stocks.update');
-    Route::delete('/stocks/{stock}', [StockController::class, 'destroy'])
-        ->middleware('permission:stocks.delete')
-        ->name('stocks.destroy');
 
     // Stock Adjustments
     Route::get('/stock-adjustments', [StockAdjustmentController::class, 'index'])
@@ -374,9 +367,6 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     Route::put('/sale-returns/{saleReturn}', [SaleReturnController::class, 'update'])
         ->middleware('permission:sales.edit')
         ->name('sale-returns.update');
-    Route::delete('/sale-returns/{saleReturn}', [SaleReturnController::class, 'destroy'])
-        ->middleware('permission:sales.delete')
-        ->name('sale-returns.destroy');
     Route::post('/sale-returns/{saleReturn}/approve', [SaleReturnController::class, 'approve'])
         ->middleware('permission:sales.edit')
         ->name('sale-returns.approve');
@@ -388,7 +378,7 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     Route::resource('needs', NeedController::class)->except(['show']);
 
     // Procurement - Purchase Orders
-    Route::resource('purchase-orders', PurchaseOrderController::class)->except(['show']);
+    Route::resource('purchase-orders', PurchaseOrderController::class)->except(['show', 'destroy']);
 
     // Finance - Cashbook
     Route::get('/cashbook', [CashbookController::class, 'index'])
@@ -428,7 +418,7 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
         ->name('receivables.index');
 
     // Finance - Fixed Assets
-    Route::resource('fixed-assets', FixedAssetController::class)->except(['show']);
+    Route::resource('fixed-assets', FixedAssetController::class)->except(['show', 'destroy']);
 
     // Finance - Transaction Log
     Route::get('/transactions', [TransactionController::class, 'index'])
@@ -468,19 +458,19 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     Route::resource('employees', EmployeeController::class)->except(['show']);
 
     // HRM - Payrolls
-    Route::resource('payrolls', PayrollController::class)->except(['show']);
+    Route::resource('payrolls', PayrollController::class)->except(['show', 'destroy']);
 
     // HRM - Tasks
     Route::resource('tasks', TaskController::class)->except(['show']);
 
     // Marketing - Campaigns
-    Route::resource('campaigns', CampaignController::class)->except(['show']);
+    Route::resource('campaigns', CampaignController::class)->except(['show', 'destroy']);
 
     // Logistics - Warehouses
-    Route::resource('warehouses', WarehouseController::class)->except(['show']);
+    Route::resource('warehouses', WarehouseController::class)->except(['show', 'destroy']);
 
     // Logistics - Shipments
-    Route::resource('shipments', ShipmentController::class);
+    Route::resource('shipments', ShipmentController::class)->except(['destroy']);
     Route::post('/shipments/{shipment}/costs', [ShipmentCostController::class, 'store'])
         ->middleware('permission:shipments.save')
         ->name('shipments.costs.store');
@@ -492,7 +482,7 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
         ->name('shipments.costs.destroy');
 
     // Logistics - Shipping Zones
-    Route::resource('shipping-zones', ShippingZoneController::class);
+    Route::resource('shipping-zones', ShippingZoneController::class)->except(['destroy']);
 
     // Logistics - Shipping Methods
     Route::post('/shipping-zones/{shippingZone}/methods', [ShippingMethodController::class, 'store'])
@@ -506,16 +496,16 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
         ->name('shipping-methods.destroy');
 
     // Logistics - Shipment Returns
-    Route::resource('shipment-returns', ShipmentReturnController::class)->except(['show']);
+    Route::resource('shipment-returns', ShipmentReturnController::class)->except(['show', 'destroy']);
 
     // Manufacturing - Bill of Materials
     Route::resource('bill-of-materials', BillOfMaterialController::class)->except(['show']);
 
     // Manufacturing - Production Planning
-    Route::resource('production-plannings', ProductionPlanningController::class)->except(['show']);
+    Route::resource('production-plannings', ProductionPlanningController::class)->except(['show', 'destroy']);
 
     // Manufacturing - Production
-    Route::resource('productions', ProductionController::class);
+    Route::resource('productions', ProductionController::class)->except(['destroy']);
 
     // CMS Content
     Route::resource('cms', CmsController::class)

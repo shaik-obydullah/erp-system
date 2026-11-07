@@ -6,6 +6,7 @@ use App\Accounting\AccountingPoster;
 use App\Models\Admin;
 use App\Models\Cashbook;
 use App\Models\JournalEntry;
+use App\Models\JournalLine;
 use App\Models\Need;
 use App\Models\Permission;
 use App\Models\PurchaseOrder;
@@ -166,8 +167,8 @@ class ShipmentCostTest extends TestCase
         $this->assertTrue(Transaction::withTrashed()->find($cost->fk_transaction_id)->trashed());
         $this->assertTrue(ShipmentCost::withTrashed()->find($cost->id)->trashed());
 
-        $totalDebit = (float) \App\Models\JournalLine::sum('debit');
-        $totalCredit = (float) \App\Models\JournalLine::sum('credit');
+        $totalDebit = (float) JournalLine::sum('debit');
+        $totalCredit = (float) JournalLine::sum('credit');
         $this->assertSame(round($totalDebit, 2), round($totalCredit, 2));
     }
 
@@ -286,32 +287,6 @@ class ShipmentCostTest extends TestCase
             ->assertSee('Landed Costs')
             ->assertSee('Freight')
             ->assertSee('55.00');
-    }
-
-    public function test_deleting_a_shipment_unwinds_its_costs(): void
-    {
-        $admin = $this->adminWithPermissions();
-        [$shipment, $supplier] = $this->makeShipment();
-
-        $cost = app(ShipmentCostService::class)->create($shipment, [
-            'cost_type' => ShipmentCost::TYPE_FREIGHT,
-            'amount' => 45,
-            'fk_supplier_id' => $supplier->id,
-            'payment_status' => ShipmentCost::STATUS_PAID,
-            'cost_date' => now()->toDateString(),
-        ]);
-
-        $transactionId = $cost->fk_transaction_id;
-        $cashbookId = $cost->fk_cashbook_id;
-
-        $this->actingAs($admin, 'admin')
-            ->delete(route('shipments.destroy', $shipment))
-            ->assertRedirect(route('shipments.index'));
-
-        $this->assertTrue(Shipment::withTrashed()->find($shipment->id)->trashed());
-        $this->assertTrue(ShipmentCost::withTrashed()->find($cost->id)->trashed());
-        $this->assertTrue(Transaction::withTrashed()->find($transactionId)->trashed());
-        $this->assertTrue(Cashbook::withTrashed()->find($cashbookId)->trashed());
     }
 
     /**

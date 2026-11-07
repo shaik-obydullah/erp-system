@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ShippingMethod;
 use App\Models\ShippingZone;
 use Illuminate\Http\Request;
 
@@ -52,7 +51,7 @@ class ShippingZoneController extends Controller
 
         $zone = ShippingZone::create([
             'name' => $validated['name'],
-            'countries' => !empty($validated['countries'])
+            'countries' => ! empty($validated['countries'])
                 ? json_encode($validated['countries'])
                 : ($request->boolean('rest_of_world') ? json_encode(['*']) : null),
             'status' => $validated['status'],
@@ -90,7 +89,7 @@ class ShippingZoneController extends Controller
 
         $shippingZone->update([
             'name' => $validated['name'],
-            'countries' => !empty($validated['countries'])
+            'countries' => ! empty($validated['countries'])
                 ? json_encode($validated['countries'])
                 : ($request->boolean('rest_of_world') ? json_encode(['*']) : null),
             'status' => $validated['status'],
@@ -107,24 +106,5 @@ class ShippingZoneController extends Controller
 
         return redirect()->route('shipping-zones.edit', $shippingZone)
             ->with('success', 'Shipping zone updated successfully.');
-    }
-
-    public function destroy(Request $request, ShippingZone $shippingZone)
-    {
-        $shippingZone->update([
-            'deleted_by' => auth('admin')->id(),
-        ]);
-
-        $shippingZone->delete();
-
-        if ($request->expectsJson()) {
-            return response()->json([
-                'message' => 'Shipping zone deleted successfully.',
-                'redirect' => route('shipping-zones.index'),
-            ]);
-        }
-
-        return redirect()->route('shipping-zones.index')
-            ->with('success', 'Shipping zone deleted successfully.');
     }
 }

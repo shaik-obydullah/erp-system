@@ -2,13 +2,14 @@
 
 namespace Tests\Feature\Accounting;
 
-use App\Accounting\AccountingPoster;
 use App\Models\Admin;
 use App\Models\BillOfMaterial;
 use App\Models\Campaign;
 use App\Models\Cashbook;
 use App\Models\Employee;
+use App\Models\Expense;
 use App\Models\FixedAsset;
+use App\Models\Income;
 use App\Models\JournalEntry;
 use App\Models\Need;
 use App\Models\Payroll;
@@ -39,7 +40,7 @@ class OperationalPostingTest extends TestCase
         $this->seed(ChartOfAccountsSeeder::class);
     }
 
-    public function test_fixed_asset_create_update_and_delete_post_to_accounting(): void
+    public function test_fixed_asset_create_and_update_post_to_accounting(): void
     {
         $admin = $this->adminWith();
 
@@ -81,15 +82,9 @@ class OperationalPostingTest extends TestCase
         $this->assertSame(1500.0, $this->lines($this->entry("fixed_asset:{$asset->id}:v2"))['cash']['credit']);
         $this->assertSoftDeleted('transactions', ['journal_entry_id' => $created->id]);
         $this->assertSoftDeleted('cashbook', ['journal_entry_id' => $created->id]);
-
-        $this->actingAs($admin, 'admin')->delete(route('fixed-assets.destroy', $asset))
-            ->assertRedirect(route('fixed-assets.index'));
-
-        $this->assertSoftDeleted('fixed_assets', ['id' => $asset->id]);
-        $this->assertNotNull($this->entry("fixed_asset:{$asset->id}:v2:reversal"));
     }
 
-    public function test_payroll_create_update_and_delete_post_salary_to_accounting(): void
+    public function test_payroll_create_and_update_post_salary_to_accounting(): void
     {
         $admin = $this->adminWith();
         $employee = $this->makeEmployee();
@@ -118,6 +113,11 @@ class OperationalPostingTest extends TestCase
             'fk_reference_id' => $payroll->id,
             'journal_entry_id' => $created->id,
         ]);
+        $this->assertDatabaseHas('expenses', [
+            'table_name' => 'payrolls',
+            'amount' => 1150,
+            'journal_entry_id' => $created->id,
+        ]);
 
         $this->actingAs($admin, 'admin')->put(route('payrolls.update', $payroll), [
             'fk_employee_id' => $employee->id,
@@ -132,12 +132,12 @@ class OperationalPostingTest extends TestCase
         $this->assertSame(2, $payroll->accounting_version);
         $this->assertSame(1200.0, $this->lines($this->entry("payroll:{$payroll->id}:v2"))['salaries_expense']['debit']);
         $this->assertSoftDeleted('transactions', ['journal_entry_id' => $created->id]);
-
-        $this->actingAs($admin, 'admin')->delete(route('payrolls.destroy', $payroll))
-            ->assertRedirect(route('payrolls.index'));
-
-        $this->assertSoftDeleted('payrolls', ['id' => $payroll->id]);
-        $this->assertNotNull($this->entry("payroll:{$payroll->id}:v2:reversal"));
+        $this->assertSoftDeleted('expenses', ['journal_entry_id' => $created->id]);
+        $this->assertDatabaseHas('expenses', [
+            'table_name' => 'payrolls',
+            'amount' => 1200,
+            'journal_entry_id' => $this->entry("payroll:{$payroll->id}:v2")->id,
+        ]);
     }
 
     public function test_campaign_budget_is_a_memo_but_actual_spend_posts(): void
@@ -179,12 +179,11 @@ class OperationalPostingTest extends TestCase
             'fk_reference_id' => $campaign->id,
             'journal_entry_id' => $spend->id,
         ]);
-
-        $this->actingAs($admin, 'admin')->delete(route('campaigns.destroy', $campaign))
-            ->assertRedirect(route('campaigns.index'));
-
-        $this->assertSoftDeleted('campaigns', ['id' => $campaign->id]);
-        $this->assertNotNull($this->entry("campaign:{$campaign->id}:v2:reversal"));
+        $this->assertDatabaseHas('expenses', [
+            'table_name' => 'campaigns',
+            'amount' => 800,
+            'journal_entry_id' => $spend->id,
+        ]);
     }
 
     public function test_production_capitalises_cost_into_inventory(): void
@@ -209,8 +208,17 @@ class OperationalPostingTest extends TestCase
         $this->assertDatabaseHas('transactions', [
             'type' => Transaction::TYPE_BOM_EXPENSE,
             'fk_reference_id' => $production->id,
+            'amount' => 350,
             'journal_entry_id' => $created->id,
         ]);
+        $this->assertDatabaseHas('cashbook', [
+            'table_name' => 'productions',
+            'fk_reference_id' => $production->id,
+            'out_amount' => 350,
+            'journal_entry_id' => $created->id,
+        ]);
+        // expected_profit is a memo and must never be posted as a cost.
+        $this->assertSame(0, Expense::where('table_name', 'productions')->count());
 
         $this->actingAs($admin, 'admin')->put(route('productions.update', $production), [
             'fk_bill_of_material_id' => $bom->id,
@@ -225,17 +233,11 @@ class OperationalPostingTest extends TestCase
         $this->assertSame(2, $production->accounting_version);
         $this->assertSame(450.0, $this->lines($this->entry("production:{$production->id}:v2"))['inventory']['debit']);
         $this->assertSoftDeleted('transactions', ['journal_entry_id' => $created->id]);
-
-        $this->actingAs($admin, 'admin')->delete(route('productions.destroy', $production))
-            ->assertRedirect(route('productions.index'));
-
-        $this->assertSoftDeleted('productions', ['id' => $production->id]);
-        $this->assertNotNull($this->entry("production:{$production->id}:v2:reversal"));
     }
 
     public function test_stock_creation_posts_opening_stock_without_moving_cash(): void
     {
-        $admin = $this->adminWith(['stocks.save', 'stocks.edit', 'stocks.delete']);
+        $admin = $this->adminWith(['stocks.save', 'stocks.edit']);
         $product = $this->makeProduct();
 
         $this->actingAs($admin, 'admin')->post(route('stocks.store'), [
@@ -275,12 +277,6 @@ class OperationalPostingTest extends TestCase
         $this->assertSame(0.00, (float) $stock->vat_rate);
         $this->assertSame(2, $stock->accounting_version);
         $this->assertSame(240.0, $this->lines($this->entry("stock:{$stock->id}:v2"))['inventory']['debit']);
-
-        $this->actingAs($admin, 'admin')->delete(route('stocks.destroy', $stock))
-            ->assertRedirect(route('stocks.index'));
-
-        $this->assertSoftDeleted('stocks', ['id' => $stock->id]);
-        $this->assertNotNull($this->entry("stock:{$stock->id}:v2:reversal"));
     }
 
     public function test_supplier_opening_balance_posts_advance_or_payable(): void
@@ -331,10 +327,14 @@ class OperationalPostingTest extends TestCase
         $this->assertNotNull($this->entry("supplier_opening:{$advance->id}:v1:reversal"));
 
         $this->actingAs($admin, 'admin')->delete(route('suppliers.destroy', $payable))
-            ->assertRedirect(route('suppliers.index'));
+            ->assertRedirect(route('suppliers.index'))
+            ->assertSessionHas('error');
 
-        $this->assertSoftDeleted('suppliers', ['id' => $payable->id]);
-        $this->assertNotNull($this->entry("supplier_opening:{$payable->id}:v1:reversal"));
+        // A supplier carrying an opening payable must be kept for the ledger.
+        $this->assertNotSoftDeleted('suppliers', ['id' => $payable->id]);
+        $this->assertNull(
+            JournalEntry::where('source_key', "supplier_opening:{$payable->id}:v1:reversal")->first()
+        );
     }
 
     public function test_shipment_return_posts_payable_advance_and_inventory_when_processed(): void
@@ -370,6 +370,18 @@ class OperationalPostingTest extends TestCase
         $this->assertSame(2, $return->accounting_version);
         $this->assertSame(400.0, $lines['accounts_payable']['debit']);
         $this->assertSame(400.0, $lines['inventory']['credit']);
+        $this->assertDatabaseHas('transactions', [
+            'type' => Transaction::TYPE_PURCHASE_RETURN,
+            'fk_reference_id' => $return->id,
+            'amount' => 400,
+            'journal_entry_id' => $entry->id,
+        ]);
+        $this->assertDatabaseHas('cashbook', [
+            'table_name' => 'shipment_returns',
+            'fk_reference_id' => $return->id,
+            'amount_payable' => -400,
+            'journal_entry_id' => $entry->id,
+        ]);
 
         $this->actingAs($admin, 'admin')->put(route('shipment-returns.update', $return), [
             'fk_po_id' => $order->id,
@@ -385,12 +397,14 @@ class OperationalPostingTest extends TestCase
         $this->assertSame(600.0, $updated['accounts_payable']['debit']);
         $this->assertSame(100.0, $updated['supplier_advances']['debit']);
         $this->assertSame(700.0, $updated['inventory']['credit']);
-
-        $this->actingAs($admin, 'admin')->delete(route('shipment-returns.destroy', $return))
-            ->assertRedirect(route('shipment-returns.index'));
-
-        $this->assertSoftDeleted('shipment_returns', ['id' => $return->id]);
-        $this->assertNotNull($this->entry("shipment_return:{$return->id}:v3:reversal"));
+        $this->assertSoftDeleted('transactions', ['journal_entry_id' => $entry->id]);
+        $this->assertSoftDeleted('cashbook', ['journal_entry_id' => $entry->id]);
+        $this->assertDatabaseHas('transactions', [
+            'type' => Transaction::TYPE_PURCHASE_RETURN,
+            'fk_reference_id' => $return->id,
+            'amount' => 700,
+            'journal_entry_id' => $this->entry("shipment_return:{$return->id}:v3")->id,
+        ]);
     }
 
     public function test_shipment_return_uses_supplier_advance_when_purchase_has_no_due(): void
@@ -415,37 +429,177 @@ class OperationalPostingTest extends TestCase
         $this->assertArrayNotHasKey('accounts_payable', $lines);
     }
 
-    public function test_deleting_a_sale_return_reverses_its_refund_and_restock_entries(): void
+    public function test_pos_sale_links_income_to_accounting(): void
     {
-        $admin = $this->adminWith(['sales.delete']);
-        $sale = $this->makeSale();
+        $admin = $this->adminWith(['pos.save']);
+        $product = $this->makeProduct();
         $stock = Stock::create([
+            'fk_product_id' => $product->id,
             'quantity' => 10,
-            'buy_price' => 25,
-            'sale_price' => 50,
+            'buy_price' => 20,
+            'sale_price' => 40,
+            'vat_code' => 'zero',
+            'vat_rate' => 0,
             'status' => 'active',
         ]);
 
-        $return = SaleReturn::create([
-            'fk_sale_id' => $sale->id,
-            'fk_stock_id' => $stock->id,
-            'quantity' => 2,
-            'refund_amount' => 180,
-            'reason' => 'damaged',
-            'status' => 'approved',
+        $this->actingAs($admin, 'admin')->postJson(route('pos.checkout'), [
+            'paid_amount' => 80,
+            'cart' => [
+                ['stock_id' => $stock->id, 'quantity' => 2],
+            ],
+        ])->assertOk();
+
+        $sale = Sale::firstOrFail();
+        $entry = $this->entry("sale:{$sale->id}:income");
+        $transaction = Transaction::where('fk_reference_id', $sale->id)
+            ->where('type', Transaction::TYPE_SALE_INCOME)
+            ->firstOrFail();
+        $income = Income::where('table_name', 'sales')
+            ->where('fk_transaction_id', $transaction->id)
+            ->firstOrFail();
+
+        $this->assertSame($entry->id, $transaction->journal_entry_id);
+        $this->assertSame($entry->id, $income->journal_entry_id);
+        $this->assertSame(80.0, (float) $income->amount);
+        $this->assertDatabaseHas('cashbook', [
+            'table_name' => 'sales',
+            'fk_reference_id' => $sale->id,
+            'in_amount' => 80,
+            'journal_entry_id' => $entry->id,
+        ]);
+    }
+
+    public function test_sale_return_creates_expense_finance_row(): void
+    {
+        $admin = $this->adminWith(['sales.save', 'sales.edit']);
+        $sale = $this->makeSale();
+        $product = $this->makeProduct();
+        $stock = Stock::create([
+            'fk_product_id' => $product->id,
+            'quantity' => 5,
+            'buy_price' => 20,
+            'sale_price' => 40,
+            'vat_code' => 'zero',
+            'vat_rate' => 0,
+            'status' => 'active',
         ]);
 
-        app(AccountingPoster::class)->saleReturn($return, $sale);
+        $this->actingAs($admin, 'admin')->post(route('sale-returns.store'), [
+            'fk_sale_id' => $sale->id,
+            'fk_stock_id' => $stock->id,
+            'quantity' => 1,
+            'refund_amount' => 80,
+            'reason' => 'customer_request',
+        ])->assertRedirect(route('sale-returns.index'));
 
-        $this->assertNotNull($this->entry("sale_return:{$return->id}:refund"));
-        $this->assertNotNull($this->entry("sale_return:{$return->id}:restock"));
+        $return = SaleReturn::firstOrFail();
 
-        $this->actingAs($admin, 'admin')->delete(route('sale-returns.destroy', $return))
+        $this->actingAs($admin, 'admin')->post(route('sale-returns.approve', $return))
             ->assertRedirect(route('sale-returns.index'));
 
-        $this->assertSoftDeleted('sale_returns', ['id' => $return->id]);
-        $this->assertNotNull($this->entry("sale_return:{$return->id}:refund:reversal"));
-        $this->assertNotNull($this->entry("sale_return:{$return->id}:restock:reversal"));
+        $return->refresh();
+        $entry = $this->entry("sale_return:{$return->id}:refund");
+        $transaction = Transaction::where('fk_reference_id', $return->id)
+            ->where('type', Transaction::TYPE_MISC_EXPENSE)
+            ->firstOrFail();
+        $expense = Expense::where('table_name', 'sale_returns')->firstOrFail();
+
+        $this->assertSame($entry->id, $transaction->journal_entry_id);
+        $this->assertSame($transaction->id, $expense->fk_transaction_id);
+        $this->assertSame($entry->id, $expense->journal_entry_id);
+        $this->assertSame(80.0, (float) $expense->amount);
+        $this->assertDatabaseHas('cashbook', [
+            'table_name' => 'sale_returns',
+            'fk_reference_id' => $return->id,
+            'out_amount' => 80,
+            'journal_entry_id' => $entry->id,
+        ]);
+    }
+
+    public function test_purchase_order_creates_and_replaces_finance_rows(): void
+    {
+        $admin = $this->adminWith();
+        $supplier = $this->makeSupplier();
+        $need = Need::create([
+            'description' => 'Stock replenishment',
+            'date_identified' => '2026-11-01',
+        ]);
+
+        $this->actingAs($admin, 'admin')->post(route('purchase-orders.store'), [
+            'fk_need_id' => $need->id,
+            'fk_supplier_id' => $supplier->id,
+            'order_number' => 'PO-FIN-1',
+            'total_amount' => 1000,
+            'due_amount' => 400,
+        ])->assertRedirect(route('purchase-orders.index'));
+
+        $order = PurchaseOrder::firstOrFail();
+        $entry = $this->entry("purchase_order:{$order->id}:purchase");
+
+        $this->assertDatabaseHas('transactions', [
+            'type' => Transaction::TYPE_PURCHASE,
+            'fk_reference_id' => $order->id,
+            'amount' => 1000,
+            'paid_amount' => 600,
+            'due_amount' => 400,
+            'journal_entry_id' => $entry->id,
+        ]);
+        $this->assertDatabaseHas('cashbook', [
+            'table_name' => 'purchases',
+            'fk_reference_id' => $order->id,
+            'out_amount' => 600,
+            'amount_payable' => 400,
+            'journal_entry_id' => $entry->id,
+        ]);
+
+        $this->actingAs($admin, 'admin')->put(route('purchase-orders.update', $order), [
+            'fk_need_id' => $need->id,
+            'fk_supplier_id' => $supplier->id,
+            'order_number' => 'PO-FIN-1',
+            'total_amount' => 800,
+            'due_amount' => 300,
+        ])->assertRedirect(route('purchase-orders.index'));
+
+        $order->refresh();
+        $newEntry = $this->entry("purchase_order:{$order->id}:purchase:v{$entry->id}");
+
+        $this->assertSame($newEntry->id, $order->journal_entry_id);
+        $this->assertSoftDeleted('transactions', ['journal_entry_id' => $entry->id]);
+        $this->assertSoftDeleted('cashbook', ['journal_entry_id' => $entry->id]);
+        $this->assertDatabaseHas('transactions', [
+            'type' => Transaction::TYPE_PURCHASE,
+            'fk_reference_id' => $order->id,
+            'amount' => 800,
+            'paid_amount' => 500,
+            'due_amount' => 300,
+            'journal_entry_id' => $newEntry->id,
+        ]);
+        $this->assertDatabaseHas('cashbook', [
+            'table_name' => 'purchases',
+            'fk_reference_id' => $order->id,
+            'out_amount' => 500,
+            'amount_payable' => 300,
+            'journal_entry_id' => $newEntry->id,
+        ]);
+    }
+
+    public function test_dashboard_expense_total_includes_operational_mirrors(): void
+    {
+        $admin = $this->adminWith(['dashboard.view']);
+        $employee = $this->makeEmployee();
+
+        $this->actingAs($admin, 'admin')->post(route('payrolls.store'), [
+            'fk_employee_id' => $employee->id,
+            'basic_salary' => 1000,
+            'allowances' => 200,
+            'deductions' => 50,
+            'pay_date' => '2026-11-01',
+        ])->assertRedirect(route('payrolls.index'));
+
+        $this->actingAs($admin, 'admin')->get(route('reports.index'))
+            ->assertOk()
+            ->assertViewHas('expenses', fn ($expenses) => round((float) $expenses, 2) === 1150.0);
     }
 
     public function test_legacy_operational_rows_can_be_backfilled_idempotently(): void

@@ -19,7 +19,7 @@ class PayrollController extends Controller
         if ($search = $request->input('search')) {
             $query->whereHas('employee', function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
-                  ->orWhere('last_name', 'like', "%{$search}%");
+                    ->orWhere('last_name', 'like', "%{$search}%");
             });
         }
 
@@ -143,22 +143,5 @@ class PayrollController extends Controller
 
         return redirect()->route('payrolls.index')
             ->with('success', 'Payroll entry updated successfully.');
-    }
-
-    public function destroy(Request $request, Payroll $payroll)
-    {
-        $adminId = auth('admin')->id();
-
-        DB::transaction(function () use ($payroll, $adminId) {
-            app(AccountingPoster::class)->reverseOperational('payroll', $payroll->id, $adminId);
-
-            $payroll->update(['deleted_by' => $adminId, 'journal_entry_id' => null]);
-            $payroll->delete();
-        });
-
-        ActivityLogger::deleted('Payroll', $payroll);
-
-        return redirect()->route('payrolls.index')
-            ->with('success', 'Payroll entry deleted successfully.');
     }
 }

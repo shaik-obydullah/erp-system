@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\Size;
 use App\Models\Supplier;
 use App\Models\Unit;
+use App\Services\ProductDeletionGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -212,6 +213,23 @@ class ProductController extends Controller
 
     public function destroy(Request $request, Product $product)
     {
+        $guard = app(ProductDeletionGuard::class);
+        $blockers = $guard->blockers($product);
+
+        if ($blockers !== []) {
+            $message = $guard->message($blockers);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => $message,
+                    'blockers' => $blockers,
+                ], 422);
+            }
+
+            return redirect()->route('products.index')
+                ->with('error', $message);
+        }
+
         if ($product->image) {
             $images = json_decode($product->image, true) ?? [];
             foreach ($images as $img) {

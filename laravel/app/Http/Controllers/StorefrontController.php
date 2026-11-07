@@ -229,14 +229,24 @@ class StorefrontController extends Controller
 
     public function cart()
     {
-        return view('storefront.cart', ['currencySymbol' => $this->currencySymbol]);
+        $vat = app(VatCalculator::class);
+
+        return view('storefront.cart', [
+            'currencySymbol' => $this->currencySymbol,
+            'defaultVatRate' => $vat->defaultRate(),
+            'defaultVatCode' => $vat->defaultCode(),
+        ]);
     }
 
     public function checkout()
     {
+        $vat = app(VatCalculator::class);
+
         return view('storefront.checkout', [
             'currencySymbol' => $this->currencySymbol,
             'countries' => config('countries'),
+            'defaultVatRate' => $vat->defaultRate(),
+            'defaultVatCode' => $vat->defaultCode(),
         ]);
     }
 

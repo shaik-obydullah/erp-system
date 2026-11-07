@@ -139,21 +139,4 @@ class CampaignController extends Controller
         return redirect()->route('campaigns.index')
             ->with('success', 'Campaign updated successfully.');
     }
-
-    public function destroy(Request $request, Campaign $campaign)
-    {
-        $adminId = auth('admin')->id();
-
-        DB::transaction(function () use ($campaign, $adminId) {
-            app(AccountingPoster::class)->reverseOperational('campaign', $campaign->id, $adminId);
-
-            $campaign->update(['deleted_by' => $adminId, 'journal_entry_id' => null]);
-            $campaign->delete();
-        });
-
-        ActivityLogger::deleted('Campaign', $campaign);
-
-        return redirect()->route('campaigns.index')
-            ->with('success', 'Campaign deleted successfully.');
-    }
 }

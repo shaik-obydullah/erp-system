@@ -13,6 +13,13 @@
         'incomes' => 'Income',
         'purchases' => 'Purchase',
         'shipment_costs' => 'Shipping cost',
+        'shipments' => 'Shipment',
+        'shipment_returns' => 'Shipment return',
+        'payrolls' => 'Payroll',
+        'campaigns' => 'Campaign',
+        'productions' => 'Production',
+        'stock_adjustments' => 'Stock adjustment',
+        'fixed_assets' => 'Fixed asset',
     ];
 @endphp
 

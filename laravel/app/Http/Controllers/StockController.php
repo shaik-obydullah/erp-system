@@ -190,28 +190,4 @@ class StockController extends Controller
         return redirect()->route('stocks.index')
             ->with('success', 'Stock updated successfully.');
     }
-
-    public function destroy(Request $request, Stock $stock)
-    {
-        $adminId = auth('admin')->id();
-
-        DB::transaction(function () use ($stock, $adminId) {
-            app(AccountingPoster::class)->reverseOperational('stock', $stock->id, $adminId);
-
-            $stock->update(['deleted_by' => $adminId, 'journal_entry_id' => null]);
-            $stock->delete();
-        });
-
-        ActivityLogger::deleted('Stock', $stock);
-
-        if ($request->expectsJson()) {
-            return response()->json([
-                'message' => 'Stock deleted successfully.',
-                'redirect' => route('stocks.index'),
-            ]);
-        }
-
-        return redirect()->route('stocks.index')
-            ->with('success', 'Stock deleted successfully.');
-    }
 }

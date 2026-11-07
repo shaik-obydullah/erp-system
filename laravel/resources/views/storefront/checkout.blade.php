@@ -146,6 +146,8 @@
                             <div class="flex-1 min-w-0">
                                 <p class="font-medium truncate text-xs" x-text="item.name"></p>
                                 <p class="text-gray-400 text-xs">Qty: <span x-text="item.qty"></span></p>
+                                <p class="text-gray-400 text-xs" x-show="itemVatRate(item) > 0"
+                                   x-text="'VAT ' + formatRate(itemVatRate(item)) + '% included'"></p>
                             </div>
                             <span class="font-medium text-xs flex-shrink-0" x-text="'{{ $currencySymbol }}' + (item.price * item.qty).toFixed(2)"></span>
                         </div>
@@ -153,7 +155,7 @@
                 </div>
                 <div class="border-t pt-4 space-y-2 text-sm">
                     <div class="flex justify-between">
-                        <span class="text-gray-500">Subtotal</span>
+                        <span class="text-gray-500">Subtotal (incl. VAT)</span>
                         <span class="font-medium" x-text="'{{ $currencySymbol }}' + subtotal().toFixed(2)"></span>
                     </div>
                     <div class="flex justify-between">
@@ -163,9 +165,13 @@
                               x-text="selectedShippingCost > 0 ? '{{ $currencySymbol }}' + selectedShippingCost.toFixed(2) : 'Free'"></span>
                         <span x-show="!selectedShipping" class="font-medium text-gray-400">Calculated at checkout</span>
                     </div>
-                    <div class="flex justify-between text-xs text-gray-400">
-                        <span>VAT</span>
-                        <span>Included in prices</span>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Net (excl. VAT)</span>
+                        <span class="font-medium" x-text="'{{ $currencySymbol }}' + cartNet.toFixed(2)"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">VAT</span>
+                        <span class="font-medium" x-text="'{{ $currencySymbol }}' + cartVat.toFixed(2)"></span>
                     </div>
                     <div class="border-t pt-2 flex justify-between">
                         <span class="font-bold">Total</span>
@@ -212,6 +218,8 @@
     function checkoutPage() {
         return {
             items: JSON.parse(localStorage.getItem('cart') || '[]'),
+            defaultVatRate: {{ (float) $defaultVatRate }},
+            vatRates: { standard: 20, reduced: 5, zero: 0, exempt: 0, outside_scope: 0 },
             paymentMethod: 'cod',
             showSuccess: false,
             placing: false,
@@ -240,8 +248,41 @@
             get selectedShippingCost() {
                 return this.selectedShipping ? Number(this.selectedShipping.cost) : 0;
             },
-            subtotal() { return this.items.reduce((s, i) => s + (i.price * i.qty), 0); },
-            total() { return this.subtotal() + this.selectedShippingCost; },
+            subtotal() { return this.round(this.items.reduce((s, i) => s + (parseFloat(i.price) * i.qty), 0)); },
+            itemVatRate(item) {
+                const raw = item.vat_rate;
+                if (raw !== null && raw !== undefined && raw !== '') {
+                    return Math.max(0, parseFloat(raw) || 0);
+                }
+                if (item.vat_code && Object.prototype.hasOwnProperty.call(this.vatRates, item.vat_code)) {
+                    return this.vatRates[item.vat_code];
+                }
+                return this.defaultVatRate;
+            },
+            formatRate(rate) {
+                const value = parseFloat(rate) || 0;
+                return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2);
+            },
+            vatSplit(gross, rate) {
+                gross = Math.max(0, parseFloat(gross) || 0);
+                rate = Math.max(0, parseFloat(rate) || 0);
+                const net = Math.round((gross / (1 + rate / 100)) * 100) / 100;
+                return { net, vat: Math.round((gross - net) * 100) / 100 };
+            },
+            get vatLines() {
+                const lines = this.items.map(item => this.vatSplit(
+                    parseFloat(item.price || 0) * item.qty,
+                    this.itemVatRate(item)
+                ));
+                if (this.selectedShippingCost > 0) {
+                    lines.push(this.vatSplit(this.selectedShippingCost, this.defaultVatRate));
+                }
+                return lines;
+            },
+            get cartNet() { return this.round(this.vatLines.reduce((s, l) => s + l.net, 0)); },
+            get cartVat() { return this.round(this.vatLines.reduce((s, l) => s + l.vat, 0)); },
+            total() { return this.round(this.cartNet + this.cartVat); },
+            round(value) { return Math.round((parseFloat(value) || 0) * 100) / 100; },
             clearError(field) {
                 if (this.errors[field]) {
                     delete this.errors[field];

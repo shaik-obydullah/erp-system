@@ -14,9 +14,7 @@ use Illuminate\Support\Facades\DB;
 
 class ShipmentController extends Controller
 {
-    public function __construct(private readonly ShipmentCostService $shipmentCosts)
-    {
-    }
+    public function __construct(private readonly ShipmentCostService $shipmentCosts) {}
 
     public function index(Request $request)
     {
@@ -145,26 +143,5 @@ class ShipmentController extends Controller
 
         return redirect()->route('shipments.index')
             ->with('success', 'Shipment updated successfully.');
-    }
-
-    public function destroy(Request $request, Shipment $shipment)
-    {
-        $adminId = auth('admin')->id();
-        $costService = $this->shipmentCosts;
-
-        DB::transaction(function () use ($shipment, $adminId, $costService) {
-            // Removing a shipment must also unwind its landed costs so no
-            // cashbook or ledger entry is left pointing at a deleted shipment.
-            foreach ($shipment->costs()->get() as $cost) {
-                $costService->delete($cost, $adminId);
-            }
-
-            ActivityLogger::deleted('Shipment', $shipment);
-            $shipment->update(['deleted_by' => $adminId]);
-            $shipment->delete();
-        });
-
-        return redirect()->route('shipments.index')
-            ->with('success', 'Shipment deleted successfully.');
     }
 }

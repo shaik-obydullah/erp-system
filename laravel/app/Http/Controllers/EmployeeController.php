@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Configuration;
 use App\Models\Employee;
 use App\Services\ActivityLogger;
+use App\Services\EmployeeDeletionGuard;
 use Illuminate\Http\Request;
 
 class EmployeeController extends Controller
@@ -110,9 +111,33 @@ class EmployeeController extends Controller
 
     public function destroy(Request $request, Employee $employee)
     {
+        $guard = app(EmployeeDeletionGuard::class);
+        $blockers = $guard->blockers($employee);
+
+        if ($blockers !== []) {
+            $message = $guard->message($blockers);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => $message,
+                    'blockers' => $blockers,
+                ], 422);
+            }
+
+            return redirect()->route('employees.index')
+                ->with('error', $message);
+        }
+
         ActivityLogger::deleted('Employee', $employee);
         $employee->update(['deleted_by' => auth('admin')->id()]);
         $employee->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Employee deleted successfully.',
+                'redirect' => route('employees.index'),
+            ]);
+        }
 
         return redirect()->route('employees.index')
             ->with('success', 'Employee deleted successfully.');

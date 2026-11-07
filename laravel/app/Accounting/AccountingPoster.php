@@ -26,6 +26,24 @@ use Illuminate\Support\Facades\Log;
 
 class AccountingPoster
 {
+    /**
+     * Finance rows created by an operational flow. Their journal_entry_id is
+     * already linked to the operational entry, so the ledger projector must
+     * skip them or it would post the same event twice.
+     */
+    public const OPERATIONAL_FINANCE_TABLES = [
+        'sales',
+        'sale_returns',
+        'stock_adjustments',
+        'purchases',
+        'shipments',
+        'shipment_costs',
+        'shipment_returns',
+        'payrolls',
+        'campaigns',
+        'productions',
+    ];
+
     public function __construct(private readonly LedgerService $ledger) {}
 
     public function sale(Sale $sale, float $paid, float $due, ?float $cogs = null, ?int $adminId = null): void
@@ -88,6 +106,16 @@ class AccountingPoster
 
                 Transaction::where('fk_reference_id', $sale->id)
                     ->where('type', Transaction::TYPE_SALE_INCOME)
+                    ->whereNull('journal_entry_id')
+                    ->update(['journal_entry_id' => $entry->id]);
+
+                Income::where('table_name', 'sales')
+                    ->whereIn(
+                        'fk_transaction_id',
+                        Transaction::where('fk_reference_id', $sale->id)
+                            ->where('type', Transaction::TYPE_SALE_INCOME)
+                            ->pluck('id')
+                    )
                     ->whereNull('journal_entry_id')
                     ->update(['journal_entry_id' => $entry->id]);
             }
@@ -309,9 +337,51 @@ class AccountingPoster
             );
 
             if ($entry) {
-                PurchaseOrder::where('id', $order->id)
-                    ->whereNull('journal_entry_id')
-                    ->update(['journal_entry_id' => $entry->id]);
+                DB::transaction(function () use ($order, $entry, $gross, $paid, $due, $adminId) {
+                    PurchaseOrder::where('id', $order->id)
+                        ->whereNull('journal_entry_id')
+                        ->update(['journal_entry_id' => $entry->id]);
+
+                    $description = "Purchase order #{$order->order_number}";
+                    $date = $order->created_at?->toDateString() ?? now()->toDateString();
+
+                    $transaction = Transaction::withTrashed()
+                        ->where('journal_entry_id', $entry->id)
+                        ->where('type', Transaction::TYPE_PURCHASE)
+                        ->first();
+
+                    if (! $transaction) {
+                        $transaction = Transaction::create([
+                            'date' => $date,
+                            'type' => Transaction::TYPE_PURCHASE,
+                            'fk_reference_id' => $order->id,
+                            'amount' => $gross,
+                            'paid_amount' => $paid,
+                            'due_amount' => $due,
+                            'journal_entry_id' => $entry->id,
+                            'created_by' => $adminId,
+                        ]);
+                    }
+
+                    $cashbook = Cashbook::withTrashed()
+                        ->where('journal_entry_id', $entry->id)
+                        ->where('table_name', 'purchases')
+                        ->first();
+
+                    if (! $cashbook) {
+                        Cashbook::create([
+                            'table_name' => 'purchases',
+                            'fk_reference_id' => $order->id,
+                            'description' => $description,
+                            'in_amount' => 0,
+                            'out_amount' => $paid,
+                            'amount_payable' => $due,
+                            'amount_receivable' => 0,
+                            'journal_entry_id' => $entry->id,
+                            'created_by' => $adminId,
+                        ]);
+                    }
+                });
             }
         });
     }
@@ -350,19 +420,65 @@ class AccountingPoster
                 );
 
                 if ($entry) {
-                    SaleReturn::where('id', $return->id)
-                        ->whereNull('journal_entry_id')
-                        ->update(['journal_entry_id' => $entry->id]);
+                    DB::transaction(function () use ($return, $sale, $entry, $refund, $vat, $net, $adminId) {
+                        SaleReturn::where('id', $return->id)
+                            ->whereNull('journal_entry_id')
+                            ->update(['journal_entry_id' => $entry->id]);
 
-                    Cashbook::where('table_name', 'sale_returns')
-                        ->where('fk_reference_id', $return->id)
-                        ->whereNull('journal_entry_id')
-                        ->update(['journal_entry_id' => $entry->id]);
+                        $description = "Refund for return #{$return->id} (Sale {$sale->invoice_id})";
 
-                    Transaction::where('type', Transaction::TYPE_MISC_EXPENSE)
-                        ->where('fk_reference_id', $return->id)
-                        ->whereNull('journal_entry_id')
-                        ->update(['journal_entry_id' => $entry->id]);
+                        $transaction = Transaction::where('type', Transaction::TYPE_MISC_EXPENSE)
+                            ->where('fk_reference_id', $return->id)
+                            ->first();
+
+                        if (! $transaction) {
+                            $transaction = Transaction::create([
+                                'date' => $return->created_at?->toDateString() ?? now()->toDateString(),
+                                'type' => Transaction::TYPE_MISC_EXPENSE,
+                                'fk_reference_id' => $return->id,
+                                'amount' => $refund,
+                                'paid_amount' => $refund,
+                                'due_amount' => 0,
+                                'journal_entry_id' => $entry->id,
+                                'created_by' => $adminId,
+                            ]);
+                        } elseif (! $transaction->journal_entry_id) {
+                            $transaction->update(['journal_entry_id' => $entry->id]);
+                        }
+
+                        $cashbook = Cashbook::where('table_name', 'sale_returns')
+                            ->where('fk_reference_id', $return->id)
+                            ->first();
+
+                        if (! $cashbook) {
+                            Cashbook::create([
+                                'table_name' => 'sale_returns',
+                                'fk_reference_id' => $return->id,
+                                'description' => $description,
+                                'in_amount' => 0,
+                                'out_amount' => $refund,
+                                'amount_payable' => 0,
+                                'amount_receivable' => 0,
+                                'journal_entry_id' => $entry->id,
+                                'created_by' => $adminId,
+                            ]);
+                        } elseif (! $cashbook->journal_entry_id) {
+                            $cashbook->update(['journal_entry_id' => $entry->id]);
+                        }
+
+                        $this->recordExpenseMirror(
+                            'sale_returns',
+                            $transaction->id,
+                            $description,
+                            $refund,
+                            $entry->id,
+                            $adminId,
+                            $return->vat_code,
+                            $return->vat_rate !== null ? (float) $return->vat_rate : null,
+                            $net,
+                            $vat
+                        );
+                    });
                 }
             }
 
@@ -821,6 +937,15 @@ class AccountingPoster
                     $transaction->update(['journal_entry_id' => $entry->id]);
                     $cashbook->update(['journal_entry_id' => $entry->id]);
                     Payroll::where('id', $payroll->id)->update(['journal_entry_id' => $entry->id]);
+
+                    $this->recordExpenseMirror(
+                        'payrolls',
+                        $transaction->id,
+                        $description,
+                        $amount,
+                        $entry->id,
+                        $adminId
+                    );
                 }
             });
         });
@@ -886,6 +1011,15 @@ class AccountingPoster
                     $transaction->update(['journal_entry_id' => $entry->id]);
                     $cashbook->update(['journal_entry_id' => $entry->id]);
                     Campaign::where('id', $campaign->id)->update(['journal_entry_id' => $entry->id]);
+
+                    $this->recordExpenseMirror(
+                        'campaigns',
+                        $transaction->id,
+                        $description,
+                        $amount,
+                        $entry->id,
+                        $adminId
+                    );
                 }
             });
         });
@@ -1173,7 +1307,48 @@ class AccountingPoster
             );
 
             if ($entry) {
-                ShipmentReturn::where('id', $return->id)->update(['journal_entry_id' => $entry->id]);
+                DB::transaction(function () use ($return, $entry, $amount, $due, $advance, $description, $adminId) {
+                    ShipmentReturn::where('id', $return->id)->update(['journal_entry_id' => $entry->id]);
+
+                    $date = $return->created_at?->toDateString() ?? now()->toDateString();
+
+                    $transaction = Transaction::withTrashed()
+                        ->where('journal_entry_id', $entry->id)
+                        ->where('type', Transaction::TYPE_PURCHASE_RETURN)
+                        ->first();
+
+                    if (! $transaction) {
+                        Transaction::create([
+                            'date' => $date,
+                            'type' => Transaction::TYPE_PURCHASE_RETURN,
+                            'fk_reference_id' => $return->id,
+                            'amount' => $amount,
+                            'paid_amount' => 0,
+                            'due_amount' => 0,
+                            'journal_entry_id' => $entry->id,
+                            'created_by' => $adminId,
+                        ]);
+                    }
+
+                    $cashbook = Cashbook::withTrashed()
+                        ->where('journal_entry_id', $entry->id)
+                        ->where('table_name', 'shipment_returns')
+                        ->first();
+
+                    if (! $cashbook) {
+                        Cashbook::create([
+                            'table_name' => 'shipment_returns',
+                            'fk_reference_id' => $return->id,
+                            'description' => $description,
+                            'in_amount' => 0,
+                            'out_amount' => 0,
+                            'amount_payable' => -$due,
+                            'amount_receivable' => $advance,
+                            'journal_entry_id' => $entry->id,
+                            'created_by' => $adminId,
+                        ]);
+                    }
+                });
             }
         });
     }
@@ -1200,8 +1375,45 @@ class AccountingPoster
 
                 Transaction::where('journal_entry_id', $entry->id)->delete();
                 Cashbook::where('journal_entry_id', $entry->id)->delete();
+                Income::where('journal_entry_id', $entry->id)->delete();
+                Expense::where('journal_entry_id', $entry->id)->delete();
             }
         });
+    }
+
+    /**
+     * Mirror an operational cost into the Finance module without posting the
+     * ledger again. The row shares the operational journal entry, so the
+     * projector excludes it (see OPERATIONAL_FINANCE_TABLES).
+     */
+    private function recordExpenseMirror(
+        string $tableName,
+        int $transactionId,
+        string $description,
+        float $amount,
+        int $entryId,
+        ?int $adminId,
+        ?string $vatCode = null,
+        ?float $vatRate = null,
+        ?float $netAmount = null,
+        ?float $vatAmount = null
+    ): void {
+        if (Expense::withTrashed()->where('journal_entry_id', $entryId)->exists()) {
+            return;
+        }
+
+        Expense::create([
+            'table_name' => $tableName,
+            'fk_transaction_id' => $transactionId,
+            'description' => $description,
+            'amount' => round($amount, 2),
+            'vat_code' => $vatCode,
+            'vat_rate' => $vatRate,
+            'net_amount' => round($netAmount ?? $amount, 2),
+            'vat_amount' => round($vatAmount ?? 0, 2),
+            'journal_entry_id' => $entryId,
+            'created_by' => $adminId,
+        ]);
     }
 
     private function operationalKey(string $base, int $id, ?int $version): string

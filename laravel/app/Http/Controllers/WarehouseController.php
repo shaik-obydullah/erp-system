@@ -14,7 +14,7 @@ class WarehouseController extends Controller
 
         if ($search = $request->input('search')) {
             $query->where('name', 'like', "%{$search}%")
-                  ->orWhere('location', 'like', "%{$search}%");
+                ->orWhere('location', 'like', "%{$search}%");
         }
 
         $warehouses = $query->orderBy('id', 'desc')->paginate(15)->withQueryString();
@@ -84,15 +84,5 @@ class WarehouseController extends Controller
 
         return redirect()->route('warehouses.index')
             ->with('success', 'Warehouse updated successfully.');
-    }
-
-    public function destroy(Request $request, Warehouse $warehouse)
-    {
-        ActivityLogger::deleted('Warehouse', $warehouse);
-        $warehouse->update(['deleted_by' => auth('admin')->id()]);
-        $warehouse->delete();
-
-        return redirect()->route('warehouses.index')
-            ->with('success', 'Warehouse deleted successfully.');
     }
 }

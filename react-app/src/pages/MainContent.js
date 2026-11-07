@@ -44,7 +44,7 @@ const saveCart = (cart) => {
 };
 
 export default function MainContent({ onCartUpdate }) {
-  const { currencySign, vatPercentage, taxPercentage } = useConfig();
+  const { currencySign, vatPercentage } = useConfig();
 
   const [categories, setCategories] = useState([]);
   const [activeCategoryId, setActiveCategoryId] = useState(null);
@@ -183,6 +183,10 @@ export default function MainContent({ onCartUpdate }) {
           price: parseFloat(stock.sale_price || 0),
           qty: 1,
           maxQty: stock.quantity,
+          vat_code: stock.vat_code || null,
+          vat_rate: (stock.vat_rate === null || stock.vat_rate === undefined || stock.vat_rate === '')
+            ? null
+            : parseFloat(stock.vat_rate),
         },
       ];
     });
@@ -213,12 +217,49 @@ export default function MainContent({ onCartUpdate }) {
   };
 
   // ── price calculations ──
-  const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
-  const discountAmount = subtotal * (parseFloat(discount || 0) / 100);
-  const afterDiscount = subtotal - discountAmount;
-  const vatAmount = afterDiscount * (vatPercentage / 100);
-  const taxAmount = afterDiscount * (taxPercentage / 100);
-  const grandTotal = afterDiscount + vatAmount + taxAmount;
+  const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
+  const cartVatRates = { standard: 20, reduced: 5, zero: 0, exempt: 0, outside_scope: 0 };
+  const itemVatRate = (item) => {
+    const raw = item.vat_rate;
+    if (raw !== null && raw !== undefined && raw !== '') {
+      return Math.max(0, parseFloat(raw) || 0);
+    }
+    if (item.vat_code && Object.prototype.hasOwnProperty.call(cartVatRates, item.vat_code)) {
+      return cartVatRates[item.vat_code];
+    }
+    return Math.max(0, parseFloat(vatPercentage) || 0);
+  };
+  const formatRate = (rate) => {
+    const value = parseFloat(rate) || 0;
+    return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2);
+  };
+  const vatSplit = (gross, rate) => {
+    const safeGross = Math.max(0, parseFloat(gross) || 0);
+    const safeRate = Math.max(0, parseFloat(rate) || 0);
+    const net = Math.round((safeGross / (1 + safeRate / 100)) * 100) / 100;
+    return { net, vat: Math.round((safeGross - net) * 100) / 100 };
+  };
+
+  const subtotal = round2(cart.reduce((sum, i) => sum + i.price * i.qty, 0));
+  const discountPercent = Math.min(Math.max(parseFloat(discount) || 0, 0), 100);
+  const discountAmount = round2(subtotal * (discountPercent / 100));
+
+  // VAT is extracted from the VAT-inclusive discount-adjusted line amount,
+  // exactly like the server-side VatCalculator, so the cashier sees the same
+  // total that is posted to accounting.
+  let remainingDiscount = discountAmount;
+  const vatLines = cart.map((item, index) => {
+    const gross = round2(item.price * item.qty);
+    const share = index === cart.length - 1
+      ? remainingDiscount
+      : round2(discountAmount * (subtotal > 0 ? gross / subtotal : 0));
+    const lineDiscount = round2(Math.max(0, Math.min(share, remainingDiscount, gross)));
+    remainingDiscount = round2(remainingDiscount - lineDiscount);
+    return vatSplit(round2(gross - lineDiscount), itemVatRate(item));
+  });
+  const netAmount = round2(vatLines.reduce((sum, line) => sum + line.net, 0));
+  const vatAmount = round2(vatLines.reduce((sum, line) => sum + line.vat, 0));
+  const grandTotal = round2(netAmount + vatAmount);
 
   // ── checkout ──
   const handleCheckout = async () => {
@@ -229,7 +270,7 @@ export default function MainContent({ onCartUpdate }) {
         customer_id: selectedCustomer?.id || null,
         subtotal: subtotal,
         vat_amount: vatAmount,
-        tax_amount: taxAmount,
+        tax_amount: 0,
         discount_amount: discountAmount,
         total: grandTotal,
         items: cart.map((i) => ({
@@ -437,6 +478,9 @@ export default function MainContent({ onCartUpdate }) {
                       {currencySign}
                       {item.price.toFixed(2)}
                     </p>
+                    <p className="text-xs text-gray-400">
+                      VAT {formatRate(itemVatRate(item))}% included
+                    </p>
                   </div>
 
                   {/* Qty Controls */}
@@ -558,39 +602,35 @@ export default function MainContent({ onCartUpdate }) {
             {/* Price Breakdown */}
             <div className="space-y-1.5 text-sm">
               <div className="flex justify-between text-gray-600">
-                <span>Subtotal</span>
+                <span>Subtotal (incl. VAT)</span>
                 <span>
                   {currencySign}
                   {subtotal.toFixed(2)}
                 </span>
               </div>
-              {parseFloat(discount || 0) > 0 && (
+              {discountAmount > 0 && (
                 <div className="flex justify-between text-green-600">
-                  <span>Discount ({discount}%)</span>
+                  <span>Discount ({discountPercent.toFixed(0)}%)</span>
                   <span>
                     -{currencySign}
                     {discountAmount.toFixed(2)}
                   </span>
                 </div>
               )}
-              {vatPercentage > 0 && (
-                <div className="flex justify-between text-gray-600">
-                  <span>VAT ({vatPercentage}%)</span>
-                  <span>
-                    {currencySign}
-                    {vatAmount.toFixed(2)}
-                  </span>
-                </div>
-              )}
-              {taxPercentage > 0 && (
-                <div className="flex justify-between text-gray-600">
-                  <span>Tax ({taxPercentage}%)</span>
-                  <span>
-                    {currencySign}
-                    {taxAmount.toFixed(2)}
-                  </span>
-                </div>
-              )}
+              <div className="flex justify-between text-gray-600">
+                <span>Net (excl. VAT)</span>
+                <span>
+                  {currencySign}
+                  {netAmount.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>VAT</span>
+                <span>
+                  {currencySign}
+                  {vatAmount.toFixed(2)}
+                </span>
+              </div>
               <div className="flex justify-between font-bold text-lg text-gray-800 pt-1.5 border-t border-gray-200">
                 <span>Total</span>
                 <span>

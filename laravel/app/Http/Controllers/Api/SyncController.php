@@ -14,6 +14,7 @@ use App\Models\SaleDetail;
 use App\Models\Stock;
 use App\Models\StockAdjustment;
 use App\Models\Transaction;
+use App\Services\VatCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -187,55 +188,119 @@ class SyncController extends Controller
 
         $createdAt = isset($row['created_at']) ? new \DateTimeImmutable($row['created_at']) : now();
 
+        // Rebuild VAT from the stock treatment even for offline sales, so the
+        // ledger always receives the same inclusive-price VAT split as the
+        // online POS/API checkout.
+        $vat = app(VatCalculator::class);
+        $discount = round(max(0, (float) ($row['discount_amount'] ?? 0)), 2);
+        $shippingCost = round(max(0, (float) ($row['shipping_cost'] ?? 0)), 2);
+        $lines = [];
+
+        foreach ($detailsIn as $d) {
+            $stock = Stock::with('product')->find($d['fk_stock_id'] ?? null);
+            if (! $stock) {
+                throw new \InvalidArgumentException('Unknown fk_stock_id '.($d['fk_stock_id'] ?? 'null'));
+            }
+
+            $quantity = (int) ($d['sale_stock'] ?? 0);
+            if ($quantity < 1) {
+                throw new \InvalidArgumentException('Invalid sale_stock');
+            }
+
+            $gross = isset($d['subtotal']) && is_numeric($d['subtotal'])
+                ? round((float) $d['subtotal'], 2)
+                : round((float) $stock->sale_price * $quantity, 2);
+
+            $treatment = $vat->forStock($stock);
+
+            $lines[] = $vat->line($gross, $treatment['code'], $treatment['rate']) + [
+                'uuid' => $d['uuid'] ?? (string) Str::uuid(),
+                'quantity' => $quantity,
+                'stock_id' => $stock->id,
+                'stock_name' => $stock->product->name ?? '',
+                'cost_price' => (float) $stock->buy_price,
+                'total_stock' => (int) $stock->quantity,
+            ];
+        }
+
+        if (empty($lines)) {
+            throw new \InvalidArgumentException('Sale has no items');
+        }
+
+        $lines = $vat->applyDiscount($lines, $discount);
+
+        if ($shippingCost > 0) {
+            $lines[] = $vat->line($shippingCost, null, null) + [
+                'description' => 'Shipping',
+                'quantity' => 1,
+                'stock_id' => null,
+                'stock_name' => 'Shipping',
+                'cost_price' => 0.0,
+                'total_stock' => 0,
+                'is_shipping' => true,
+            ];
+        }
+
+        $summary = $vat->summary($lines);
+        $grandTotal = round($summary['gross'], 2);
+        $buyPrice = round(array_sum(array_map(
+            fn (array $line) => (float) $line['cost_price'] * (int) $line['quantity'],
+            $lines
+        )), 2);
+
         $sale = new Sale();
         $sale->uuid = $uuid;
         $sale->fk_user_id = $row['fk_user_id'] ?? null;
         $sale->invoice_id = $invoiceId;
         $sale->type = 'POS';
-        $sale->net_price = $row['net_price'] ?? 0;
-        $sale->vat_amount = $row['vat_amount'] ?? 0;
-        $sale->tax_amount = $row['tax_amount'] ?? 0;
-        $sale->shipping_cost = $row['shipping_cost'] ?? 0;
-        $sale->discount_amount = $row['discount_amount'] ?? 0;
-        $sale->grand_total = $row['grand_total'] ?? 0;
-        $sale->paid_amount = $row['paid_amount'] ?? ($row['grand_total'] ?? 0);
+        $sale->net_price = $summary['net'];
+        $sale->vat_amount = $summary['vat'];
+        $sale->tax_amount = 0;
+        $sale->shipping_cost = $shippingCost;
+        $sale->discount_amount = $discount;
+        $sale->grand_total = $grandTotal;
+        $sale->paid_amount = $row['paid_amount'] ?? $grandTotal;
         $sale->sale_due = 0;
         $sale->status = 'completed';
         $sale->note = $row['note'] ?? '';
+        $sale->vat_breakdown = $summary['breakdown'];
         $sale->created_by = $adminId;
         $sale->created_at = $createdAt;
         $sale->updated_at = now();
         $sale->save();
 
         $detailMappings = [];
-        foreach ($detailsIn as $d) {
-            $detailUuid = $d['uuid'] ?? (string) Str::uuid();
+        foreach ($lines as $line) {
+            if (! empty($line['is_shipping'])) {
+                continue;
+            }
+
+            $detailUuid = $line['uuid'];
             $existingDetail = SaleDetail::withTrashed()->where('uuid', $detailUuid)->first();
             if ($existingDetail) {
                 $detailMappings[] = ['uuid' => $detailUuid, 'id' => $existingDetail->id, 'duplicate' => true];
                 continue;
             }
 
-            $stock = Stock::find($d['fk_stock_id']);
-            if (! $stock) {
-                throw new \InvalidArgumentException("Unknown fk_stock_id {$d['fk_stock_id']}");
-            }
-            $totalStock = $stock->quantity;
-
             $detail = new SaleDetail();
             $detail->uuid = $detailUuid;
             $detail->fk_sale_id = $sale->id;
-            $detail->fk_stock_id = $stock->id;
-            $detail->stock_name = $stock->product->name ?? '';
-            $detail->total_stock = $totalStock;
-            $detail->sale_stock = $d['sale_stock'];
-            $detail->subtotal = $d['subtotal'];
-            $detail->cost_price = $stock->buy_price;
+            $detail->fk_stock_id = $line['stock_id'];
+            $detail->stock_name = $line['stock_name'];
+            $detail->total_stock = $line['total_stock'];
+            $detail->sale_stock = $line['quantity'];
+            $detail->subtotal = $line['gross'];
+            $detail->cost_price = $line['cost_price'];
+            $detail->vat_code = $line['code'];
+            $detail->vat_rate = $line['rate'];
+            $detail->net_amount = $line['net'];
+            $detail->vat_amount = $line['vat'];
+            $detail->gross_amount = $line['gross'];
             $detail->created_at = $createdAt;
             $detail->updated_at = now();
             $detail->save();
 
-            Stock::where('id', $stock->id)->decrement('quantity', $d['sale_stock']);
+            Stock::where('id', $line['stock_id'])->decrement('quantity', $line['quantity']);
             $detailMappings[] = ['uuid' => $detailUuid, 'id' => $detail->id];
         }
 
@@ -275,6 +340,8 @@ class SyncController extends Controller
             'fk_transaction_id' => $transaction->id,
             'description' => "Sale #{$sale->invoice_id}",
             'amount' => $total,
+            'net_amount' => $summary['net'],
+            'vat_amount' => $summary['vat'],
             'created_by' => $adminId,
             'created_at' => $createdAt,
             'updated_at' => now(),
@@ -291,7 +358,7 @@ class SyncController extends Controller
             'created_by' => $adminId,
         ]);
 
-        app(AccountingPoster::class)->sale($sale, (float) $total, 0, null, $adminId);
+        app(AccountingPoster::class)->sale($sale, (float) $total, 0, $buyPrice, $adminId);
 
         return [
             'uuid' => $uuid,

@@ -147,7 +147,7 @@ All API routes are prefixed with `/api/v1/`. Authentication uses Bearer tokens v
 ### Protected (`auth:sanctum`)
 | Module | Endpoints |
 |--------|-----------|
-| Customers | `customer`, `save-customer`, `update-customer/{id}`, `delete-customer/{id}` |
+| Customers | `customer`, `save-customer`, `update-customer/{id}` |
 | Categories | `category`, `save-category`, `update-category/{id}`, `delete-category/{id}` |
 | Products | `product`, `save-product`, `update-product/{id}`, `delete-product/{id}` |
 | Stocks | `stock`, `save-stock` |

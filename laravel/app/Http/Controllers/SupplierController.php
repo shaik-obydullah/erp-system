@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Accounting\AccountingPoster;
 use App\Models\Configuration;
 use App\Models\Supplier;
+use App\Services\SupplierDeletionGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -184,6 +185,23 @@ class SupplierController extends Controller
 
     public function destroy(Request $request, Supplier $supplier)
     {
+        $guard = app(SupplierDeletionGuard::class);
+        $blockers = $guard->blockers($supplier);
+
+        if ($blockers !== []) {
+            $message = $guard->message($blockers);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => $message,
+                    'blockers' => $blockers,
+                ], 422);
+            }
+
+            return redirect()->route('suppliers.index')
+                ->with('error', $message);
+        }
+
         $adminId = auth('admin')->id();
 
         DB::transaction(function () use ($supplier, $adminId) {

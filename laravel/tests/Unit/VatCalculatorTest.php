@@ -93,6 +93,20 @@ class VatCalculatorTest extends TestCase
         $this->assertSame(9.00, $summary['vat']);
     }
 
+    public function test_discount_preserves_an_explicit_line_rate(): void
+    {
+        $lines = [
+            $this->vat->line(112.00, VatCalculator::STANDARD, 12.0),
+        ];
+
+        $discounted = $this->vat->applyDiscount($lines, 12.00);
+
+        $this->assertSame(12.0, $discounted[0]['rate']);
+        $this->assertSame(100.00, $discounted[0]['gross']);
+        $this->assertSame(89.29, $discounted[0]['net']);
+        $this->assertSame(10.71, $discounted[0]['vat']);
+    }
+
     public function test_summary_groups_totals_by_vat_rate(): void
     {
         $lines = [

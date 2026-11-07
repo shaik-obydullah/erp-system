@@ -33,10 +33,9 @@ class ReportController extends Controller
 
         $totalSales = (clone $salesQuery)->sum('sales.grand_total');
         $income = (clone $salesQuery)->sum('sales.paid_amount');
-        $expenses = Expense::query()
-            ->join('transactions', 'expenses.fk_transaction_id', '=', 'transactions.id')
-            ->where('transactions.type', Transaction::TYPE_EXPENSE)
-            ->sum('expenses.amount');
+        // Every expense row is a real cost, including the non-cash mirrors
+        // created by operational flows (payroll, campaigns, returns, etc.).
+        $expenses = Expense::query()->sum('expenses.amount');
         $netProfit = $income - $expenses;
 
         $totalProducts = Product::where('status', 'active')->count();
@@ -63,7 +62,6 @@ class ReportController extends Controller
 
             $chartExpenses[] = (float) Expense::query()
                 ->join('transactions', 'expenses.fk_transaction_id', '=', 'transactions.id')
-                ->where('transactions.type', Transaction::TYPE_EXPENSE)
                 ->whereBetween('transactions.date', [$monthStart->toDateString(), $monthEnd->toDateString()])
                 ->sum('expenses.amount');
         }

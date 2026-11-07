@@ -89,14 +89,4 @@ class ProductionPlanningController extends Controller
         return redirect()->route('production-plannings.index')
             ->with('success', 'Production planning updated successfully.');
     }
-
-    public function destroy(Request $request, ProductionPlanning $productionPlanning)
-    {
-        ActivityLogger::deleted('Production Planning', $productionPlanning);
-        $productionPlanning->update(['deleted_by' => auth('admin')->id()]);
-        $productionPlanning->delete();
-
-        return redirect()->route('production-plannings.index')
-            ->with('success', 'Production planning deleted successfully.');
-    }
 }

@@ -197,7 +197,7 @@
                     <span class="px-4 py-2 font-medium text-sm min-w-[3rem] text-center" x-text="qty"></span>
                     <button @click="qty++" class="px-3 py-2 text-gray-600 hover:bg-gray-100 transition rounded-r-lg">+</button>
                 </div>
-                <button @click="addToCartDetail('{{ $product->id }}', '{{ e($product->name) }}', '{{ $stock->sale_price }}', qty)"
+                <button @click="addToCartDetail('{{ $product->id }}', '{{ e($product->name) }}', '{{ $stock->sale_price }}', qty, '{{ $stock->vat_code }}', '{{ $stock->vat_rate }}')"
                     class="flex-1 px-6 py-3 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition shadow-md flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
                     Add to Cart
@@ -405,7 +405,7 @@
                     @if($rpStock && $rpStock->quantity > 0)
                     <button @click="
                         let rQty = relatedQty['{{ $rp->id }}'] || 1;
-                        addToCartDetail('{{ $rp->id }}', '{{ e($rp->name) }}', '{{ $rpStock->sale_price }}', rQty);
+                        addToCartDetail('{{ $rp->id }}', '{{ e($rp->name) }}', '{{ $rpStock->sale_price }}', rQty, '{{ $rpStock->vat_code }}', '{{ $rpStock->vat_rate }}');
                     "
                         class="w-full px-4 py-2 bg-primary-600 text-white text-xs font-semibold rounded-lg hover:bg-primary-700 transition flex items-center justify-center gap-1.5 mt-auto">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
@@ -423,11 +423,15 @@
 
 @section('scripts')
 <script>
-    function addToCartDetail(id, name, price, qty) {
+    function addToCartDetail(id, name, price, qty, vatCode = null, vatRate = null) {
         let cart = JSON.parse(localStorage.getItem('cart') || '[]');
         let existing = cart.find(i => i.id == id);
-        if (existing) { existing.qty += qty; }
-        else { cart.push({ id, name, price: parseFloat(price), qty }); }
+        const vat = {
+            vat_code: vatCode || null,
+            vat_rate: (vatRate === null || vatRate === undefined || vatRate === '') ? null : parseFloat(vatRate),
+        };
+        if (existing) { existing.qty += qty; Object.assign(existing, vat); }
+        else { cart.push({ id, name, price: parseFloat(price), qty, ...vat }); }
         localStorage.setItem('cart', JSON.stringify(cart));
         localStorage.setItem('cartCount', cart.reduce((s, i) => s + i.qty, 0));
         alert('Added to cart!');

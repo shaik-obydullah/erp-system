@@ -3,13 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Accounting\AccountingPoster;
-use App\Models\Cashbook;
 use App\Models\Configuration;
 use App\Models\Sale;
 use App\Models\SaleDetail;
 use App\Models\SaleReturn;
 use App\Models\Stock;
-use App\Models\Transaction;
 use App\Services\ActivityLogger;
 use App\Services\VatCalculator;
 use Illuminate\Http\Request;
@@ -150,102 +148,57 @@ class SaleReturnController extends Controller
             ->with('success', 'Sale return updated successfully.');
     }
 
-    public function destroy(Request $request, SaleReturn $saleReturn)
-    {
-        $adminId = auth('admin')->id();
-
-        DB::transaction(function () use ($saleReturn, $adminId) {
-            // Deleting a return must undo its refund/restock entries and the
-            // cashbook/transaction rows that were created when it was approved.
-            app(AccountingPoster::class)->reverseOperational('sale_return', $saleReturn->id, $adminId);
-
-            $saleReturn->update(['deleted_by' => $adminId, 'journal_entry_id' => null]);
-            $saleReturn->delete();
-        });
-
-        ActivityLogger::deleted('Sale Return', $saleReturn);
-
-        if ($request->expectsJson()) {
-            return response()->json([
-                'message' => 'Sale return deleted successfully.',
-                'redirect' => route('sale-returns.index'),
-            ]);
-        }
-
-        return redirect()->route('sale-returns.index')
-            ->with('success', 'Sale return deleted successfully.');
-    }
-
     public function approve(Request $request, SaleReturn $saleReturn)
     {
         $adminId = auth('admin')->id();
 
-        // Ensure legacy/pending returns carry a VAT split before the credit
-        // note and ledger reversal are posted.
-        if ((float) $saleReturn->refund_amount > 0) {
-            $calculated = $this->calculateVat([
-                'fk_sale_id' => $saleReturn->fk_sale_id,
-                'fk_stock_id' => $saleReturn->fk_stock_id,
-                'refund_amount' => $saleReturn->refund_amount,
+        DB::transaction(function () use ($saleReturn, $adminId) {
+            // Ensure legacy/pending returns carry a VAT split before the credit
+            // note and ledger reversal are posted.
+            if ((float) $saleReturn->refund_amount > 0) {
+                $calculated = $this->calculateVat([
+                    'fk_sale_id' => $saleReturn->fk_sale_id,
+                    'fk_stock_id' => $saleReturn->fk_stock_id,
+                    'refund_amount' => $saleReturn->refund_amount,
+                ]);
+
+                if (round((float) $saleReturn->vat_amount, 2) !== round($calculated['vat'], 2)) {
+                    $saleReturn->update([
+                        'vat_code' => $calculated['code'],
+                        'vat_rate' => $calculated['rate'],
+                        'net_amount' => $calculated['net'],
+                        'vat_amount' => $calculated['vat'],
+                    ]);
+                }
+            }
+
+            $saleReturn->update([
+                'status' => 'approved',
+                'updated_by' => $adminId,
             ]);
 
-            if (round((float) $saleReturn->vat_amount, 2) !== round($calculated['vat'], 2)) {
-                $saleReturn->update([
-                    'vat_code' => $calculated['code'],
-                    'vat_rate' => $calculated['rate'],
-                    'net_amount' => $calculated['net'],
-                    'vat_amount' => $calculated['vat'],
+            $stock = Stock::find($saleReturn->fk_stock_id);
+            if ($stock) {
+                $stock->update([
+                    'quantity' => $stock->quantity + $saleReturn->quantity,
+                    'updated_by' => $adminId,
                 ]);
             }
-        }
 
-        $saleReturn->update([
-            'status' => 'approved',
-            'updated_by' => $adminId,
-        ]);
+            $sale = Sale::find($saleReturn->fk_sale_id);
+            if ($sale) {
+                // The poster owns the transaction, cashbook and expense rows so
+                // the refund is recorded exactly once.
+                app(AccountingPoster::class)->saleReturn($saleReturn, $sale, $adminId);
 
-        $stock = Stock::find($saleReturn->fk_stock_id);
-        if ($stock) {
-            $stock->update([
-                'quantity' => $stock->quantity + $saleReturn->quantity,
-                'updated_by' => $adminId,
-            ]);
-        }
-
-        // Accounting: record refund transaction
-        $sale = Sale::find($saleReturn->fk_sale_id);
-        if ($sale) {
-            Transaction::create([
-                'date' => now()->toDateString(),
-                'type' => Transaction::TYPE_MISC_EXPENSE,
-                'fk_reference_id' => $saleReturn->id,
-                'amount' => $saleReturn->refund_amount,
-                'paid_amount' => $saleReturn->refund_amount,
-                'due_amount' => 0,
-                'created_by' => $adminId,
-            ]);
-
-            // Cashbook: record refund outflow
-            Cashbook::create([
-                'table_name' => 'sale_returns',
-                'fk_reference_id' => $saleReturn->id,
-                'description' => "Refund for return #{$saleReturn->id} (Sale {$sale->invoice_id})",
-                'in_amount' => 0,
-                'out_amount' => $saleReturn->refund_amount,
-                'amount_payable' => 0,
-                'amount_receivable' => 0,
-                'created_by' => $adminId,
-            ]);
-
-            app(AccountingPoster::class)->saleReturn($saleReturn, $sale, $adminId);
-
-            // Update sale: reduce paid_amount and grand_total
-            $sale->update([
-                'paid_amount' => max(0, $sale->paid_amount - $saleReturn->refund_amount),
-                'grand_total' => max(0, $sale->grand_total - $saleReturn->refund_amount),
-                'updated_by' => $adminId,
-            ]);
-        }
+                // Update sale: reduce paid_amount and grand_total
+                $sale->update([
+                    'paid_amount' => max(0, $sale->paid_amount - $saleReturn->refund_amount),
+                    'grand_total' => max(0, $sale->grand_total - $saleReturn->refund_amount),
+                    'updated_by' => $adminId,
+                ]);
+            }
+        });
 
         ActivityLogger::updated('Sale Return', $saleReturn, $saleReturn->toArray());
 

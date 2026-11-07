@@ -29,7 +29,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/customer', [ApiController::class, 'customer']);
     Route::post('/save-customer', [ApiController::class, 'saveCustomer']);
     Route::put('/update-customer/{id}', [ApiController::class, 'updateCustomer']);
-    Route::delete('/delete-customer/{id}', [ApiController::class, 'deleteCustomer']);
     
     // Categories
     Route::post('/category', [ApiController::class, 'category']);

@@ -71,6 +71,7 @@ class ProductionController extends Controller
     public function show(Production $production)
     {
         $production->load('billOfMaterial.product');
+
         return view('productions.show', compact('production'));
     }
 
@@ -131,22 +132,5 @@ class ProductionController extends Controller
 
         return redirect()->route('productions.index')
             ->with('success', 'Production entry updated successfully.');
-    }
-
-    public function destroy(Request $request, Production $production)
-    {
-        $adminId = auth('admin')->id();
-
-        DB::transaction(function () use ($production, $adminId) {
-            app(AccountingPoster::class)->reverseOperational('production', $production->id, $adminId);
-
-            $production->update(['deleted_by' => $adminId, 'journal_entry_id' => null]);
-            $production->delete();
-        });
-
-        ActivityLogger::deleted('Production', $production);
-
-        return redirect()->route('productions.index')
-            ->with('success', 'Production entry deleted successfully.');
     }
 }

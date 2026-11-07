@@ -327,7 +327,7 @@
                         <span class="text-lg font-bold text-primary-600">{{ $currencySymbol }}{{ number_format($stock->sale_price, 2) }}</span>
                         @endif
                         <button class="px-3 py-1.5 bg-primary-600 text-white text-xs font-medium rounded-lg hover:bg-primary-700 transition"
-                            onclick="event.preventDefault(); addToCart('{{ $product->id }}', '{{ e($product->name) }}', '{{ $stock ? $stock->sale_price : 0 }}')">
+                            onclick="event.preventDefault(); addToCart('{{ $product->id }}', '{{ e($product->name) }}', '{{ $stock ? $stock->sale_price : 0 }}', '{{ $stock ? $stock->vat_code : '' }}', '{{ $stock ? $stock->vat_rate : '' }}')">
                             Add to Cart
                         </button>
                     </div>
@@ -452,13 +452,18 @@
         return {}
     }
 
-    function addToCart(id, name, price) {
+    function addToCart(id, name, price, vatCode = null, vatRate = null) {
         let cart = JSON.parse(localStorage.getItem('cart') || '[]');
         let existing = cart.find(i => i.id == id);
+        const vat = {
+            vat_code: vatCode || null,
+            vat_rate: (vatRate === null || vatRate === undefined || vatRate === '') ? null : parseFloat(vatRate),
+        };
         if (existing) {
             existing.qty += 1;
+            Object.assign(existing, vat);
         } else {
-            cart.push({ id, name, price: parseFloat(price), qty: 1 });
+            cart.push({ id, name, price: parseFloat(price), qty: 1, ...vat });
         }
         localStorage.setItem('cart', JSON.stringify(cart));
         localStorage.setItem('cartCount', cart.reduce((s, i) => s + i.qty, 0));

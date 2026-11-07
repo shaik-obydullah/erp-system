@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaPlus, FaEdit, FaTrash, FaSearch, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FaPlus, FaEdit, FaSearch, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { toast } from "react-toastify";
-import { fetchCustomers, updateCustomer, deleteCustomer } from "../api/axios";
+import { fetchCustomers, updateCustomer } from "../api/axios";
 import { useConfig } from "../contexts/ConfigContext";
 
 function LoadingIndicator() {
@@ -66,10 +66,6 @@ export default function CustomerPage() {
   const [editData, setEditData] = useState({ id: "", name: "", email: "", status: "" });
   const [editLoading, setEditLoading] = useState(false);
 
-  const [deleteModal, setDeleteModal] = useState(false);
-  const [deleteId, setDeleteId] = useState(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-
   const loadCustomers = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -109,26 +105,6 @@ export default function CustomerPage() {
       toast.error(err.message || "Failed to update customer");
     } finally {
       setEditLoading(false);
-    }
-  };
-
-  const handleDelete = (id) => {
-    setDeleteId(id);
-    setDeleteModal(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    setDeleteLoading(true);
-    try {
-      await deleteCustomer(deleteId);
-      toast.success("Customer deleted successfully");
-      setDeleteModal(false);
-      setDeleteId(null);
-      loadCustomers();
-    } catch (err) {
-      toast.error(err.message || "Failed to delete customer");
-    } finally {
-      setDeleteLoading(false);
     }
   };
 
@@ -181,8 +157,7 @@ export default function CustomerPage() {
                         <td className="px-6 py-4 text-gray-600">{c.email}</td>
                         <td className="px-6 py-4"><StatusBadge status={c.status} /></td>
                         <td className="px-6 py-4 text-right">
-                          <button onClick={() => handleEdit(c)} className="text-blue-600 hover:text-blue-800 mr-3"><FaEdit /></button>
-                          <button onClick={() => handleDelete(c.id)} className="text-red-600 hover:text-red-800"><FaTrash /></button>
+                          <button onClick={() => handleEdit(c)} className="text-blue-600 hover:text-blue-800"><FaEdit /></button>
                         </td>
                       </tr>
                     ))
@@ -222,21 +197,6 @@ export default function CustomerPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {deleteModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">Delete Customer</h2>
-            <p className="text-gray-600 mb-6">Are you sure you want to delete this customer? This action cannot be undone.</p>
-            <div className="flex justify-end gap-3">
-              <button onClick={() => { setDeleteModal(false); setDeleteId(null); }} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">Cancel</button>
-              <button onClick={handleDeleteConfirm} disabled={deleteLoading} className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg transition">
-                {deleteLoading ? "Deleting..." : "Delete"}
-              </button>
-            </div>
           </div>
         </div>
       )}

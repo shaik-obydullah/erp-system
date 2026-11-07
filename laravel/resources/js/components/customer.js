@@ -129,10 +129,20 @@ document.addEventListener('alpine:init', () => {
                     if (row) row.remove();
                     this.successMessage = data.message;
                     setTimeout(() => { this.successMessage = ''; }, 3000);
+                } else {
+                    alert(this.errorMessage(data));
                 }
             } catch (e) {
                 alert('An unexpected error occurred.');
             }
+        },
+
+        errorMessage(data) {
+            if (data && data.message) return data.message;
+            if (data && data.errors) {
+                return Object.values(data.errors).flat().join('\n');
+            }
+            return 'Unable to delete this record.';
         },
     }));
 

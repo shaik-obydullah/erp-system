@@ -140,21 +140,4 @@ class ShipmentReturnController extends Controller
         return redirect()->route('shipment-returns.index')
             ->with('success', 'Shipment return updated successfully.');
     }
-
-    public function destroy(Request $request, ShipmentReturn $shipmentReturn)
-    {
-        $adminId = auth('admin')->id();
-
-        DB::transaction(function () use ($shipmentReturn, $adminId) {
-            app(AccountingPoster::class)->reverseOperational('shipment_return', $shipmentReturn->id, $adminId);
-
-            $shipmentReturn->update(['deleted_by' => $adminId, 'journal_entry_id' => null]);
-            $shipmentReturn->delete();
-        });
-
-        ActivityLogger::deleted('Shipment Return', $shipmentReturn);
-
-        return redirect()->route('shipment-returns.index')
-            ->with('success', 'Shipment return deleted successfully.');
-    }
 }
