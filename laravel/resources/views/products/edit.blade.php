@@ -4,11 +4,11 @@
 
 @push('head')
 <link href="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote-lite.min.css" rel="stylesheet">
-@include('products._form-styles')
+@include('layouts.partials.form-styles')
 @endpush
 
 @section('content')
-<div class="card product-form" x-data="productForm()" x-init="init()">
+<div class="card form-card" x-data="productForm()" x-init="init()">
     <div class="card-header">
         <div>
             <h2 class="card-title">Edit Product</h2>
@@ -134,12 +134,32 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="size">Size</label>
-                        <input type="text" id="size" x-model="form.size" value="{{ old('size', $product->size) }}" placeholder="e.g. Medium, 42, 500ml">
+                        <select id="size" x-model="form.size">
+                            <option value="">Select Size</option>
+                            @foreach($sizes as $size)
+                                <option value="{{ $size->name }}">{{ $size->name }}</option>
+                            @endforeach
+                            @php($currentSize = old('size', $product->size))
+                            @if($currentSize && !$sizes->contains('name', $currentSize))
+                                <option value="{{ $currentSize }}">{{ $currentSize }} (current)</option>
+                            @endif
+                        </select>
+                        <span class="form-hint">Options are managed in the Sizes module.</span>
                         <span class="form-error" x-show="errors.size" x-text="errors.size"></span>
                     </div>
                     <div class="form-group">
                         <label for="color">Color</label>
-                        <input type="text" id="color" x-model="form.color" value="{{ old('color', $product->color) }}" placeholder="e.g. Midnight Black">
+                        <select id="color" x-model="form.color">
+                            <option value="">Select Color</option>
+                            @foreach($colors as $color)
+                                <option value="{{ $color->name }}">{{ $color->name }}</option>
+                            @endforeach
+                            @php($currentColor = old('color', $product->color))
+                            @if($currentColor && !$colors->contains('name', $currentColor))
+                                <option value="{{ $currentColor }}">{{ $currentColor }} (current)</option>
+                            @endif
+                        </select>
+                        <span class="form-hint">Options are managed in the Colors module.</span>
                         <span class="form-error" x-show="errors.color" x-text="errors.color"></span>
                     </div>
                 </div>

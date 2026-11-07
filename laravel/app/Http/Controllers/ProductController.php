@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Brand;
 use App\Models\Category;
+use App\Models\Color;
 use App\Models\Product;
+use App\Models\Size;
 use App\Models\Supplier;
 use App\Models\Unit;
 use Illuminate\Http\Request;
@@ -61,8 +63,10 @@ class ProductController extends Controller
             ->orderBy('name')->get();
         $units = Unit::where('status', 'active')->get();
         $suppliers = Supplier::where('status', 'active')->get();
+        $sizes = Size::where('status', 'active')->orderBy('name')->get();
+        $colors = Color::where('status', 'active')->orderBy('name')->get();
 
-        return view('products.create', compact('brands', 'categories', 'units', 'suppliers'));
+        return view('products.create', compact('brands', 'categories', 'units', 'suppliers', 'sizes', 'colors'));
     }
 
     public function store(Request $request)
@@ -76,8 +80,8 @@ class ProductController extends Controller
             'fk_unit_id' => 'nullable|exists:units,id',
             'sku' => 'nullable|string|max:50',
             'barcode' => 'nullable|string|max:50',
-            'size' => 'nullable',
-            'color' => 'nullable',
+            'size' => 'nullable|string|max:50',
+            'color' => 'nullable|string|max:50',
             'description' => 'nullable',
             'status' => 'required|in:active,inactive,archive',
             'images.*' => 'nullable|file|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
@@ -127,8 +131,10 @@ class ProductController extends Controller
             ->orderBy('name')->get();
         $units = Unit::where('status', 'active')->get();
         $suppliers = Supplier::where('status', 'active')->get();
+        $sizes = Size::where('status', 'active')->orderBy('name')->get();
+        $colors = Color::where('status', 'active')->orderBy('name')->get();
 
-        return view('products.edit', compact('product', 'brands', 'categories', 'units', 'suppliers'));
+        return view('products.edit', compact('product', 'brands', 'categories', 'units', 'suppliers', 'sizes', 'colors'));
     }
 
     public function update(Request $request, Product $product)
@@ -142,8 +148,8 @@ class ProductController extends Controller
             'fk_unit_id' => 'nullable|exists:units,id',
             'sku' => 'nullable|string|max:50',
             'barcode' => 'nullable|string|max:50',
-            'size' => 'nullable',
-            'color' => 'nullable',
+            'size' => 'nullable|string|max:50',
+            'color' => 'nullable|string|max:50',
             'description' => 'nullable',
             'status' => 'required|in:active,inactive,archive',
             'images.*' => 'nullable|file|image|mimes:jpeg,png,jpg,gif,webp|max:2048',

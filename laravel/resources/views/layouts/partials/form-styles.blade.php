@@ -1,35 +1,35 @@
 <style>
-    .product-form .card-header {
+    .form-card .card-header {
         align-items: flex-start;
         flex-wrap: wrap;
         gap: 16px;
     }
-    .product-form .card-title {
+    .form-card .card-title {
         font-size: 18px;
         font-weight: 600;
         letter-spacing: -0.01em;
     }
-    .product-form .card-subtitle {
+    .form-card .card-subtitle {
         margin-top: 4px;
         font-size: 13px;
         color: var(--text-secondary);
     }
-    .product-form .card-body {
+    .form-card .card-body {
         padding: 8px 24px 24px;
     }
-    .product-form .form-section {
+    .form-card .form-section {
         padding: 24px 0;
     }
-    .product-form .form-section + .form-section {
+    .form-card .form-section + .form-section {
         border-top: 1px solid var(--border);
     }
-    .product-form .section-heading {
+    .form-card .section-heading {
         display: flex;
         align-items: flex-start;
         gap: 12px;
         margin-bottom: 20px;
     }
-    .product-form .section-icon {
+    .form-card .section-icon {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -40,69 +40,89 @@
         background: #e8f0fe;
         color: var(--primary);
     }
-    .product-form .section-icon svg {
+    .form-card .section-icon svg {
         width: 19px;
         height: 19px;
     }
-    .product-form .section-title {
+    .form-card .section-title {
         font-size: 15px;
         font-weight: 600;
         line-height: 1.35;
     }
-    .product-form .section-hint {
+    .form-card .section-hint {
         margin-top: 2px;
         font-size: 12.5px;
         color: var(--text-secondary);
     }
-    .product-form .form-group {
+    .form-card .form-group {
         margin-bottom: 18px;
     }
-    .product-form .form-row .form-group {
+    .form-card .form-row .form-group {
         margin-bottom: 18px;
     }
-    .product-form .form-section > .form-group:last-child,
-    .product-form .form-section > .form-row:last-child .form-group {
+    .form-card .form-section > .form-group:last-child,
+    .form-card .form-section > .form-row:last-child .form-group {
         margin-bottom: 0;
     }
-    .product-form .required {
+    .form-card .required {
         color: var(--error);
     }
-    .product-form .form-hint {
+    .form-card .form-hint {
         display: block;
         margin-top: 5px;
         font-size: 12px;
         color: var(--text-secondary);
     }
-    .product-form .form-group.narrow {
+    .form-card .form-group.narrow {
         max-width: 320px;
     }
-    .product-form .form-row--three {
+    .form-card .form-row--three {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
-    .product-form .form-group input:focus,
-    .product-form .form-group select:focus,
-    .product-form .form-group textarea:focus {
+    .form-card .form-group input:focus,
+    .form-card .form-group select:focus,
+    .form-card .form-group textarea:focus {
         border-color: var(--primary);
         box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
     }
-    .product-form .form-group input::placeholder,
-    .product-form .form-group textarea::placeholder {
+    .form-card .form-group input::placeholder,
+    .form-card .form-group textarea::placeholder {
         color: var(--text-disabled);
     }
-    .product-form .form-group select:disabled {
+    .form-card .form-group select:disabled {
         background: var(--bg-gray);
         color: var(--text-disabled);
         cursor: not-allowed;
     }
-    .product-form .form-actions {
+    .form-card .form-actions {
         margin-top: 0;
     }
-    .product-form .form-actions .btn {
+    .form-card .form-actions .btn {
         min-width: 132px;
         justify-content: center;
     }
-    .product-form .form-actions .btn-secondary {
+    .form-card .form-actions .btn-secondary {
         min-width: 96px;
+    }
+    .form-card .form-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin-top: 4px;
+        padding: 12px 14px;
+        border: 1px solid #d2e3fc;
+        border-radius: 8px;
+        background: #f0f7ff;
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: var(--text-secondary);
+    }
+    .form-card .form-note svg {
+        flex: 0 0 auto;
+        width: 16px;
+        height: 16px;
+        margin-top: 1px;
+        color: var(--primary);
     }
     .image-upload-zone {
         position: relative;
@@ -238,22 +258,22 @@
         }
     }
     @media (max-width: 768px) {
-        .product-form .card-body {
+        .form-card .card-body {
             padding: 4px 16px 20px;
         }
-        .product-form .form-section {
+        .form-card .form-section {
             padding: 20px 0;
         }
-        .product-form .form-group.narrow {
+        .form-card .form-group.narrow {
             max-width: none;
         }
-        .product-form .form-row--three {
+        .form-card .form-row--three {
             grid-template-columns: 1fr;
         }
-        .product-form .form-actions {
+        .form-card .form-actions {
             flex-wrap: wrap;
         }
-        .product-form .form-actions .btn {
+        .form-card .form-actions .btn {
             flex: 1 1 auto;
         }
     }
