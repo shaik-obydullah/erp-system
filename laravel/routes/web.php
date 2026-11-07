@@ -575,6 +575,9 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
 
 // Storefront (Multi-Vendor Ecommerce) - after admin routes to avoid route conflicts
 Route::get('/home', [StorefrontController::class, 'home'])->name('store.home');
+Route::post('/newsletter/subscribe', [StorefrontController::class, 'newsletterSubscribe'])
+    ->middleware('throttle:10,1')
+    ->name('store.newsletter.subscribe');
 Route::get('/products-list', [StorefrontController::class, 'products'])->name('store.products');
 Route::get('/product/{slug}', [StorefrontController::class, 'productDetail'])->name('store.product');
 Route::get('/vendors', [StorefrontController::class, 'vendorList'])->name('store.vendors');

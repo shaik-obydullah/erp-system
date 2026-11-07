@@ -298,15 +298,23 @@
                         <div class="flex items-center justify-between mt-2">
                             @if($stock)
                             <span class="text-lg font-bold text-primary-600">{{ $currencySymbol }}{{ number_format($stock->sale_price, 2) }}</span>
+                            @else
+                            <span class="text-sm text-gray-400">Price unavailable</span>
                             @endif
+                            @if($stock && $stock->quantity > 0)
                             <button class="px-3 py-1.5 bg-primary-600 text-white text-xs font-medium rounded-lg hover:bg-primary-700 transition"
-                                onclick="event.preventDefault(); addToCart('{{ $product->id }}', '{{ e($product->name) }}', '{{ $stock ? $stock->sale_price : 0 }}', '{{ $stock ? $stock->vat_code : '' }}', '{{ $stock ? $stock->vat_rate : '' }}')">
+                                onclick="event.preventDefault(); addToCart(@js($product->id), @js($product->name), @js($stock->sale_price), @js($stock->vat_code), @js($stock->vat_rate))">
                                 Add
                             </button>
+                            @else
+                            <button disabled class="px-3 py-1.5 bg-gray-200 text-gray-500 text-xs font-medium rounded-lg cursor-not-allowed">
+                                Out of Stock
+                            </button>
+                            @endif
                         </div>
                     </div>
                     <!-- Quick View Button (hover) -->
-                    <button @click="openQuickView({{ json_encode([
+                    <button @click="openQuickView(@js([
                         'name' => $product->name,
                         'slug' => $product->url_slug,
                         'brand' => $product->brand->name ?? null,
@@ -321,7 +329,7 @@
                         'review_number' => $product->review_number ?? 0,
                         'id' => $product->id,
                         'in_stock' => (bool) $stock
-                    ]) }})"
+                    ]))"
                         class="absolute top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 px-4 py-2 bg-white/90 backdrop-blur-sm text-gray-900 text-xs font-medium rounded-lg shadow-lg hover:bg-white z-10">
                         Quick View
                     </button>
@@ -380,9 +388,11 @@
                         <div class="flex items-center justify-between mt-2">
                             @if($stock)
                             <span class="text-lg font-bold text-primary-600">{{ $currencySymbol }}{{ number_format($stock->sale_price, 2) }}</span>
+                            @else
+                            <span class="text-sm text-gray-400">Price unavailable</span>
                             @endif
                             <div class="flex items-center gap-2">
-                                <button @click="openQuickView({{ json_encode([
+                                <button @click="openQuickView(@js([
                                     'name' => $product->name,
                                     'slug' => $product->url_slug,
                                     'brand' => $product->brand->name ?? null,
@@ -396,14 +406,20 @@
                                     'review_number' => $product->review_number ?? 0,
                                     'id' => $product->id,
                                     'in_stock' => (bool) $stock
-                                ]) }}"
+                                ]))"
                                     class="px-3 py-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 transition">
                                     Quick View
                                 </button>
+                                @if($stock && $stock->quantity > 0)
                                 <button class="px-3 py-1.5 bg-primary-600 text-white text-xs font-medium rounded-lg hover:bg-primary-700 transition"
-                                    onclick="event.preventDefault(); addToCart('{{ $product->id }}', '{{ e($product->name) }}', '{{ $stock ? $stock->sale_price : 0 }}', '{{ $stock ? $stock->vat_code : '' }}', '{{ $stock ? $stock->vat_rate : '' }}')">
+                                    onclick="event.preventDefault(); addToCart(@js($product->id), @js($product->name), @js($stock->sale_price), @js($stock->vat_code), @js($stock->vat_rate))">
                                     Add to Cart
                                 </button>
+                                @else
+                                <button disabled class="px-3 py-1.5 bg-gray-200 text-gray-500 text-xs font-medium rounded-lg cursor-not-allowed">
+                                    Out of Stock
+                                </button>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -497,7 +513,7 @@
                     </div>
                     <!-- Actions -->
                     <div class="flex gap-3">
-                        <a :href="'{{ route('store.products') }}/' + quickView.data.slug" class="flex-1 text-center px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition">View Full Details</a>
+                        <a :href="quickView.data.slug ? '{{ url('/product') }}/' + quickView.data.slug : '#'" class="flex-1 text-center px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition">View Full Details</a>
                         <button class="px-4 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition"
                             @click="addToCart(quickView.data.id, quickView.data.name, quickView.data.price, quickView.data.vat_code, quickView.data.vat_rate); quickView.open = false">
                             Add to Cart

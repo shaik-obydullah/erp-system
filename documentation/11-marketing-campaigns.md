@@ -2,85 +2,86 @@
 
 **Module:** Marketing & Campaigns (Marketing)
 **Category:** Growth
-**Purpose:** Plans and executes promotional campaigns across channels — broadcast emails, SMS, and in-app notifications — with lead capture and segmented audiences.
+**Purpose:** Plans and tracks marketing campaigns with budgets and spend, collects newsletter subscribers from the storefront, and supports flash-sale discount records.
 
-> Marketing converts the audience data already in the ERP into campaigns. Campaigns target customers, senders are configured once, and every broadcast is logged with delivery status for reporting.
+> Marketing turns planned promotions into tracked spend. Campaigns capture budget, actual spend, and status, and each campaign's spend posts to the finance ledger as a marketing expense. Newsletter subscriptions are captured directly from the storefront.
 
 ## 1. Overview
 
 The module covers:
 
-- **Campaigns** — multi-channel broadcast (email, SMS, in-app).
-- **Senders** — configured email/SMS sender identities.
-- **Leads** — captured prospective customers.
-- **Audience targeting** — select recipients by segment.
+- **Campaigns** — planned/active/completed/canceled promotions with budget and spent amount.
+- **Newsletter subscribers** — email capture from the storefront.
+- **Flash sales** — stock-level discount records (table exists; no UI/routes yet).
+- **Content blocks** — hero/slider/page/FAQ marketing content is managed by the CMS (see Administration & System).
+
+There are **no** `campaign_sms_senders`, `campaign_email_senders`, `campaign_recipients`, `leads`, or `contacts` tables, and campaigns have no channel, sender, audience, scheduled-send, or recipient-delivery columns.
 
 ## 2. Database Tables
 
 | Table | Purpose | Key Columns |
 |---|---|---|
-| `campaigns` | Campaign header | name, subject, channel (email/sms/notification), sender_id, audience, status, scheduled_at, sent_at, fk_admin_id |
-| `campaign_sms_senders` | SMS sender identities | name, sender_id, status |
-| `campaign_email_senders` | Email sender identities | name, email, status |
-| `campaign_recipients` | Targeted recipients | fk_campaign_id, fk_customer_id (nullable), email, phone, status (sent/failed/pending), sent_at |
-| `leads` | Captured prospects | name, email, phone, company, source, status, note |
-| `contacts` | Contact submissions | name, email, subject, message, status |
+| `campaigns` | Campaign record | name, description, start_date, end_date, status, budget, spent_amount, journal_entry_id, accounting_version |
+| `newsletter_subscribers` | Storefront email capture | email, created_at, updated_at |
+| `flash_sales` | Stock-level discounts | name, start_date, end_date, fk_stock_id, discount |
+| `contents` | Marketing/CMS blocks | See Administration & System module |
 
-### 2.1 Campaign Status Lifecycle
+### 2.1 Campaign Status
 
-`draft` → `scheduled` → `sending` → `sent` (with per-recipient `sent`/`failed`/`pending` statuses).
+`planned` → `active` → `completed`, or `canceled`.
+
+The status is stored as a string; there is no scheduler or automatic transition.
 
 ## 3. Key Models
 
-- **Campaign** (`app/Models/Campaign.php`) — `recipients()`, `admin()`, sender polymorphic lookup (email vs SMS sender by channel).
-- **CampaignRecipient** — delivery row per recipient with status + sent_at.
-- **Lead** — captured via storefront forms / admin entry.
-- **Contact** — public contact-form messages.
+- **Campaign** (`app/Models/Campaign.php`) — `journalEntry()`. Table `campaigns`.
+- **NewsletterSubscriber** — simple email record; `firstOrCreate` on storefront submit.
+- **FlashSale** — there is currently no `FlashSale` model, controller, or route; the table is present in the schema only.
+- **Content** — CMS blocks (`hero`, `slider`, `page`, `faq`, `banner`, `settings`) consumed by the storefront.
 
 ## 4. Admin Surface (Routes)
 
 | Route Prefix | Controller | Permissions |
 |---|---|---|
-| `campaigns` | CampaignController | campaigns.{view,save,edit,delete} |
-| `campaign-email-senders` | CampaignEmailSenderController | campaigns.* |
-| `campaign-sms-senders` | CampaignSmsSenderController | campaigns.* |
-| `leads` | LeadController | leads.{view,save,edit,delete} |
-| `contacts` | ContactController | contacts.{view,save,edit,delete} |
+| `campaigns` | CampaignController | resource except `show`/`destroy`; `campaigns.*` permission group |
 
-### 4.1 Campaign Creation
+The campaign resource routes currently rely on the `auth:admin` + `active.admin` group and menu visibility; explicit per-route `permission:` middleware is not applied.
 
-- Name, subject, channel (email/SMS/in-app notification), sender selection, audience scope.
-- Audience: "All customers", a specific segment, or individually chosen recipients.
-- Schedule (`scheduled_at`) or send immediately; status flows draft → sent.
+### 4.1 Campaign Management
 
-### 4.2 Sender Management
+- Create/edit a campaign with name, description, start/end dates, status, budget, and spent amount.
+- Saving posts `AccountingPoster::campaignSpend()`:
+  - a `campaignExpense` transaction,
+  - a cashbook outflow,
+  - a balanced journal entry (marketing expense debit, cash credit) for the current `spent_amount`.
+- Campaign spend is posted only when `spent_amount > 0`; repeated posting is prevented by `source_key` / `accounting_version`.
 
-- Email senders: name + email; SMS senders: name + sender id. Both status-toggled.
+### 4.2 Newsletter
 
-### 4.3 Leads & Contacts
-
-- Lead CRUD with source tracking (form, admin entry, import).
-- Contact messages surfaced for follow-up; status tracks handling.
+- `POST /newsletter/subscribe` on the storefront validates an email (throttled 10/min) and stores it in `newsletter_subscribers` via `firstOrCreate`.
+- There is no admin subscriber list, unsubscribe flow, or bulk-email sending in the current code.
 
 ## 5. Delivery & Reporting
 
-- Each recipient row records delivery status (`sent`/`failed`/`pending`) and timestamp.
-- Campaign report shows delivered vs failed counts for the channel.
+- Campaign reporting is financial: budget vs. spent amount, dates, and status.
+- There are no delivery, open-rate, click, sent/failed, or recipient-level metrics because no sending/recipient tables or mail/SMS integration exist.
+- Campaign spend appears in finance through the `campaignExpense` transaction, cashbook, and marketing-expense ledger account.
 
 ## 6. AI Integration Points
 
-- **AI campaign subject/targeting suggestions** — recommended segments and copy based on purchase history (see AI module doc).
+There is no AI campaign copy/targeting integration in the current codebase.
 
 ## 7. Permissions
 
 | Group | Permissions |
 |---|---|
 | Campaigns | `campaigns.view/save/edit/delete` |
-| Leads | `leads.view/save/edit/delete` |
-| Contacts | `contacts.view/save/edit/delete` |
+
+There are no Leads or Contacts permission groups.
 
 ## 8. Related Code Locations
 
-- Models: `laravel/app/Models/{Campaign,CampaignRecipient,CampaignEmailSender,CampaignSmsSender,Lead,Contact}.php`
-- Controllers: `laravel/app/Http/Controllers/{CampaignController,CampaignEmailSenderController,CampaignSmsSenderController,LeadController,ContactController}.php`
+- Models: `laravel/app/Models/{Campaign,NewsletterSubscriber,Content}.php`
+- Controllers: `laravel/app/Http/Controllers/CampaignController.php`; storefront newsletter in `StorefrontController::newsletterSubscribe`
+- Accounting: `laravel/app/Accounting/AccountingPoster.php` (`campaignSpend`)
 - Views: `laravel/resources/views/campaign/`

@@ -299,9 +299,12 @@
                     @if($product->review_avg >= 4.5)
                     <span class="absolute top-3 left-3 bg-accent-500 text-white text-xs font-bold px-2 py-1 rounded-full">Best Seller</span>
                     @endif
-                    @if($stock && $product->brand)
+                    @if($product->brand)
                     <span class="absolute top-3 right-3 bg-gray-900/70 text-white text-xs px-2 py-1 rounded-full">{{ $product->brand->name }}</span>
                     @endif
+                    @unless($stock && $stock->quantity > 0)
+                    <span class="absolute bottom-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">Out of Stock</span>
+                    @endunless
                 </div>
                 <div class="p-4">
                     <h3 class="font-semibold text-sm line-clamp-2 group-hover:text-primary-600 transition mb-1">{{ $product->name }}</h3>
@@ -325,11 +328,19 @@
                     <div class="flex items-center justify-between">
                         @if($stock)
                         <span class="text-lg font-bold text-primary-600">{{ $currencySymbol }}{{ number_format($stock->sale_price, 2) }}</span>
+                        @else
+                        <span class="text-sm text-gray-400">Price unavailable</span>
                         @endif
+                        @if($stock && $stock->quantity > 0)
                         <button class="px-3 py-1.5 bg-primary-600 text-white text-xs font-medium rounded-lg hover:bg-primary-700 transition"
-                            onclick="event.preventDefault(); addToCart('{{ $product->id }}', '{{ e($product->name) }}', '{{ $stock ? $stock->sale_price : 0 }}', '{{ $stock ? $stock->vat_code : '' }}', '{{ $stock ? $stock->vat_rate : '' }}')">
+                            onclick="event.preventDefault(); addToCart(@js($product->id), @js($product->name), @js($stock->sale_price), @js($stock->vat_code), @js($stock->vat_rate))">
                             Add to Cart
                         </button>
+                        @else
+                        <button disabled class="px-3 py-1.5 bg-gray-200 text-gray-500 text-xs font-medium rounded-lg cursor-not-allowed">
+                            Out of Stock
+                        </button>
+                        @endif
                     </div>
                 </div>
             </a>
@@ -365,10 +376,15 @@
                         <p class="text-xs text-gray-400 mb-2">{{ $product->supplier->name }}</p>
                         @endif
                         <div class="flex items-center gap-2">
-                            @if($stock)
+                            @if($stock && $stock->quantity > 0)
                             <span class="text-lg font-bold text-primary-600">{{ $currencySymbol }}{{ number_format($stock->sale_price, 2) }}</span>
-                            @endif
                             <span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">New</span>
+                            @elseif($stock)
+                            <span class="text-lg font-bold text-primary-600">{{ $currencySymbol }}{{ number_format($stock->sale_price, 2) }}</span>
+                            <span class="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full font-medium">Out of Stock</span>
+                            @else
+                            <span class="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full font-medium">Out of Stock</span>
+                            @endif
                         </div>
                     </div>
                 </a>
@@ -432,14 +448,49 @@
     @endif
 
     <!-- Newsletter CTA -->
-    <section class="bg-primary-600 py-12">
+    <section class="bg-primary-600 py-12" x-data="{
+        email: '',
+        status: '',
+        success: false,
+        submitting: false,
+        async subscribe() {
+            this.submitting = true;
+            this.status = '';
+            try {
+                const response = await fetch('{{ route('store.newsletter.subscribe') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').getAttribute('content'),
+                    },
+                    body: JSON.stringify({ email: this.email }),
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    this.success = false;
+                    this.status = (data.errors && data.errors.email && data.errors.email[0]) || data.message || 'Please enter a valid email address.';
+                    return;
+                }
+                this.success = true;
+                this.status = data.message;
+                this.email = '';
+            } catch (error) {
+                this.success = false;
+                this.status = 'Something went wrong. Please try again.';
+            } finally {
+                this.submitting = false;
+            }
+        },
+    }">
         <div class="max-w-3xl mx-auto px-4 text-center text-white">
             <h2 class="text-2xl font-bold mb-2">Stay Updated</h2>
             <p class="text-primary-100 mb-6">Get the latest deals and new product alerts delivered to your inbox.</p>
-            <div class="flex max-w-md mx-auto">
-                <input type="email" placeholder="Enter your email" class="flex-1 px-4 py-3 rounded-l-lg text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500">
-                <button class="px-6 py-3 bg-accent-500 text-white font-semibold rounded-r-lg hover:bg-accent-600 transition">Subscribe</button>
-            </div>
+            <form class="flex max-w-md mx-auto" @submit.prevent="subscribe()">
+                <input type="email" x-model="email" required placeholder="Enter your email" class="flex-1 px-4 py-3 rounded-l-lg text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500">
+                <button type="submit" :disabled="submitting" class="px-6 py-3 bg-accent-500 text-white font-semibold rounded-r-lg hover:bg-accent-600 transition disabled:opacity-60 disabled:cursor-not-allowed" x-text="submitting ? 'Subscribing…' : 'Subscribe'">Subscribe</button>
+            </form>
+            <p x-show="status" x-text="status" class="mt-3 text-sm" :class="success ? 'text-white' : 'text-yellow-200'"></p>
         </div>
     </section>
 

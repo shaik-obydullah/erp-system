@@ -4,7 +4,7 @@
 **Category:** Core Platform
 **Purpose:** Provides the global control center: executive dashboard, system configuration, audit trail, notifications, CMS content, and maintenance mode.
 
-> This module wires together every other module. The dashboard aggregates sales, stock, and workforce KPIs; the settings panel drives currency, VAT/tax rates, date formats and more; and the audit trail records every significant mutation in the system.
+> This module wires together every other module. The dashboard aggregates sales, stock, and workforce KPIs; the settings panel drives company identity, currency, VAT/tax rates, date formats and more; and the audit trail records every significant mutation in the system.
 
 ## 1. Overview
 
@@ -14,7 +14,7 @@ The Administration & System module includes six functional areas:
 - **System Settings (Configurations)** — key-value store consumed across all modules.
 - **Activity Log** — full audit trail with IP capture and optional geolocation.
 - **Notifications** — in-app alerts with seen/unseen state and per-admin targeting.
-- **CMS Content** — editable pages/banners for the storefront.
+- **CMS Content** — editable storefront content blocks (hero, slider, page, banner, FAQ, settings).
 - **Maintenance Mode** — global on/off switch guarded by settings permission.
 
 ## 2. Database Tables
@@ -24,7 +24,7 @@ The Administration & System module includes six functional areas:
 | `configurations` | Key-value system settings | name (unique, e.g. `currency_symbol`), setting (text) |
 | `activities` | Audit trail | fk_admin_id, type (success/warning/error), name, description, subject_type, subject_id, ip_address, visitor_country/state/city/address, old_data, new_data |
 | `notifications` | In-app notifications | fk_admin_id (nullable, per-admin), title, link, notification, type (info/success/warning/error), module, view_status (seen/unseen) |
-| `contents` | CMS pages & banners | name, attribute, media, content (HTML), type (default 'page'), slug (unique), status, sort_order |
+| `contents` | CMS pages & content blocks | name, attribute, media, content (HTML), type (hero/page/banner/faq/settings/slider), slug (unique), status, sort_order |
 | `fiscal_year` | Accounting period definition | fiscal_year_start, fiscal_year_end |
 | `currencies` | Multi-currency support | code (unique), name, symbol, exchange_rate, is_base, is_active |
 | `cache` / `jobs` | Framework support tables | — |
@@ -32,10 +32,10 @@ The Administration & System module includes six functional areas:
 
 ## 3. Key Models
 
-- **Configuration** (`app/Models/Configuration.php`) — static helper `Configuration::get('key', $default)`; supports bulk get via `getMany([...])`.
+- **Configuration** (`app/Models/Configuration.php`) — static helper `Configuration::get('key', $default)`; supports bulk get/set via `getMany([...])` / `setMany([...])`.
 - **Activity** — audit entry; polymorphic subject (subject_type/subject_id), captures old/new data on updates.
 - **AdminNotification / Notification** — typed in-app alerts, optionally scoped to an admin via `fk_admin_id`.
-- **Content** — CMS records for the storefront; type-driven (page/banner), slug-addressable, sortable.
+- **Content** — CMS records for the storefront; type-driven, slug-addressable, sortable. Scopes: `type()`, `active()`, `slug()`.
 
 ## 4. Dashboard (DashboardController)
 
@@ -52,16 +52,22 @@ The Administration & System module includes six functional areas:
 
 Routes: `GET /settings` (`permission:settings.view`), `PUT /settings` (`permission:settings.save`), `POST /maintenance/toggle` (`permission:settings.save`).
 
-**Common configuration keys** consumed across modules (see `ConfigurationSeeder` and the API `configuration` endpoint):
+**Configuration keys** handled by the settings screen (`ConfigController` + `ConfigurationSeeder`):
 
 | Key | Purpose |
 |---|---|
-| `currency_symbol` / `currency_sign` | Symbol shown in all money displays |
-| `vat_percentage` / `vat_rate` | VAT rate for POS/cart calculations |
-| `tax_percentage` / `tax_rate` | Additional tax rate |
-| `date_format`, `time_format`, `timezone` | Display formatting |
-| `project_name` | Brand name shown in app header / AI support bot |
-| `stock_warning_level` | Low-stock threshold for alerts/reports |
+| `company_name`, `company_email`, `company_phone`, `company_address`, `company_country`, `company_vat_number`, `company_website` | Company identity used on invoices and headers |
+| `currency` / `currency_symbol` | Currency code and symbol shown in all money displays |
+| `vat_rate` | VAT rate for POS/cart/accounting calculations |
+| `tax_rate` | Additional tax rate |
+| `date_format`, `timezone` | Display formatting |
+| `fiscal_year_start` | Fiscal year start (MM-DD) |
+| `invoice_prefix`, `order_prefix` | Document number prefixes |
+| `low_stock_threshold` | Low-stock threshold for alerts/reports |
+| `allow_registration` | Whether self-registration is enabled |
+| `maintenance_mode` | Global maintenance flag (toggled separately) |
+
+The POS API also exposes compatibility aliases `vat_percentage`, `tax_percentage`, and `project_name` via `ApiController::configuration`.
 
 ## 6. Activity Log (Audit Trail)
 
@@ -80,7 +86,7 @@ Each entry captures the acting admin, IP address, and optional geolocation field
 ### 6.2 Listing Surface
 
 - `GET /activities` (`permission:activity.view`) — paginated viewer.
-- AJAX endpoints (admin-authenticated): `GET /api/activities`, `GET /api/activities/stats`, `DELETE /api/activities/clear`.
+- AJAX endpoints (admin-authenticated, no separate permission middleware): `GET /api/activities`, `GET /api/activities/stats`, `DELETE /api/activities/clear`.
 
 ## 7. Notification System
 
@@ -93,14 +99,18 @@ Each entry captures the acting admin, IP address, and optional geolocation field
 - `POST /api/notifications/{id}/seen`, `POST /api/notifications/mark-all-seen` — read-state updates.
 - `POST /api/notifications`, `DELETE /api/notifications/{id}` — create/delete.
 
+Notification routes are protected by the admin auth group but do not currently add per-route `permission:` middleware.
+
 ## 8. CMS Content Management
 
 `CmsController` (resource `cms`, excluding `show`) provides CRUD for storefront content. `contents` records support:
 
 - Rich HTML content (`content` column) rendered on the storefront.
-- `type` field (default `page`) to distinguish pages, banners, or other content blocks.
-- Unique `slug` for URL addressing and `sort_order` for display ordering.
+- `type` field restricted to `hero`, `page`, `banner`, `faq`, `settings`, or `slider`.
+- Unique `slug` for URL addressing (auto-generated from `name` when blank) and `sort_order` for display ordering.
 - `media` for images and `attribute` for extra metadata.
+
+The storefront loads active `hero`, `slider`, `page`, and `faq` content blocks by `sort_order`.
 
 ## 9. Multi-Currency (Currencies)
 
@@ -111,11 +121,12 @@ Each entry captures the acting admin, IP address, and optional geolocation field
 
 | Permission | Gates |
 |---|---|
-| `dashboard.view` | Dashboard + Reports entry |
+| `dashboard.view` | Dashboard + all `/reports/*` pages |
 | `settings.view` / `settings.save` | Settings page, maintenance toggle, currency base |
 | `activity.view` | Activity log viewer |
-| `notifications.view` / `notifications.save` | Notification list / creation |
-| `reports.view` | Report pages |
+| `notifications.view` / `notifications.save` | Notification permission group (routes currently rely on admin auth) |
+| `reports.view` / `reports.save` / `reports.edit` / `reports.delete` | Reports permission group |
+| `ecommerce.view/save/edit/delete` | E-Commerce permission group |
 
 ## 11. Related Code Locations
 

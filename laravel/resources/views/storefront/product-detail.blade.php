@@ -143,6 +143,8 @@
                 <span class="text-lg text-gray-400 line-through">{{ $currencySymbol }}{{ number_format($stock->buy_price, 2) }}</span>
                 @endif
             </div>
+            @else
+            <p class="text-lg font-medium text-gray-400 mb-4">Price unavailable</p>
             @endif
 
             <!-- Delivery Badge -->
@@ -177,19 +179,24 @@
                     <span class="font-medium">{{ $product->unit->name }}</span>
                 </div>
                 @endif
-                @if($stock)
                 <div class="flex items-center gap-2">
                     <span class="text-gray-500 w-24">Stock:</span>
-                    @if($stock->quantity > 0)
+                    @if($stock && $stock->quantity > 0)
                         <span class="text-green-600 font-medium">In Stock ({{ $stock->quantity }} available)</span>
                     @else
                         <span class="text-red-600 font-medium">Out of Stock</span>
                     @endif
                 </div>
-                @endif
             </div>
 
             <!-- Quantity + Add to Cart -->
+            @if(! $stock || $stock->quantity <= 0)
+            <div class="mb-4">
+                <button disabled class="w-full px-6 py-3 bg-gray-200 text-gray-500 font-semibold rounded-lg cursor-not-allowed">
+                    Out of Stock
+                </button>
+            </div>
+            @endif
             @if($stock && $stock->quantity > 0)
             <div class="flex items-center gap-3 mb-4">
                 <div class="flex items-center border border-gray-300 rounded-lg">
@@ -197,7 +204,7 @@
                     <span class="px-4 py-2 font-medium text-sm min-w-[3rem] text-center" x-text="qty"></span>
                     <button @click="qty++" class="px-3 py-2 text-gray-600 hover:bg-gray-100 transition rounded-r-lg">+</button>
                 </div>
-                <button @click="addToCartDetail('{{ $product->id }}', '{{ e($product->name) }}', '{{ $stock->sale_price }}', qty, '{{ $stock->vat_code }}', '{{ $stock->vat_rate }}')"
+                <button @click="addToCartDetail(@js($product->id), @js($product->name), @js($stock->sale_price), qty, @js($stock->vat_code), @js($stock->vat_rate))"
                     class="flex-1 px-6 py-3 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition shadow-md flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
                     Add to Cart
@@ -210,7 +217,7 @@
                 <button @click="
                     let wl = JSON.parse(localStorage.getItem('wishlist') || '[]');
                     if (wishlisted) { wl = wl.filter(i => i.id != '{{ $product->id }}'); } 
-                    else { wl.push({ id: '{{ $product->id }}', name: '{{ e($product->name) }}', price: '{{ $stock->sale_price ?? 0 }}' }); }
+                    else { wl.push({ id: @js($product->id), name: @js($product->name), price: @js($stock->sale_price ?? 0) }); }
                     localStorage.setItem('wishlist', JSON.stringify(wl));
                     wishlisted = !wishlisted;
                 " :class="wishlisted ? 'border-red-200 bg-red-50 text-red-600' : 'border-gray-200 bg-white text-gray-600'"
@@ -401,15 +408,21 @@
                     @endif
                     @if($rpStock)
                     <span class="text-lg font-bold text-primary-600 mt-auto mb-2">{{ $currencySymbol }}{{ number_format($rpStock->sale_price, 2) }}</span>
+                    @else
+                    <span class="text-sm text-gray-400 mt-auto mb-2">Price unavailable</span>
                     @endif
                     @if($rpStock && $rpStock->quantity > 0)
                     <button @click="
                         let rQty = relatedQty['{{ $rp->id }}'] || 1;
-                        addToCartDetail('{{ $rp->id }}', '{{ e($rp->name) }}', '{{ $rpStock->sale_price }}', rQty, '{{ $rpStock->vat_code }}', '{{ $rpStock->vat_rate }}');
+                        addToCartDetail(@js($rp->id), @js($rp->name), @js($rpStock->sale_price), rQty, @js($rpStock->vat_code), @js($rpStock->vat_rate));
                     "
                         class="w-full px-4 py-2 bg-primary-600 text-white text-xs font-semibold rounded-lg hover:bg-primary-700 transition flex items-center justify-center gap-1.5 mt-auto">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
                         Add to Cart
+                    </button>
+                    @else
+                    <button disabled class="w-full px-4 py-2 bg-gray-200 text-gray-500 text-xs font-semibold rounded-lg cursor-not-allowed mt-auto">
+                        Out of Stock
                     </button>
                     @endif
                 </div>

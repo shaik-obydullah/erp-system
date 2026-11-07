@@ -114,6 +114,24 @@
                         <span class="stat-value">{{ number_format($totalSuppliers) }}</span>
                     </div>
                 </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #fee2e2; color: #dc2626;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">Total Expenses</span>
+                        <span class="stat-value">{{ $currencySymbol }}{{ number_format($totalExpenses, 0) }}</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: #e0f2fe; color: #0284c7;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">Employees</span>
+                        <span class="stat-value">{{ number_format($totalEmployees) }}</span>
+                    </div>
+                </div>
             </div>
 
             <!-- Charts -->
@@ -187,8 +205,6 @@
             </div>
         </main>
 
-        <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
         @include('layouts.header-actions-js')
         <script>
             document.addEventListener('DOMContentLoaded', function() {
@@ -204,7 +220,7 @@
 
                 // Sales vs Expenses Chart
                 var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                var salesData = months.map((_, i) => {{ $currencySymbol === '$' ? '' : '' }}0);
+                var salesData = months.map(() => 0);
                 var expenseData = months.map(() => 0);
 
                 @foreach($monthlySales as $month => $total)
@@ -255,30 +271,6 @@
                         plugins: { legend: { position: 'right', labels: { usePointStyle: true, pointStyle: 'circle', padding: 16, font: { size: 12 } } } }
                     }
                 });
-            });
-        </script>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                var sidebar = document.getElementById('sidebar');
-                var overlay = document.getElementById('sidebarOverlay');
-                var menuToggle = document.getElementById('menuToggle');
-                var sidebarClose = document.getElementById('sidebarClose');
-
-                function openSidebar() {
-                    sidebar.classList.add('open');
-                    overlay.classList.add('show');
-                    document.body.style.overflow = 'hidden';
-                }
-
-                function closeSidebar() {
-                    sidebar.classList.remove('open');
-                    overlay.classList.remove('show');
-                    document.body.style.overflow = '';
-                }
-
-                if (menuToggle) menuToggle.addEventListener('click', openSidebar);
-                if (sidebarClose) sidebarClose.addEventListener('click', closeSidebar);
-                if (overlay) overlay.addEventListener('click', closeSidebar);
             });
         </script>
     </body>

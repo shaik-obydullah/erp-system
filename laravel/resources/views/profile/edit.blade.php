@@ -146,8 +146,6 @@
             </div>
         </main>
 
-        <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
         <!-- Delete Account Modal -->
         <div class="modal-overlay" id="deleteModal" x-data="{ show: false }" x-show="show" x-transition @open-modal.window="show = true" @close.window="show = false" style="display: none;">
             <div class="modal" @click.stop>

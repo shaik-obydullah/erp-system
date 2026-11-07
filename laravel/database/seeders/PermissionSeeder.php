@@ -57,12 +57,6 @@ class PermissionSeeder extends Seeder
             'stocks.edit' => 'Stocks',
             'stocks.delete' => 'Stocks',
 
-            // Inventory
-            'inventory.view' => 'Inventory',
-            'inventory.save' => 'Inventory',
-            'inventory.edit' => 'Inventory',
-            'inventory.delete' => 'Inventory',
-
             // Customers
             'customers.view' => 'Customers',
             'customers.save' => 'Customers',
@@ -257,7 +251,6 @@ class PermissionSeeder extends Seeder
                 'employees.view', 'employees.save', 'employees.edit',
                 'tasks.view', 'tasks.save', 'tasks.edit',
                 'reports.view',
-                'inventory.view', 'inventory.save', 'inventory.edit',
                 'incomes.view', 'incomes.save',
                 'expenses.view', 'expenses.save',
                 'cashbook.view',

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -13,7 +14,7 @@ class Stock extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'fk_product_id', 'fk_inventory_id', 'fk_warehouses_id',
+        'fk_product_id', 'fk_warehouses_id',
         'batch', 'lot', 'quantity', 'buy_price', 'sale_price', 'status',
         'vat_code', 'vat_rate',
         'journal_entry_id', 'accounting_version',
@@ -27,6 +28,14 @@ class Stock extends Model
         'quantity' => 'integer',
         'accounting_version' => 'integer',
     ];
+
+    /**
+     * Stock that can actually be sold: active and still holding units.
+     */
+    public function scopeAvailable(Builder $query): Builder
+    {
+        return $query->where('status', 'active')->where('quantity', '>', 0);
+    }
 
     public function product()
     {

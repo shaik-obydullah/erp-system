@@ -2,69 +2,74 @@
 
 **Module:** Inventory & Stock (Stock)
 **Category:** Supply
-**Purpose:** Tracks stock levels across multiple warehouses, records every stock movement (in/out/adjustment), and drives the low-stock alerts that feed both the admin panel and the storefront.
+**Purpose:** Tracks on-hand stock levels across warehouses, records manual stock adjustments, and drives the low-stock information shown in the admin panel and storefront.
 
-> Inventory is transaction-driven: every change is a `stocks` row recording direction, quantity, and reference. Balances are never guessed — they are computed from the movement ledger, so reports always reconcile with the log.
+> Inventory is stock-line driven, not a movement ledger. Each `stocks` row represents a product batch/lot in a warehouse and stores its current quantity and prices. Sales and stock adjustments mutate that quantity; the latest prices and availability are read directly from the stock line.
 
 ## 1. Overview
 
 The inventory module covers:
 
 - **Warehouses** — physical or virtual locations holding stock.
-- **Stocks** — the movement ledger: purchases, sales, transfers, adjustments.
-- **Inventory** — snapshots of current quantities per warehouse/product.
-- **Low-stock alerts** — driven by the `stock_warning_level` configuration.
+- **Stocks** — current on-hand stock lines (per product / warehouse / batch / lot), with buy price, sale price, VAT treatment, and status.
+- **Stock adjustments** — explicit correction/damage/return records that change a stock line's quantity.
+- **Low-stock information** — driven by the `low_stock_threshold` configuration.
 
 ## 2. Database Tables
 
 | Table | Purpose | Key Columns |
 |---|---|---|
-| `warehouses` | Storage locations | name, description, contact_person_name, contact_person_phone, contact_person_email, address, status |
-| `stocks` | Stock movement ledger | fk_product_id, fk_warehouse_id, fk_supplier_id (nullable), quantity, type (IN/OUT/adjust), description, ref_model, ref_id, reference (tracking no.), fk_admin_id |
-| `inventories` | Current stock snapshot per warehouse | fk_product_id, fk_warehouse_id, quantity, status (active/inactive/archive), closed_date |
+| `warehouses` | Storage locations | name, capacity, location, contact_number, email |
+| `stocks` | Current stock lines | fk_product_id, fk_warehouses_id, batch, lot, quantity, buy_price, sale_price, status (active/inactive/archive), vat_code, vat_rate, journal_entry_id, accounting_version |
+| `stock_adjustments` | Adjustment history | fk_stock_id, fk_warehouse_id, batch, lot, quantity, reason (correction/damage/return), journal_entry_id |
 
-### 2.1 Stocks Reference (Polymorphic)
+All three tables use soft deletes (`deleted_at`) and track `created_by` / `updated_by` / `deleted_by`.
 
-The `ref_model` / `ref_id` columns link a stock movement to its originating business document (a purchase, sale, adjustment, etc.), enabling drill-down from the stock ledger to the source transaction.
+### 2.1 Stock Lines vs. Movements
+
+`stocks.quantity` is the current on-hand quantity for that line. There is no `type` / `ref_model` / `ref_id` movement ledger. Changes are made by:
+
+| Event | Effect on `stocks.quantity` |
+|---|---|
+| POS checkout (`PosController::checkout`) | Decremented per sale line |
+| Storefront checkout (`StorefrontController::placeOrder`) | Decremented per sale line |
+| Sale return approval (`SaleReturnController::approve`) | Incremented by the returned quantity |
+| Stock adjustment (`StockAdjustmentController::store`) | `return` adds; `correction` / `damage` subtracts (floored at 0) |
+| Stock create/edit | Set directly by the admin form (quantity may be edited) |
+
+Procurement shipments currently record tracking, warehouse, status, and landed costs but do not create stock lines automatically. Stock must be added/updated through the Stock screen or the POS API.
 
 ## 3. Key Models
 
-- **Stock** (`app/Models/Stock.php`) — `product()`, `warehouse()`, `supplier()`, and polymorphic `reference()`. `latestProducts` scope returns the newest movements grouped by product.
-- **Inventory** (`app/Models/Inventory.php`) — `product()`, `warehouse()`, `purchaseDetails()`, `saleDetails()`, `stockMovements()`.
-- **Warehouse** (`app/Models/Warehouse.php`) — `stocks()`, `inventories()`, `purchaseDetails()`, `saleDetails()`.
+- **Stock** (`app/Models/Stock.php`) — `product()`, `warehouse()` (via `fk_warehouses_id`), `journalEntry()`; `scopeAvailable()` filters `quantity > 0`.
+- **Warehouse** (`app/Models/Warehouse.php`) — `stocks()`.
+- **StockAdjustment** (`app/Models/StockAdjustment.php`) — `stock()`, `warehouse()`, `journalEntry()`.
 
-## 4. Movement Types (stocks.type)
+## 4. Stock Adjustments
 
-| Type | Meaning | Example |
-|---|---|---|
-| `IN` | Stock received / added | Purchase receipt, initial stock, return-in |
-| `OUT` | Stock dispatched / consumed | Sales dispatch, transfer-out, return-out |
-| `adjust` | Manual correction | Stock-count reconciliation |
+`stock_adjustments.reason` accepts `correction`, `damage`, or `return`:
 
-Every movement is tagged with the acting admin (`fk_admin_id`) and an optional `reference` (tracking number) for reconciliation.
+- `return` — adds the quantity back to the stock line.
+- `correction` and `damage` — subtract the quantity (never below zero).
+- Every adjustment posts to the double-entry ledger through `AccountingPoster::stockAdjustment()`.
 
 ## 5. Admin Surface (Routes)
 
 | Route Prefix | Controller | Permissions |
 |---|---|---|
-| `stocks` | StockController | stocks.{view,save,edit,delete} |
-| `inventories` | InventoryController | inventory.{view,save,edit,delete} |
-| `warehouses` | WarehouseController | warehouses.{view,save,edit,delete} |
+| `stocks` | StockController | `stocks.view`, `stocks.save`, `stocks.edit` |
+| `stock-adjustments` | StockAdjustmentController | `stocks.view`, `stocks.save` |
+| `warehouses` | WarehouseController | resource CRUD (`warehouses.*` permission group; routes rely on the admin auth group) |
 
 ### 5.1 Stock Listing
 
-- `GET /stocks` — paginated ledger; filters by product, warehouse, movement type, admin.
-- Summary cards: total stock in, total stock out, total balance (sum of inventory quantity), number of low-stock products.
-- Per-warehouse tabs when multiple warehouses exist.
+- `GET /stocks` — paginated stock lines; filters by product name/SKU, status, and `fk_product_id`.
+- The page exposes the configured currency symbol and links to create/edit stock lines.
+- There are no per-warehouse tabs or movement-type filters; the list is a stock-line table.
 
-### 5.2 Inventory Listing
+### 5.2 Warehouse Management
 
-- `GET /inventories` — current quantity per product per warehouse.
-- Status lifecycle (`active`/`inactive`/`archive`) with `closed_date` stamping on closure.
-
-### 5.3 Warehouse Management
-
-- Full CRUD (`warehouses.*` permissions) including contact person details and address.
+- Full CRUD (`warehouses` resource excluding `show`) with capacity, location, contact number, and email.
 
 ## 6. API Surface (React POS)
 
@@ -72,30 +77,29 @@ Sanctum-protected endpoints in `routes/api.php`:
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `GET /stock` | GET | Stock movements list |
-| `POST /save-stock` | POST | Record a movement (IN/OUT/adjust) |
-| `GET /warehouse` | GET | Warehouse list |
+| `GET /stock` | GET | Paginated stock line list with product; search by product name |
+| `POST /save-stock` | POST | Create a stock line (product, warehouse, batch/lot, quantity, buy/sale price, VAT, status) |
 
-Stock mutations from the POS go through the same `StockController`/`ActivityLogger` path, keeping the ledger consistent with the admin panel.
+There is no `/warehouse` API endpoint. Stock mutations from the POS use the same `Stock` model and `ActivityLogger` path as the admin panel, and `saveStock` also posts inventory to the ledger.
 
-## 7. Low-Stock Alerting
+## 7. Low-Stock Information
 
-- Threshold driven by `Configuration::get('stock_warning_level')`.
-- **Admin dashboard** — dashboard KPI and charts surface low-stock products.
-- **Reports** — the low-stock report lists products whose total quantity falls below the threshold, with current quantity and recommended reorder qty.
-- **Notifications** — `NotificationHelper` posts a warning-type notification when a product crosses the threshold.
+- Threshold driven by `Configuration::get('low_stock_threshold', 10)`.
+- **Admin dashboard / reports** — surface products whose available stock is below the threshold.
+- **Storefront** — products without an available stock line, or whose stock has run out, remain visible but are marked **Out of Stock** and cannot be added to the cart.
+- No automatic notification is currently emitted when a stock line crosses the threshold.
 
 ## 8. Permissions
 
 | Group | Permissions |
 |---|---|
 | Stocks | `stocks.view/save/edit/delete` |
-| Inventory | `inventory.view/save/edit/delete` |
 | Warehouses | `warehouses.view/save/edit/delete` |
 
 ## 9. Related Code Locations
 
-- Models: `laravel/app/Models/{Stock,Inventory,Warehouse}.php`
-- Controllers: `laravel/app/Http/Controllers/{StockController,InventoryController,WarehouseController}.php`
-- API: `laravel/app/Http/Controllers/Api/ApiController.php` (stock/warehouse methods)
-- Config: `stock_warning_level` in `configurations` table / ConfigurationSeeder
+- Models: `laravel/app/Models/{Stock,StockAdjustment,Warehouse}.php`
+- Controllers: `laravel/app/Http/Controllers/{StockController,StockAdjustmentController,WarehouseController}.php`
+- API: `laravel/app/Http/Controllers/Api/ApiController.php` (`stock`, `saveStock`)
+- Accounting: `laravel/app/Accounting/AccountingPoster.php` (`stockIn`, `stockAdjustment`)
+- Config: `low_stock_threshold` in `configurations` table / `ConfigurationSeeder`

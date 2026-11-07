@@ -2,111 +2,91 @@
 
 **Module:** Human Resource Management (HRM)
 **Category:** People
-**Purpose:** Manages the workforce: employees, attendance, leave, payroll, tasks, and the employee-facing portal.
+**Purpose:** Manages employee records, payroll entries, and task assignments, with payroll posting into the finance ledger.
 
-> HRM is the people layer of the ERP. Employees are linked to users, attendance feeds payroll calculations, and task assignments keep operations running. Reports draw headcount, leave, and payroll summaries for management.
+> HRM is the people layer of the ERP. Employees are standalone records (not linked to auth users), payroll entries calculate net salary and post salary payments, and tasks track work assigned to employees. The dashboard surfaces active employee headcount.
 
 ## 1. Overview
 
 The module covers:
 
-- **Employees** — master records with job details and user linkage.
-- **Attendance** — daily check-in/check-out tracking.
-- **Leave** — leave types, balances, and approvals.
-- **Payroll** — pay calculations per period with per-employee details.
-- **Tasks** — assignments, priorities, statuses, and due dates.
+- **Employees** — master records with job title, salary, hire date, and status.
+- **Payroll** — per-employee pay entries with basic salary, allowances, deductions, net salary, and pay date.
+- **Tasks** — work assignments tied to an employee with status, start date, and due date.
+
+There are **no** `departments`, `employee_types`, `attendances`, `leaves`, `leave_types`, `salaries`, or `tasks` tables. Employees are not linked to users and there is no employee-facing portal, attendance tracking, or leave workflow.
 
 ## 2. Database Tables
 
 | Table | Purpose | Key Columns |
 |---|---|---|
-| `employees` | Employee master | name, fk_department_id, fk_employee_type_id, fk_user_id, designation, sex, email, phone, dob, joining_date, basic_salary, image, status |
-| `employee_types` | Job type reference | name, status |
-| `departments` | Department reference | name, status |
-| `attendances` | Daily attendance | fk_employee_id, in_time, out_time, status (present/absent/leave/holiday), note |
-| `leaves` | Leave requests | fk_employee_id, fk_leave_type_id, from_date, to_date, days, reason, status (pending/approved/rejected) |
-| `leave_types` | Leave categories | name, max_days, status |
-| `salaries` | Payroll run | fk_employee_id, fk_admin_id, basic_salary, tax_amount, deduction_amount, bonus_amount, total_amount, note, status, month, year |
-| `tasks` | Work assignments | fk_employee_id, task_title, task_type, description, priority, status, due_date, fk_admin_id |
+| `employees` | Employee master | first_name, last_name, email (unique), mobile, job_title, salary, hire_date, status (active/inactive) |
+| `payrolls` | Payroll entries | fk_employee_id, basic_salary, allowances, deductions, net_salary, pay_date, journal_entry_id, accounting_version |
+| `task_management` | Task assignments | fk_employee_id, task_name, description, status, start_date, due_date |
 
-### 2.1 Attendance Status
+All three tables track `created_by` / `updated_by` / `deleted_by` and use soft deletes.
 
-`present` / `absent` / `leave` / `holiday` — drives attendance reports and payroll day counts.
+### 2.1 Task Status
 
-### 2.2 Leave Status Lifecycle
-
-```
-pending → approved | rejected
-```
-
-### 2.3 Payroll Status
-
-`pending` → `paid` (with month/year period stamps).
+`pending` → `in_progress` → `completed`, or `canceled`.
 
 ## 3. Key Models
 
-- **Employee** (`app/Models/Employee.php`) — `department()`, `employeeType()`, `user()` (linked admin/user account), `attendances()`, `leaves()`, `salaries()`, `tasks()`. Scopes: `active`.
-- **Department** — `employees()`.
-- **LeaveType** — `max_days` cap; `leaves()`.
-- **Salary** — per-employee, per-month row; total = basic ± bonus − tax − deductions.
-- **Task** — `employee()`, `admin()`; priority (low/medium/high) + status + due date.
+- **Employee** (`app/Models/Employee.php`) — `payrolls()`, `tasks()`, `getFullNameAttribute()`; no department/type/user relationships.
+- **Payroll** — `employee()`, `journalEntry()`. Table `payrolls`.
+- **TaskManagement** — `employee()`. Table `task_management`.
 
 ## 4. Admin Surface (Routes)
 
 | Route Prefix | Controller | Permissions |
 |---|---|---|
-| `employees` | EmployeeController | employees.{view,save,edit,delete} |
-| `departments` | DepartmentController | departments.{view,save,edit,delete} |
-| `employee-types` | EmployeeTypeController | employeetype.{view,save,edit,delete} |
-| `attendances` | AttendanceController | attendances.{view,save,edit,delete} |
-| `leaves` | LeaveController | leaves.{view,save,edit,delete} |
-| `salaries` | SalaryController | payroll.{view,save,edit,delete} |
-| `tasks` | TaskController | tasks.{view,save,edit,delete} |
+| `employees` | EmployeeController | resource except `show`; `employees.*` permission group |
+| `payrolls` | PayrollController | resource except `show`/`destroy`; `payroll.*` permission group |
+| `tasks` | TaskController | resource except `show`; `tasks.*` permission group |
+
+The resource routes currently rely on the `auth:admin` + `active.admin` group and menu visibility; explicit per-route `permission:` middleware is not applied to these CRUD routes.
 
 ### 4.1 Employee Features
 
-- Master data with designation, department, employment type, salary, DOB, joining date, and linked user account.
-- Active/inactive status toggles portal access.
+- Create/edit first name, last name, email, mobile, job title, salary, hire date, and active/inactive status.
+- Deleting an employee is blocked when payroll records exist (`EmployeeDeletionGuard`) so salary/accounting history is not orphaned.
 
-### 4.2 Attendance
+### 4.2 Payroll
 
-- Mark present/absent/leave/holiday per employee per day; in/out times recorded.
-- Period summaries feed payroll day calculations.
+- Create a payroll entry per employee: `basic_salary`, optional `allowances` and `deductions`, and `pay_date`.
+- `net_salary` is computed as `basic_salary + allowances − deductions`.
+- Saving posts `AccountingPoster::payroll()`:
+  - a `salaryPayment` transaction,
+  - a cashbook outflow,
+  - a balanced journal entry (salaries expense debit, cash credit).
+- There is no payroll status workflow (`pending`/`paid`) and no month/year period columns; the pay date is the period reference.
 
-### 4.3 Payroll
+### 4.3 Tasks
 
-- Per-month run per employee: basic salary ± bonus − tax − deduction; status pending → paid.
-- Monthly report groups employees by month/year with totals.
-
-### 4.4 Tasks
-
-- Assign tasks with title, type, description, priority, due date; track status to completion.
+- Assign a task to an employee with `task_name`, description, status, start date, and due date.
+- Task status is one of `pending`, `in_progress`, `completed`, `canceled`.
 
 ## 5. Employee Portal
 
-Authenticated employees (linked `user` accounts) can view their own attendance, leave balance/requests, payslips, and assigned tasks.
+There is no employee authentication guard, employee portal, or employee self-service screen in the current codebase. All HRM screens are admin-only.
 
-## 6. HR Reports
+## 6. HR Reporting
 
-- Headcount by department/type.
-- Monthly attendance summary (present/absent/leave counts per employee).
-- Leave utilization per type.
-- Payroll totals per month (gross, tax, deductions, net).
+- The dashboard shows the active employee count.
+- There are no attendance, leave, headcount-by-department, or payroll-summary reports in the current code; payroll data can be inspected through the payroll list and the finance ledger.
 
 ## 7. Permissions
 
 | Group | Permissions |
 |---|---|
 | Employees | `employees.view/save/edit/delete` |
-| Departments | `departments.view/save/edit/delete` |
-| Employee Types | `employeetype.view/save/edit/delete` |
-| Attendances | `attendances.view/save/edit/delete` |
-| Leaves | `leaves.view/save/edit/delete` |
 | Payroll | `payroll.view/save/edit/delete` |
 | Tasks | `tasks.view/save/edit/delete` |
 
 ## 8. Related Code Locations
 
-- Models: `laravel/app/Models/{Employee,Department,EmployeeType,Attendance,Leave,LeaveType,Salary,Task}.php`
-- Controllers: `laravel/app/Http/Controllers/{EmployeeController,DepartmentController,EmployeeTypeController,AttendanceController,LeaveController,SalaryController,TaskController}.php`
+- Models: `laravel/app/Models/{Employee,Payroll,TaskManagement}.php`
+- Controllers: `laravel/app/Http/Controllers/{EmployeeController,PayrollController,TaskController}.php`
+- Services: `laravel/app/Services/EmployeeDeletionGuard.php`
+- Accounting: `laravel/app/Accounting/AccountingPoster.php` (`payroll`)
 - Views: `laravel/resources/views/hr/`

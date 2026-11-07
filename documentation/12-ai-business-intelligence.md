@@ -2,96 +2,140 @@
 
 **Module:** AI & Business Intelligence (AI)
 **Category:** Intelligence
-**Purpose:** Adds an AI copilot layer over the entire ERP: a support assistant, natural-language product search, product description and price generation, sales forecasting, and executive-level analytical reports.
+**Purpose:** Adds an AI copilot layer over the ERP (support assistant, product search, description and price generation, inventory insights, sales forecasting) plus a Python/Flask BI layer and analytical reports.
 
-> This module sits on top of all others. It consumes the data already captured (sales, stock, catalog, customers) and exposes AI-assisted actions both to admins and to the storefront/API.
+> This module sits on top of all others. It consumes data already captured (sales, stock, catalog, customers) through a local Ollama model and a Flask BI service, and exposes AI-assisted actions to the storefront, the POS, and the admin panel.
 
 ## 1. Overview
 
 The module provides:
 
-- **AI support assistant** — a chat widget trained on ERP context (`project_name` config).
+- **AI support assistant** — customer-support chat grounded in matching product context.
 - **AI product search** — natural-language querying of the catalog.
 - **AI product description** — generated SEO copy from product attributes.
-- **AI price suggestion** — data-driven price recommendations.
-- **Sales forecasting** — projected revenue for the coming period.
-- **Analytical reports** — dashboard-grade BI views.
+- **AI inventory insights** — analysis of active stock lines and margins.
+- **AI sales forecast** — projection from the last 12 months of completed sales.
+- **AI price suggestion** — recommendation using current price and recent sale-price statistics.
+- **BI dashboards** — employee/product/combo/recommendation/prophet-forecast views backed by Flask.
+- **Analytical reports** — sales, income, expense, stock, customer, supplier, and VAT-return reports.
 
 ## 2. AI Endpoints (API)
 
-All endpoints are under `/api/v1/ai` (some public, some Sanctum-protected):
+All endpoints are under `/api/v1/ai`:
 
 | Endpoint | Method | Access | Purpose |
 |---|---|---|---|
-| `POST /ai/chat` | POST | Public | Support-assistant conversation (uses `project_name`) |
-| `POST /ai/product-search` | POST | Public | Natural-language product search |
-| `POST /ai/product-description` | POST | Sanctum | Generate product description |
-| `POST /ai/price-suggestion` | POST | Sanctum | Suggest price for a product |
-| `POST /ai/forecast` | POST | Sanctum | Sales forecast for a period |
+| `/ai/status` | GET | Public | Returns `{ available, model }`; checks Ollama and that the model is installed |
+| `/ai/customer-support` | POST | Public | Support-assistant reply from `{ message }` |
+| `/ai/product-description` | POST | Sanctum | Generate a description from `{ name, category?, specs? }` |
+| `/ai/product-search` | POST | Sanctum | Natural-language search from `{ query }` |
+| `/ai/inventory-insights` | POST | Sanctum | Insights over active stock lines |
+| `/ai/sales-forecast` | POST | Sanctum | Forecast from the last 12 months of completed sales |
+| `/ai/price-suggestion` | POST | Sanctum | Suggest a price from `{ product_id }` |
 
-### 2.1 Support Assistant (`/ai/chat`)
+There are **no** `/ai/chat` or `/ai/forecast` endpoints.
 
-- Contextual bot answering questions about the business, its products, and processes.
-- Branding driven by the `project_name` configuration; deployed on the storefront and admin panel.
+### 2.1 Support Assistant (`/ai/customer-support`)
+
+- Validates `message` (max 2000 chars).
+- Extracts keywords (length ≥ 3) and attaches up to five matching products with SKU, price, and availability as context.
+- Uses `OllamaService::customerSupport()` with a system prompt branded by `config('app.name')`.
+- Returns `{ response }`; returns HTTP 500 with an error when Ollama fails.
 
 ### 2.2 Product Search (`/ai/product-search`)
 
-- Accepts free-text queries ("red t-shirt under 1000") and resolves them to catalog matches.
-- Result scoring based on product attributes (category, brand, color, size, price).
+- Sends the query plus the full lightweight product list (id, name, SKU, price, stock, category) to the model.
+- Returns `{ response, products }`.
+- Result ranking/reasoning is performed by the model, not a hard-coded scoring formula.
 
-### 2.3 Description & Pricing
+### 2.3 Description, Inventory & Pricing
 
-- **Description:** generates search-optimized copy from name, category, specification, and unit.
-- **Price suggestion:** combines historical sales, buy price, and margin config into a recommended price.
+- **Description:** generates copy from name, category, and specs.
+- **Inventory insights:** summarises active stock lines with quantity, buy/sale price, and margin %.
+- **Price suggestion:** loads the product's active stock price and recent (3-month) completed-sale average/min/max, then asks the model for a recommendation.
 
-### 2.4 Forecasting (`/ai/forecast`)
+### 2.4 Sales Forecast (`/ai/sales-forecast`)
 
-- Uses past monthly sales/expenses to project the next period; output feeds the dashboard charts.
+- Builds a 12-month monthly sales history for `completed` sales, filling missing months with zero.
+- Sends the history to the model and returns `{ forecast }`.
+- This is distinct from the BI Prophet forecast at `GET /bi/prophet-forecast`.
 
-## 3. BI & Analytical Reports
+## 3. AI Configuration
 
-The Reports module (`reports.*` permissions) renders executive analytics:
+| Setting | Default | Purpose |
+|---|---|---|
+| `OLLAMA_URL` | `http://erp_ollama:11434` | Ollama service URL (`config/services.php`) |
+| `AI_MODEL` | `llama3.2` | Model name used for every AI request |
+| `ACCOUNTING_*` | — | Not AI-related; see Finance module |
 
-- **Sales report** — by day/week/month, channel, category, product, employee.
-- **Profit & Loss** — income vs expense per period.
-- **Stock / inventory valuation** — current value at cost and retail.
-- **Low-stock & reorder** — products under `stock_warning_level`.
-- **Customer & supplier balances** — receivables and payables.
-- **Employee / payroll summaries** — headcount and payroll totals.
-- **Campaign performance** — delivered/sent metrics.
+`OllamaService` uses `POST /api/chat` with a 120-second timeout and `GET /api/tags` for availability/model checks. If Ollama is down or the configured model is not pulled, endpoints return `null` and the controllers respond with a 500 error; the UI must degrade gracefully.
 
-| Report Group | Key Outputs |
+## 4. BI Layer (Flask)
+
+`BiController` proxies to the Flask service at `http://bi_flask:5000/api` with a 30-second timeout. Admin routes (inside the `auth:admin` group, no extra permission middleware):
+
+| Route | Flask endpoint | Purpose |
+|---|---|---|
+| `GET /bi` | `POST /analyze`, `GET /product-analysis`, `GET /sales-forecast`, `GET /product-combos` | BI dashboard |
+| `GET /bi/employees` | `POST /analyze` | Employee analysis |
+| `GET /bi/products` | `GET /product-analysis` | Product analysis |
+| `GET /bi/recommendations` | `POST /recommendations/products` | Product recommendations (`strategy`, limit 20) |
+| `GET /bi/forecast` | `GET /sales-forecast` | Sales forecast |
+| `GET /bi/prophet-forecast` | `GET /prophet-forecast?periods=N` | Prophet forecast (default 12 periods) |
+| `GET /bi/combos` | `GET /product-combos` | Frequently bought-together combos |
+
+The Flask BI app lives under `M_Sc_Project/erpbi/`; the Laravel side is only a thin, error-tolerant proxy (`{status: error, message}` on failure).
+
+## 5. Analytical Reports
+
+`ReportController` renders:
+
+| Route | Purpose |
 |---|---|
-| Sales & Revenue | totals, trends, top products/categories, channel split |
-| Financial | P&L, cashbook summaries, bank reconciliation |
-| Inventory | valuation, movement summary, low-stock list |
-| CRM | customer lifetime value, supplier dues |
-| HR | attendance, payroll, leave utilization |
-| Marketing | campaign delivery stats |
+| `GET /reports` | Overview: sales, income, expenses, net profit, counts, 12-month chart |
+| `GET /reports/sales` | Sales report |
+| `GET /reports/income` | Income report |
+| `GET /reports/expense` | Expense report |
+| `GET /reports/stock` | Stock/inventory valuation |
+| `GET /reports/customers` | Customer report |
+| `GET /reports/suppliers` | Supplier report |
+| `GET /reports/vat-return` | UK-style 9-box VAT return (quarter by default), reconciled to the ledger |
 
-## 4. Dashboard & Charting
+**All report routes use `permission:dashboard.view`** (not `reports.view`). The `Reports` permission group exists but is not currently attached to these routes.
 
-- Dashboard KPIs and Chart.js visuals consume aggregated arrays (`monthlySales`, `monthlyExpenses`, top categories, recent sales).
-- AI forecasts plug into the same chart layer.
+### 5.1 VAT Return
 
-## 5. Integration Points
+`VatReturnController` joins sales/incomes/returns/expenses/purchase orders to `transactions` / `journal_entries`, computes output and input VAT for the selected period, and supports filtering by a specific box.
+
+## 6. Dashboard & Charting
+
+- Dashboard KPIs and Chart.js visuals consume aggregated arrays (`monthlySales`, `monthlyExpenses`, top categories, recent sales) from `DashboardController`.
+- AI forecast output is a text response; it is not automatically merged into the dashboard chart arrays.
+- BI views have their own `resources/views/bi/` pages.
+
+## 7. Integration Points
 
 | Consumer | Feature |
 |---|---|
-| Admin panel | Dashboard charts, AI support widget, reports |
-| React POS | Product search, description/price helpers |
-| Storefront | AI chat support, natural-language search |
+| Admin panel | Dashboard/report charts, BI pages, AI helpers |
+| React POS | Product search, description, price suggestion, inventory insights, sales forecast (Sanctum) |
+| Storefront | AI customer-support widget and AI status check (public) |
 
-## 6. Permissions
+## 8. Permissions
 
-| Group | Permissions |
+| Area | Access |
 |---|---|
-| Reports | `reports.view` |
-| AI endpoints | Public chat/search; Sanctum for description/price/forecast |
+| AI public endpoints | `/ai/status`, `/ai/customer-support` |
+| AI protected endpoints | `auth:sanctum` |
+| BI routes | `auth:admin` + `active.admin` (no per-route permission) |
+| Reports | `permission:dashboard.view` |
+| Reports permission group | `reports.view/save/edit/delete` (seeded but not used by routes) |
 
-## 7. Related Code Locations
+## 9. Related Code Locations
 
-- AI service: `laravel/app/Services/AiService.php` (or equivalent) — providers for chat/search/description/price/forecast.
-- API: `laravel/app/Http/Controllers/Api/AiController.php`
-- Reports: `laravel/app/Http/Controllers/ReportController.php` + `laravel/resources/views/reports/`
-- Config: `project_name` in `configurations` table (AI branding/context)
+- AI controller: `laravel/app/Http/Controllers/Api/AiController.php`
+- AI service: `laravel/app/Services/OllamaService.php`
+- BI controller: `laravel/app/Http/Controllers/BiController.php`
+- BI Flask app: `M_Sc_Project/erpbi/`
+- Reports: `laravel/app/Http/Controllers/{ReportController,VatReturnController}.php` and `laravel/resources/views/reports/`
+- Config: `laravel/config/services.php` (`ollama.url`, `ollama.model`), `AI_MODEL` env

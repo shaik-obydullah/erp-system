@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -59,6 +60,16 @@ class Product extends Model
     public function stocks()
     {
         return $this->hasMany(Stock::class, 'fk_product_id');
+    }
+
+    /**
+     * Active products with at least one active stock line that still has
+     * units available (i.e. products that can be sold right now).
+     */
+    public function scopeSellable(Builder $query): Builder
+    {
+        return $query->where('status', 'active')
+            ->whereHas('stocks', fn (Builder $stock) => $stock->available());
     }
 
     public function reviews()

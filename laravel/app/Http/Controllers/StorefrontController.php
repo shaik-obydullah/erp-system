@@ -10,6 +10,7 @@ use App\Models\Configuration;
 use App\Models\Content;
 use App\Models\Customer;
 use App\Models\Income;
+use App\Models\NewsletterSubscriber;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleDetail;
@@ -30,6 +31,18 @@ class StorefrontController extends Controller
     protected $currencySymbol;
 
     protected $freeShippingThreshold;
+
+    /**
+     * Eager-load the stock line used for display. Sellable lines are ordered
+     * first, but inactive/empty lines are kept so the storefront can show
+     * "Out of Stock" instead of hiding the product altogether.
+     */
+    private function displayStocks(): \Closure
+    {
+        return fn ($query) => $query->where('status', 'active')
+            ->orderByDesc('quantity')
+            ->orderBy('id');
+    }
 
     public function __construct()
     {
@@ -68,7 +81,7 @@ class StorefrontController extends Controller
 
         $featuredProducts = Product::where('status', 'active')
             ->whereNotNull('fk_supplier_id')
-            ->with(['stocks' => fn ($q) => $q->where('status', 'active'), 'brand', 'category', 'supplier'])
+            ->with(['stocks' => $this->displayStocks(), 'brand', 'category', 'supplier'])
             ->inRandomOrder()
             ->limit(8)
             ->get();
@@ -84,7 +97,7 @@ class StorefrontController extends Controller
             ->get();
 
         $newArrivals = Product::where('status', 'active')
-            ->with(['stocks' => fn ($q) => $q->where('status', 'active'), 'brand', 'supplier'])
+            ->with(['stocks' => $this->displayStocks(), 'brand', 'supplier'])
             ->orderBy('id', 'desc')
             ->limit(8)
             ->get();
@@ -100,10 +113,25 @@ class StorefrontController extends Controller
         ) + ['currencySymbol' => $this->currencySymbol]);
     }
 
+    public function newsletterSubscribe(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email|max:150',
+        ]);
+
+        NewsletterSubscriber::firstOrCreate([
+            'email' => strtolower(trim($validated['email'])),
+        ]);
+
+        return response()->json([
+            'message' => 'Thanks for subscribing! Check your inbox for exclusive deals.',
+        ]);
+    }
+
     public function products(Request $request)
     {
         $query = Product::where('status', 'active')
-            ->with(['stocks' => fn ($q) => $q->where('status', 'active'), 'brand', 'category', 'supplier']);
+            ->with(['stocks' => $this->displayStocks(), 'brand', 'category', 'supplier']);
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
@@ -126,21 +154,21 @@ class StorefrontController extends Controller
         }
 
         if ($minPrice = $request->input('min_price')) {
-            $query->whereHas('stocks', fn ($q) => $q->where('sale_price', '>=', $minPrice));
+            $query->whereHas('stocks', fn ($q) => $q->available()->where('sale_price', '>=', $minPrice));
         }
 
         if ($maxPrice = $request->input('max_price')) {
-            $query->whereHas('stocks', fn ($q) => $q->where('sale_price', '<=', $maxPrice));
+            $query->whereHas('stocks', fn ($q) => $q->available()->where('sale_price', '<=', $maxPrice));
         }
 
         $sort = $request->input('sort', 'newest');
         switch ($sort) {
             case 'price_low':
-                $query->withSum('stocks as sale_price_sum', 'sale_price');
+                $query->withSum(['stocks as sale_price_sum' => fn ($q) => $q->available()], 'sale_price');
                 $query->orderBy('sale_price_sum');
                 break;
             case 'price_high':
-                $query->withSum('stocks as sale_price_sum', 'sale_price');
+                $query->withSum(['stocks as sale_price_sum' => fn ($q) => $q->available()], 'sale_price');
                 $query->orderByDesc('sale_price_sum');
                 break;
             case 'popular':
@@ -160,19 +188,19 @@ class StorefrontController extends Controller
 
     public function productDetail(string $slug)
     {
-        $product = Product::where('url_slug', $slug)
-            ->where('status', 'active')
+        $product = Product::where('status', 'active')
+            ->where('url_slug', $slug)
             ->with([
-                'stocks' => fn ($q) => $q->where('status', 'active'),
+                'stocks' => $this->displayStocks(),
                 'brand', 'category', 'supplier', 'category.parent',
                 'reviews' => fn ($q) => $q->where('status', 'published')->orderBy('id', 'desc')->limit(10)->with('customer'),
             ])
             ->firstOrFail();
 
-        $relatedProducts = Product::where('fk_category_id', $product->fk_category_id)
+        $relatedProducts = Product::where('status', 'active')
+            ->where('fk_category_id', $product->fk_category_id)
             ->where('id', '!=', $product->id)
-            ->where('status', 'active')
-            ->with(['stocks' => fn ($q) => $q->where('status', 'active'), 'brand', 'supplier', 'reviews'])
+            ->with(['stocks' => $this->displayStocks(), 'brand', 'supplier', 'reviews'])
             ->limit(4)
             ->get();
 
@@ -219,9 +247,9 @@ class StorefrontController extends Controller
             ->where('status', 'active')
             ->firstOrFail();
 
-        $products = Product::where('fk_supplier_id', $vendor->id)
-            ->where('status', 'active')
-            ->with(['stocks' => fn ($q) => $q->where('status', 'active'), 'brand', 'category'])
+        $products = Product::where('status', 'active')
+            ->where('fk_supplier_id', $vendor->id)
+            ->with(['stocks' => $this->displayStocks(), 'brand', 'category'])
             ->paginate(12);
 
         return view('storefront.vendor-store', compact('vendor', 'products') + ['currencySymbol' => $this->currencySymbol]);
@@ -273,7 +301,7 @@ class StorefrontController extends Controller
 
         foreach ($validated['items'] as $item) {
             $product = Product::where('status', 'active')
-                ->with(['stocks' => fn ($q) => $q->where('status', 'active')->where('quantity', '>', 0)])
+                ->with(['stocks' => fn ($q) => $q->available()->orderBy('id')])
                 ->find($item['id']);
 
             if (! $product) {

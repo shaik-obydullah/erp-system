@@ -1,109 +1,179 @@
-# Module 07 — Financial Management
+# Module 07 — Financial Management & Accounting
 
 **Module:** Financial Management (Finance)
 **Category:** Accounting
-**Purpose:** Tracks every rupee in and out of the business: income, expenses, the running cashbook, bank accounts, transaction journals, and payment methods.
+**Purpose:** Tracks money in and out of the business through incomes, expenses, the cashbook, transaction records, payables/receivables, fixed assets, and a double-entry general ledger (chart of accounts, journal entries, trial balance, P&L, balance sheet, cash flow, and reconciliation).
 
-> Finance is cash-flow driven. Every income/expense event posts to the cashbook and, optionally, to a bank account; the cashbook is the immutable daily ledger from which the balance sheet and P&L reports are derived.
+> Finance is the single financial source of truth. Operational events (sales, purchases, stock, payroll, campaigns, production, shipment costs) write simple-layer rows (`transactions`, `incomes`, `expenses`, `cashbook`) and, when the general ledger is enabled, also post balanced journal entries through `AccountingPoster`.
 
 ## 1. Overview
 
 The finance module includes:
 
-- **Income** — revenue events (sales, services, other income).
-- **Expenses** — operating spend (purchases, salaries, utilities).
-- **Cashbook** — daily cash position and running balance.
-- **Bank Accounts** — account balances reconciled with the cashbook.
-- **Transactions** — line-item journal entries linked to sources.
-- **Payment Methods** — how payments are settled (cash, card, etc.).
+- **Income** — miscellaneous/operating income events.
+- **Expenses** — operating spend.
+- **Cashbook** — money-in / money-out ledger with receivable/payable columns.
+- **Transactions** — typed financial events (20 types) linked to their source business document.
+- **Payables / Receivables** — outstanding balances.
+- **Fixed assets** — capital purchases posted to the ledger.
+- **Accounting (general ledger)** — chart of accounts, journal entries/lines, fiscal periods, opening balances, and financial statements.
+- **Currencies** — multi-currency configuration (managed from Settings).
+
+There are **no** `income_categories`, `expense_categories`, `cashbook_entries`, `bank_accounts`, `bank_transactions`, or `payment_methods` tables in the current schema.
 
 ## 2. Database Tables
 
-| Table                | Purpose           | Key Columns                                                                                                    |
-| -------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------- |
-| `incomes`            | Income ledger     | fk_income_category_id, fk_admin_id, title, description, amount, date, file, fk_cashbook_entry_id               |
-| `expenses`           | Expense ledger    | fk_expense_category_id, fk_admin_id, title, description, amount, date, file, fk_cashbook_entry_id              |
-| `income_categories`  | Income buckets    | name, status                                                                                                   |
-| `expense_categories` | Expense buckets   | name, status                                                                                                   |
-| `cashbook`           | Daily cash ledger | fk_income_id, fk_expense_id, fk_admin_id, type (cash/due), sub_type (in/out), amount, status, date             |
-| `cashbook_entries`   | Entry detail      | fk_cashbook_id, type, ref_model, ref_id, amount, description, date, status                                     |
-| `bank_accounts`      | Bank balances     | name, account_name, account_number, branch, opening_balance, balance, status                                   |
-| `bank_transactions`  | Bank activity     | fk_bank_account_id, fk_admin_id, type (credit/debit), amount, title, description, date, transaction_id, status |
-| `transactions`       | Journal line      | fk_customer_id, fk_supplier_id, fk_cashbook_entry_id, fk_bank_transaction_id, type, description, amount, date  |
-| `payment_methods`    | Settlement types  | name, status                                                                                                   |
+| Table | Purpose | Key Columns |
+|---|---|---|
+| `incomes` | Income ledger | table_name, fk_transaction_id, description, amount, vat_code, vat_rate, net_amount, vat_amount, journal_entry_id |
+| `expenses` | Expense ledger | table_name, fk_transaction_id, description, amount, vat_code, vat_rate, net_amount, vat_amount, journal_entry_id |
+| `cashbook` | Cash/receivable ledger | table_name, fk_reference_id, description, in_amount, out_amount, amount_payable, amount_receivable, journal_entry_id |
+| `transactions` | Typed financial events | date, type, fk_reference_id, amount, paid_amount, due_amount, journal_entry_id |
+| `payable` | Amounts owed | table_name, fk_reference_id, description, amount |
+| `receivable` | Amounts due in | table_name, fk_reference_id, description, amount |
+| `balances` | Per-customer credit/balance | fk_user_id, amount |
+| `fixed_assets` | Capital assets | name, price, description, journal_entry_id, accounting_version |
+| `accounts` | Chart of accounts | code, name, system_key, type (asset/liability/equity/revenue/expense), normal_balance (debit/credit), parent_id, is_system, is_active, description |
+| `journal_entries` | Double-entry headers | entry_no, date, memo, event_type, source_type, source_id, source_key, status, is_auto, posted_at |
+| `journal_lines` | Double-entry lines | journal_entry_id, account_id, debit, credit, description, party_type, party_id |
+| `fiscal_periods` | Accounting periods | name, start_date, end_date, status, closed_at |
+| `opening_balances` | Account opening balances | account_id, fiscal_year, debit, credit, note |
+| `fiscal_year` | Legacy fiscal-year definition | fiscal_year_start, fiscal_year_end |
+| `currencies` | Multi-currency | code, name, symbol, exchange_rate, is_base, is_active |
+| `billings` | Legacy billing-address table | fk_sale_id, full_name, email, phone, address, city, state, zip, country |
 
-### 2.1 Income / Expense Flow
+`billings` exists in the database but has no model, controller, or route in the current codebase.
 
-Each income or expense row:
+All finance tables track `created_by` / `updated_by` / `deleted_by` and use soft deletes unless noted otherwise.
 
-1. Posts a **cashbook** record (`type = cash|due`, `sub_type = in|out`).
-2. Optionally links a **cashbook entry** (`fk_cashbook_entry_id`) for line detail.
-3. Optionally links a **bank transaction** (credit for income, debit for expense) against a bank account.
+### 2.1 Transaction Types (20)
+
+`Transaction` constants: `userFund`, `supplierDeposit`, `supplierPayment`, `bomExpense`, `salaryPayment`, `campaignExpense`, `stockIn`, `stockOut`, `saleIncome`, `saleDue`, `fixedAsset`, `income`, `expense`, `miscIncome`, `miscExpense`, `shipmentCost`, `purchase`, `purchaseReturn`, `stockAdjustmentLoss`, `stockAdjustmentGain`.
+
+### 2.2 Income / Expense Flow
+
+Each admin-created income or expense:
+
+1. Creates a `Transaction` (`type = income` or `expense`) with amount/paid/due.
+2. Creates the `incomes` / `expenses` row with a VAT split extracted by `VatCalculator`.
+3. Creates a `cashbook` row (`in_amount` for income, `out_amount` for expense).
+4. Posts the balanced journal entry via `AccountingPoster::income()` / `expense()`.
+
+### 2.3 Chart of Accounts
+
+`config/accounting.php` seeds **26 system accounts** across five types, including:
+
+| Code | System key | Type | Normal balance |
+|---|---|---|---|
+| 1000 | `cash` | asset | debit |
+| 1010 | `bank` | asset | debit |
+| 1100 | `accounts_receivable` | asset | debit |
+| 1200 | `inventory` | asset | debit |
+| 1300 | `supplier_advances` | asset | debit |
+| 1500 | `fixed_assets` | asset | debit |
+| 2000 | `accounts_payable` | liability | credit |
+| 2100 / 2110 | `sales_tax_payable` / `input_vat` | liability / asset | credit / debit |
+| 2200 / 2300 | `customer_advances` / `salaries_payable` | liability | credit |
+| 3000 / 3100 / 3900 | `owner_equity` / `retained_earnings` / `opening_balance_equity` | equity | credit |
+| 4000 / 4010 / 4100 / 4110 | `sales_revenue` / `sales_returns` / `other_income` / `general_income` | revenue | credit (returns: debit) |
+| 5000–5900 | `cost_of_goods_sold`, `salaries_expense`, `rent_expense`, `utilities_expense`, `marketing_expense`, `inventory_adjustment`, `manufacturing_expense`, `general_expense` | expense | debit |
+
+GL behaviour is controlled by `ACCOUNTING_GL_ENABLED` (default `true`) and `ACCOUNTING_GL_ENFORCED` (default `false`; when false, ledger errors are logged rather than blocking the business operation).
 
 ## 3. Key Models
 
-- **Income** — `category()`, `admin()`, `cashbookEntry()`. Scopes for `incomeToday`, `incomeThisWeek`, `incomeThisMonth`, `incomeTotal`.
-- **Expense** — `category()`, `admin()`, `cashbookEntry()`. Scopes mirroring income.
-- **Cashbook** — `income()`, `expense()`, `admin()`, `entries()`. `getPreviousAmount` computes running balance; `balance` = opening + Σ(in − out).
-- **BankAccount** — `bankTransactions()`; balance rolls forward from `opening_balance`.
-- **PaymentMethod** — name/status; referenced by orders (`fk_payment_method_id`) and POS.
+- **Income** — `transaction()`, `journalEntry()`. Table `incomes`.
+- **Expense** — `transaction()`, `journalEntry()`. Table `expenses`.
+- **Cashbook** — `reference()`, `customer()`, `supplier()`, `sale()`, `income()`, `expense()`, `journalEntry()`. Table `cashbook`.
+- **Transaction** — `cashbookEntries()`, `journalEntry()`, `typeLabel()`; table `transactions`.
+- **Account** — `parent()`, `children()`, `journalLines()`, `scopeActive()`, `scopeOfType()`, `getIsDebitAttribute()`.
+- **JournalEntry** — `lines()`, `getDebitTotalAttribute()`, `getCreditTotalAttribute()`, `getIsBalancedAttribute()`, `scopePosted()`, `scopeBetween()`.
+- **JournalLine** — `entry()`, `account()`.
+- **Payable / Receivable** — simple ledger projections (tables `payable`, `receivable`).
+- **Balance** — `user()`; table `balances`.
+- **FixedAsset** — `journalEntry()`.
+- **Currency** — `scopeActive()`, `scopeBase()`.
 
 ## 4. Admin Surface (Routes)
 
-| Route Prefix                               | Controller              | Permissions                          |
-| ------------------------------------------ | ----------------------- | ------------------------------------ |
-| `incomes`                                  | IncomeController        | incomes.{view,save,edit,delete}      |
-| `expenses`                                 | ExpenseController       | expenses.{view,save,edit,delete}     |
-| `cashbook`                                 | CashbookController      | cashbook.{view,save,edit,delete}     |
-| `bank-accounts`                            | BankAccountController   | bankaccount.{view,save,edit,delete}  |
-| `transactions`                             | TransactionController   | transactions.{view,save,edit,delete} |
-| `payment-methods`                          | PaymentMethodController | settings.\*                          |
-| `income-categories` / `expense-categories` | CategoryController      | settings.\*                          |
+| Route Prefix | Controller | Permissions |
+|---|---|---|
+| `cashbook` | CashbookController | `cashbook.view` (read-only) |
+| `incomes` | IncomeController | `incomes.view`, `incomes.save` |
+| `expenses` | ExpenseController | `expenses.view`, `expenses.save` |
+| `payables` | PayableController | `cashbook.view` (read-only) |
+| `receivables` | ReceivableController | `cashbook.view` (read-only) |
+| `transactions` | TransactionController | `transactions.view` (read-only) |
+| `fixed-assets` | FixedAssetController | resource CRUD; relies on admin auth group |
+| `currencies` | CurrencyController | resource CRUD + `settings.save` for `set-base` |
+| `accounting` | AccountingController | `accounting.view` → `accounting.advanced` → `accounting.manage` |
 
-### 4.1 Cashbook
+### 4.1 Accounting Routes
 
-- `GET /cashbook` — daily ledger; date filter; summary cards for today's in/out/net and closing balance.
-- `POST /cashbook` — new entry (income or expense ref, or standalone), type cash/due, sub_type in/out; running balance recalculated.
-- Payment entries created by POS/sales automatically land here.
+| Route | Permission |
+|---|---|
+| `GET /accounting` | `accounting.view` |
+| `GET /accounting/journal`, `/ledger`, `/trial-balance`, `/profit-loss`, `/balance-sheet`, `/cash-flow`, `/chart-of-accounts`, `/reconciliation` | `accounting.advanced` |
+| `POST /accounting/accounts`, `PUT /accounting/accounts/{account}`, `DELETE /accounting/accounts/{account}` | `accounting.manage` |
 
-### 4.2 Income & Expenses
+The overview shows cash balance, receivable/payable, supplier advances, tax payable, debit/credit totals, unbalanced/broken journal entries, and reconciliation differences.
 
-- Full CRUD with date, amount, category, description, optional file attachment (stored under `public/uploads/`).
-- Category-filtered listings with period summaries.
+### 4.2 Cashbook
 
-### 4.3 Bank Accounts
+- `GET /cashbook` — read-only ledger view with in/out totals and receivable/payable columns.
+- Cashbook rows are written automatically by sales, purchases, incomes, expenses, shipment costs, funds, and other financial events.
 
-- Full CRUD; balance = opening balance ± transactions; status lifecycle (active/inactive/archive).
-- Optional linkage: post income/expense to a bank account to generate a bank transaction.
+### 4.3 Income & Expenses
+
+- List + create only (`index`, `create`, `store`); no edit/delete routes.
+- Amount, description, and optional VAT code/rate; VAT is extracted server-side.
+
+### 4.4 Fixed Assets
+
+- Resource routes except `show`/`destroy` (`index`, `create`, `store`, `edit`, `update`).
+- Each asset records a price and posts to the ledger via `AccountingPoster::fixedAsset()`.
 
 ## 5. API Surface (React POS)
 
-| Endpoint             | Method | Purpose                            |
-| -------------------- | ------ | ---------------------------------- |
-| `GET /income`        | GET    | List income                        |
-| `POST /save-income`  | POST   | Create income (posts to cashbook)  |
-| `GET /expense`       | GET    | List expenses                      |
-| `POST /save-expense` | POST   | Create expense (posts to cashbook) |
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `POST /income` | POST | List income |
+| `POST /save-income` | POST | Create income (posts transaction + cashbook + ledger) |
+| `POST /expense` | POST | List expenses |
+| `POST /save-expense` | POST | Create expense (posts transaction + cashbook + ledger) |
+| `POST /report` | POST | Report data for the POS |
 
-## 6. Reporting & Reconciliation
+## 6. Double-Entry Ledger & Reconciliation
 
-- **Balance Sheet / P&L** — derived from cashbook totals and bank balances (see Reports module).
-- **Customer/Supplier balances** — tracked on `customers.balance` / `suppliers.balance` and `balances` tables, updated by cashbook `due` entries.
-- **Fiscal year** — reports respect `fiscal_year_start`/`fiscal_year_end`.
+- `AccountingPoster` emits balanced entries for: sales, sale dues, sale returns, income, expenses, purchase orders, customer/supplier funds, supplier payments, shipment costs, stock adjustments, fixed assets, payroll, campaign spend, production, stock in, supplier opening balances, shipment returns, imports, and reversals.
+- `LedgerProjector` replays existing simple-layer rows into the ledger idempotently (`accounting:backfill`).
+- `accounting:verify` checks balance and reconciliation; it is scheduled daily at **02:00** via `routes/console.php`.
+- `GET /accounting/reconciliation` compares ledger account balances with cashbook/simple-layer totals.
 
-## 7. Permissions
+## 7. Reporting & Reconciliation
 
-| Group                        | Permissions                          |
-| ---------------------------- | ------------------------------------ |
-| Incomes                      | `incomes.view/save/edit/delete`      |
-| Expenses                     | `expenses.view/save/edit/delete`     |
-| Cashbook                     | `cashbook.view/save/edit/delete`     |
-| Bank Accounts                | `bankaccount.view/save/edit/delete`  |
-| Transactions                 | `transactions.view/save/edit/delete` |
-| Payment Methods / Categories | `settings.view/save`                 |
+- **Trial balance, P&L, balance sheet, cash flow** — computed from posted journal lines.
+- **Customer/supplier balances** — tracked on `customers.balance` / `suppliers.balance` and the `balances` table, and reconciled against ledger receivable/payable accounts.
+- **VAT return** — `GET /reports/vat-return` (`dashboard.view`) summarises output/input VAT.
+- **Fiscal periods** — `fiscal_periods` and `opening_balances` support period closing and opening balances.
 
-## 8. Related Code Locations
+## 8. Permissions
 
-- Models: `laravel/app/Models/{Income,Expense,IncomeCategory,ExpenseCategory,Cashbook,CashbookEntry,BankAccount,BankTransaction,Transaction,PaymentMethod}.php`
-- Controllers: `laravel/app/Http/Controllers/{IncomeController,ExpenseController,CashbookController,BankAccountController,TransactionController,PaymentMethodController}.php`
-- API: `laravel/app/Http/Controllers/Api/ApiController.php` (income/expense methods)
+| Group | Permissions |
+|---|---|
+| Accounting | `accounting.view`, `accounting.advanced`, `accounting.manage` |
+| Cashbook | `cashbook.view/save/edit/delete` |
+| Incomes | `incomes.view/save/edit/delete` |
+| Expenses | `expenses.view/save/edit/delete` |
+| Transactions | `transactions.view/save/edit/delete` |
+
+Payables/receivables use `cashbook.view`. Fixed assets and currencies rely on the admin auth group (currency base change uses `settings.save`).
+
+## 9. Related Code Locations
+
+- Models: `laravel/app/Models/{Income,Expense,Cashbook,Transaction,Account,JournalEntry,JournalLine,Payable,Receivable,Balance,FixedAsset,Currency,FiscalPeriod,OpeningBalance}.php`
+- Controllers: `laravel/app/Http/Controllers/{IncomeController,ExpenseController,CashbookController,PayableController,ReceivableController,TransactionController,FixedAssetController,CurrencyController,AccountingController,ReportController,VatReturnController}.php`
+- Accounting services: `laravel/app/Accounting/AccountingPoster.php`, `laravel/app/Services/LedgerProjector.php`
+- Config: `laravel/config/accounting.php`
+- Commands: `accounting:backfill`, `accounting:verify`
+- API: `laravel/app/Http/Controllers/Api/ApiController.php` (income/expense/report methods)

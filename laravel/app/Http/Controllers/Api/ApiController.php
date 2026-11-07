@@ -382,7 +382,6 @@ class ApiController extends Controller
         $stock = DB::transaction(function () use ($request, $validated, $adminId) {
             $stock = Stock::create([
                 'fk_product_id' => $validated['fk_product_id'],
-                'fk_inventory_id' => $request->input('fk_inventory_id'),
                 'fk_warehouses_id' => $validated['fk_warehouses_id'] ?? null,
                 'batch' => $validated['batch'] ?? null,
                 'lot' => $validated['lot'] ?? null,

@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\Sale;
 use App\Models\Stock;
 use App\Models\Supplier;
+use App\Models\Transaction;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
@@ -57,8 +58,24 @@ class DashboardController extends Controller
                 ->get();
         }
 
-        $monthlySales = [];
-        $monthlyExpenses = [];
+        $monthlySales = Sale::query()
+            ->join('transactions', function ($join) {
+                $join->on('sales.id', '=', 'transactions.fk_reference_id')
+                    ->where('transactions.type', Transaction::TYPE_SALE_INCOME);
+            })
+            ->whereYear('transactions.date', now()->year)
+            ->selectRaw('MONTH(transactions.date) as month, SUM(sales.grand_total) as total')
+            ->groupBy('month')
+            ->pluck('total', 'month')
+            ->toArray();
+
+        $monthlyExpenses = Expense::query()
+            ->join('transactions', 'expenses.fk_transaction_id', '=', 'transactions.id')
+            ->whereYear('transactions.date', now()->year)
+            ->selectRaw('MONTH(transactions.date) as month, SUM(expenses.amount) as total')
+            ->groupBy('month')
+            ->pluck('total', 'month')
+            ->toArray();
 
         $categoryRevenue = Product::select('categories.name as category_name')
             ->selectRaw('COALESCE(SUM(sale_details.subtotal), 0) as revenue')

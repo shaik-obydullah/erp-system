@@ -1434,6 +1434,9 @@ tr:hover {
     .main,
     .main-content {
         margin-left: 0;
+        min-width: 0;
+        max-width: 100%;
+        overflow-x: hidden;
     }
     .menu-toggle {
         display: block;
@@ -1441,14 +1444,28 @@ tr:hover {
     .header,
     .dashboard-header {
         padding: 16px 20px;
+        flex-wrap: wrap;
     }
     .stats-grid,
     .charts-grid,
     .tables-grid {
         padding: 16px;
     }
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    .stat-card,
+    .stat-info {
+        min-width: 0;
+    }
     .content {
         padding: 16px;
+        overflow-x: auto;
+    }
+    .card-body,
+    .table-card,
+    .chart-card {
+        overflow-x: auto;
     }
     .form-row {
         grid-template-columns: 1fr;

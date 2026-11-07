@@ -248,7 +248,41 @@ PROMPT;
         try {
             $response = Http::timeout(5)->get("{$this->baseUrl}/api/tags");
 
-            return $response->successful();
+            if (! $response->successful()) {
+                return false;
+            }
+
+            // Ollama is only usable if the configured model has actually been
+            // pulled. `/api/tags` returning 200 with an empty list still means
+            // every generation request will fail with "model not found".
+            $models = collect($response->json('models', []))
+                ->pluck('name')
+                ->filter()
+                ->values();
+
+            if ($models->isEmpty()) {
+                Log::warning('Ollama is running but no models are installed', [
+                    'url' => $this->baseUrl,
+                    'model' => $this->model,
+                ]);
+
+                return false;
+            }
+
+            $hasModel = $models->contains(function (string $name) {
+                return $name === $this->model
+                    || str_starts_with($name, $this->model.':');
+            });
+
+            if (! $hasModel) {
+                Log::warning('Ollama model is not installed', [
+                    'url' => $this->baseUrl,
+                    'model' => $this->model,
+                    'installed' => $models->all(),
+                ]);
+            }
+
+            return $hasModel;
         } catch (\Exception $e) {
             Log::warning('Ollama availability check failed', [
                 'url' => $this->baseUrl,

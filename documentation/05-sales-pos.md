@@ -2,123 +2,134 @@
 
 **Module:** Sales & POS (Sales)
 **Category:** Revenue
-**Purpose:** Handles the complete order lifecycle — cart → order placement → payment → shipment → review — across two surfaces: the admin/POS panel and the React 19 POS terminal, with full order status and payment tracking.
+**Purpose:** Handles sales from cart to checkout across two surfaces — the admin/POS panel and the React 19 POS terminal — with VAT-aware totals, stock deduction, sale returns/credit notes, and due collection.
 
-> Orders are the revenue backbone. Every order references a customer, records its own total/tax/discount/due balance, and rolls into the cashbook when paid. Shipment and review phases are tracked on the order row itself.
+> Sales are the revenue backbone. Every sale references an optional customer, stores its own net/VAT/discount/due totals, decrements the selected stock lines, and posts transaction, income, cashbook, and double-entry journal records.
 
 ## 1. Overview
 
 The sales module provides:
 
-- **Order management** — create, list, view, update, delete orders; status pipeline.
-- **POS terminals** — the Vue-based admin POS screen and the React 19 POS app.
-- **Cart & checkout** — guest/registered customer carts, VAT/tax application.
-- **Shipments & returns** — tracking numbers and review workflow.
-- **Customer reviews** — rating + comment per order line.
+- **Sale management** — list, view, print invoice, and receive due payments.
+- **POS terminals** — the Blade/Alpine admin POS screen and the standalone React 19 POS app.
+- **Cart & checkout** — an admin cart persisted in `cart` / `cart_details`, plus direct checkout payloads from the POS.
+- **Sale returns** — pending returns with approval/rejection, restocking, credit notes, and refund posting.
+- **Storefront orders** — public checkout that creates a `Sale` with type `Ecommerce`.
+- **Reviews** — published customer reviews displayed on product pages.
 
 ## 2. Database Tables
 
 | Table | Purpose | Key Columns |
 |---|---|---|
-| `orders` | Order header | fk_customer_id, status (orderPlaced/shipping/delivered/returned), shipped_on, delivered_on, delivered_to_name, delivered_to_phone, address, fk_payment_method_id, total, discount, vat, subtotal, due, grand_total, paid |
-| `order_details` | Order lines | fk_order_id, fk_product_id, fk_brand_id, fk_color_id, fk_size_id, quantity, unit_price, discount, subtotal, review_number, review_comment, review_status |
-| `payments` | Payment ledger | fk_order_id, fk_payment_method_id, fk_admin_id, fk_customer_id, amount, invoice_no, note |
-| `carts` | Session carts | fk_session_id, fk_product_id, quantity, cost, subtotal, extra_charge, discount |
-| `cart_attributes` | Cart line attributes | fk_cart_id, fk_product_id, attribute_type, attribute_id, attribute_value |
-| `reviews` | Customer reviews | fk_order_detail_id, rating, comment, status |
-| `shipment_reviews` | Delivery review | fk_order_id, comment, rating |
-| `banners` | POS/storefront banners | name, image, position (top_banner_1/2/3), link, status |
-| `order_status` | Status pipeline log | fk_order_id, status |
+| `sales` | Sale header | table_name, fk_user_id (customer), invoice_id, type (POS/Ecommerce), net_price, vat_amount, tax_amount, shipping_cost, discount_amount, grand_total, paid_amount, buy_price, sale_due, status, send_notification, note, vat_breakdown |
+| `sale_details` | Sale lines | fk_sale_id, fk_stock_id, stock_name, size, color, total_stock, sale_stock, subtotal, cost_price, vat_code, vat_rate, net_amount, vat_amount, gross_amount |
+| `sale_returns` | Customer returns | fk_sale_id, fk_stock_id, quantity, refund_amount, reason, note, status (pending/approved/rejected), vat_code, vat_rate, net_amount, vat_amount, journal_entry_id, accounting_version |
+| `cart` | Admin POS cart header | fk_admin_id, fk_user_id, net_total, vat_total, tax_total, discount_total, grand_total, buy_total |
+| `cart_details` | Admin POS cart lines | fk_cart_id, fk_stock_id, stock_name, total_stock, qty, unit, vat, tax, discount, subtotal, buy_price, vat_code, vat_rate |
+| `reviews` | Product reviews | fk_product_id, fk_user_id, rating, review, status |
+| `shippings` | Legacy shipping-address table | fk_sale_id, full_name, phone, address, city, state, zip, country |
 
-### 2.1 Order Status Lifecycle
+`shippings` exists in the schema but has no model, controller, or route in the current codebase. There are **no** `orders`, `order_details`, `payments`, `carts`, `cart_attributes`, `banners`, `order_status`, or `shipment_reviews` tables.
 
-```
-orderPlaced → shipping → delivered → (returned)
-```
+### 2.1 Sale Status
 
-| Status | Set By | Notes |
-|---|---|---|
-| `orderPlaced` | Checkout / POS | Order created; payment may be pending (due > 0) |
-| `shipping` | Admin | Marks in-transit; `shipped_on` stamped |
-| `delivered` | Admin | `delivered_on` stamped; delivery recipient recorded |
-| `returned` | Admin | Reverse flow; stock may be re-entered |
+Current checkout flows create sales with `status = completed`; the storefront customer portal also filters on `pending`, and the dashboard counts `orderPlaced` as pending. The status is a plain string column — there is no status-transition controller or status-log table.
 
 ## 3. Key Models & Relationships
 
-- **Order** (`app/Models/Order.php`) — `customer()`, `details()` (order_details), `payments()`, `paymentMethod()`, `shipmentReview()`, `statusLogs()`. Computed totals: `total`, `discount`, `vat`, `subtotal`, `due`, `grand_total`, `paid`.
-- **OrderDetail** — `order()`, `product()`, `review()`.
-- **Payment** — `order()`, `paymentMethod()`, `admin()`, `customer()`.
-- **Cart** — session-scoped (`fk_session_id`) lines with `cost`, `subtotal`, `extra_charge`, `discount`.
-- **Review / ShipmentReview** — order-line rating (1–5) + comment; shipment review on the order.
+- **Sale** (`app/Models/Sale.php`) — `details()`, `saleItems()`, `transaction()`, `customer()` (via `fk_user_id`).
+- **SaleDetail** — `stock()`, `product()` (through the stock line).
+- **SaleReturn** — `sale()`, `stock()`.
+- **Cart** — table `cart`; `details()` has-many `cart_details`.
+- **CartDetail** — `cart()`, `stock()`.
+- **Review** — `product()`, `customer()` (via `fk_user_id`).
+- **ShippingMethod / ShippingZone** — used by storefront shipping options (see E-Commerce module).
 
 ## 4. Admin Surface (Routes)
 
 | Route Prefix | Controller | Permissions |
 |---|---|---|
-| `orders` | OrderController | orders.{view,save,edit,delete} |
-| `pos` | PosController | pos.view |
-| `reviews` | ReviewController | reviews.{view,save,edit,delete} |
-| `shipment-reviews` | ShipmentReviewController | reviews.* |
-| `banners` | BannerController | banners.{view,save,edit,delete} |
-| `payment-methods` | PaymentMethodController | settings.* (managed under Settings) |
+| `pos` | PosController | `pos.view`, `pos.save` |
+| `sales` | SaleController | `sales.view`, `sales.edit` (receive due) |
+| `sale-returns` | SaleReturnController | `sales.view`, `sales.save`, `sales.edit` |
 
-### 4.1 Order Features
+### 4.1 Sales
 
-- **Filtering** by status, date range, customer, payment method; search by customer/invoice.
-- **Create/Edit** — pick customer, add products (search by name/SKU/barcode), set quantities, apply discount; VAT/discount applied automatically; due balance computed.
-- **Payment capture** — inline payment form; overpayment handled as customer balance credit.
-- **Status updates** with `order_status` timeline logging and audit entries.
-- **Print invoice** — printable receipt template.
+- `GET /sales` — paginated list.
+- `GET /sales/{sale}` — sale detail.
+- `GET /sales/{sale}/invoice` — printable invoice.
+- `POST /sales/{sale}/receive-due` — records a due payment (capped at `sale_due`), updates `paid_amount` / `sale_due`, writes a `saleDue` transaction and cashbook row, and posts the journal entry.
 
 ### 4.2 POS Terminal (Admin)
 
-`GET /pos` (`permission:pos.view`) — the in-browser cashier screen: product grid with categories, search, cart panel, VAT/tax application, discount, customer selection, and payment method. On submit it creates the order, records the payment, updates inventory (OUT movement), writes cashbook entry, and sends an in-app notification.
+`GET /pos` (`permission:pos.view`) — the in-browser cashier screen.
 
-## 5. API Surface (React POS & Storefront)
+| Endpoint | Purpose |
+|---|---|
+| `POST /pos/cart/add` | Add a stock line to the admin cart |
+| `POST /pos/cart/remove` | Remove a cart line |
+| `POST /pos/checkout` | Complete the sale |
 
-### 5.1 React POS (Sanctum, `routes/api.php`)
+`checkout` accepts either the persisted cart or a direct `cart[]` payload, then within one DB transaction:
+
+1. Recomputes line VAT from each stock's `vat_code` / `vat_rate`.
+2. Applies an optional discount and shipping cost.
+3. Creates `Sale` (type `POS`, status `completed`) and `SaleDetail` rows.
+4. Decrements each stock line's `quantity`.
+5. Creates a `saleIncome` `Transaction`, an `Income`, and cashbook rows for payment and/or due.
+6. Posts the double-entry journal through `AccountingPoster::sale()`.
+7. Clears the admin cart.
+
+### 4.3 Sale Returns
+
+- Create a return against a sale + stock line (`quantity`, `refund_amount`, `reason`, `note`); initial status `pending`.
+- `POST /sale-returns/{saleReturn}/approve` — restocks the returned quantity, posts the refund/reversal through `AccountingPoster::saleReturn()`, and reduces the sale's `paid_amount` and `grand_total`.
+- `POST /sale-returns/{saleReturn}/reject` — marks the return rejected.
+- `GET /sale-returns/{saleReturn}/credit-note` — printable credit note.
+
+## 5. API Surface (React POS)
+
+Sanctum-protected endpoints in `routes/api.php`:
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `GET /sale` | GET | List orders (paginated, searchable) |
-| `POST /sale` | POST | Create order (items, customer, payment) |
-| `GET /sale/{id}` | GET | Order detail |
-| `PUT /sale/{id}` | PUT | Update order |
-| `DELETE /sale/{id}` | DELETE | Delete order |
-| `POST /payment` | POST | Record payment on order |
-| `POST /cart` / `PUT /cart/{id}` / `DELETE /cart/{id}` | POST/PUT/DELETE | Cart management from POS |
-| `POST /save-review` | POST | Post a review |
+| `GET /sale` | GET | List sales (paginated, searchable) |
+| `POST /select-sale/{id}` | POST | Fetch a single sale |
+| `POST /save-sale` | POST | Create a sale from `items[]` (stock id + quantity); validates stock, rebuilds prices server-side, decrements stock, and writes the accounting rows |
+| `GET /stock` | GET | Stock-line list used by the POS |
+| `POST /save-stock` | POST | Create a stock line from the POS |
+| `GET /product` | GET | Product list for the POS |
+| `GET /sync/pull` | GET | Mobile offline-sync pull |
+| `POST /sync/push` | POST | Mobile offline-sync push |
 
-### 5.2 Storefront
-
-Public/customer routes handle guest & registered checkout (cart add/update/remove, checkout, my-orders), the review submission flow, and shipment feedback.
+There are no API endpoints for payments, cart management, or reviews; the React POS builds its cart client-side and submits `save-sale`.
 
 ## 6. Tax & Discount Computation
 
-- **VAT** — applied at rate `Configuration::get('vat_percentage')`.
-- **Tax** — additional rate `Configuration::get('tax_percentage')`.
-- **Discount** — flat amount or percent; stored on the order and per line.
-- Order math: `subtotal` = Σ(line qty × unit_price − line discount); `grand_total` = subtotal − order discount + vat + tax; `due` = grand_total − paid.
+- **VAT** — `VatCalculator` uses each stock line's `vat_code` / `vat_rate`; when absent it falls back to the configured `vat_rate` and derives a code from that rate.
+- **Tax** — the `tax_amount` column exists on `sales`, but current POS and storefront checkout set it to `0`.
+- **Discount** — applied as a flat amount (`discount_amount`) and distributed across lines by `VatCalculator::applyDiscount()`.
+- **Totals** — `grand_total` = net + VAT + shipping; `sale_due` = `grand_total − paid_amount`.
 
 ## 7. Inventory & Finance Integration
 
-- **On order creation (paid):** stock OUT movement recorded per line → `stocks` ledger.
-- **On payment:** `payments` row + cashbook entry (income, cash/due bucket).
-- **On return:** reverse movement; balance/refund applied to customer balance.
+- **On sale:** stock quantity decremented per line; `saleIncome` transaction, `Income`, cashbook payment/due rows, and journal entry created.
+- **On due collection:** `saleDue` transaction + cashbook `in_amount`, remaining `sale_due` reduced, journal posted.
+- **On approved return:** stock restocked; refund transaction/cashbook/expense and reversing journal posted; sale totals reduced.
 
 ## 8. Permissions
 
 | Group | Permissions |
 |---|---|
-| Orders | `orders.view/save/edit/delete` |
-| POS | `pos.view` |
-| Reviews | `reviews.view/save/edit/delete` |
-| Banners | `banners.view/save/edit/delete` |
-| Payment Methods | `settings.view/save` |
+| POS | `pos.view/save/edit/delete` |
+| Sales | `sales.view/save/edit/delete` |
+| Orders | `orders.view/save/edit/delete` (permission group exists; no order routes) |
+| Reviews | `reviews.view/save/edit/delete` (permission group exists; reviews are read-only in the UI) |
 
 ## 9. Related Code Locations
 
-- Models: `laravel/app/Models/{Order,OrderDetail,Payment,Cart,CartAttribute,Review,ShipmentReview,Banner,OrderStatus}.php`
-- Controllers: `laravel/app/Http/Controllers/{OrderController,PosController,ReviewController,ShipmentReviewController,BannerController,PaymentMethodController}.php`
-- API: `laravel/app/Http/Controllers/Api/ApiController.php` (sale/payment/cart/review methods)
-- POS UI: `laravel/resources/views/pos/`
+- Models: `laravel/app/Models/{Sale,SaleDetail,SaleReturn,Cart,CartDetail,Review}.php`
+- Controllers: `laravel/app/Http/Controllers/{PosController,SaleController,SaleReturnController}.php`
+- API: `laravel/app/Http/Controllers/Api/ApiController.php` (`sale`, `selectSale`, `saveSale`, `stock`, `saveStock`)
+- Accounting: `laravel/app/Accounting/AccountingPoster.php` (`sale`, `saleDue`, `saleReturn`)
+- POS UI: `laravel/resources/views/pos/` and `react-app/`

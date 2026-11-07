@@ -2,87 +2,94 @@
 
 **Module:** Manufacturing (Manufacture)
 **Category:** Production
-**Purpose:** Manages production from raw materials to finished goods: materials (BOM items), raw-material receipts, production batches, and finished-goods output.
+**Purpose:** Defines bills of materials, plans production runs, and records executed production with cost accounting.
 
-> Manufacturing transforms materials into products. Each production run records what was consumed from raw stock and what was produced into finished stock, keeping both inventory ledgers consistent.
+> Manufacturing links a finished product to a bill of materials (BOM) and records production plans and runs with production cost, other cost, expected profit, and quantity. Each production run posts its cost to the finance ledger.
 
 ## 1. Overview
 
 The module covers:
 
-- **Materials** — raw-materials catalog (products tagged for production).
-- **Material receipts** — raw material intake, generating IN stock movements.
-- **Production** — batch production runs recording material consumption and finished output.
-- **Finished goods** — completed batches posting OUT of raw stock and IN to finished stock.
+- **Bills of Materials** — a named BOM attached to a product, with unit, quantity, and description.
+- **Production Planning** — planned runs against a BOM with cost/profit expectations and a `finalized` flag.
+- **Production** — recorded production runs against a BOM that post cost accounting.
+
+There are **no** `materials`, `material_receipts`, `material_receipt_details`, or `production_details` tables. Raw-material consumption and finished-goods stock movements are not modelled; production records are cost/planning records only.
 
 ## 2. Database Tables
 
 | Table | Purpose | Key Columns |
 |---|---|---|
-| `materials` | Raw material master | name, fk_unit_id, fk_warehouse_id, material_group, specification, quantity, unit_price, status |
-| `material_receipts` | Raw material intake | fk_material_id, fk_supplier_id, fk_warehouse_id, quantity, unit_price, total, reference, purchased_at, fk_admin_id |
-| `material_receipt_details` | Receipt lines | fk_material_receipt_id, fk_material_id, fk_warehouse_id, quantity, unit_price, subtotal, discount, fk_admin_id |
-| `productions` | Production batch header | fk_product_id, fk_warehouse_id, fk_admin_id, quantity, cost, reference, status, produced_at |
-| `production_details` | Batch consumption lines | fk_production_id, fk_material_id, quantity, unit_price, subtotal, discount |
+| `bill_of_materials` | BOM definition | fk_product_id, name, unit, quantity, description |
+| `production_plannings` | Planned production | fk_bill_of_material_id, production_cost, other_cost, expected_profit, quantity, finalized (yes/no) |
+| `productions` | Executed production | fk_bill_of_material_id, production_cost, other_cost, expected_profit, quantity, journal_entry_id, accounting_version |
 
-### 2.1 Production Status Lifecycle
+All three tables track `created_by` / `updated_by` / `deleted_by` and use soft deletes.
 
-| Status | Meaning |
-|---|---|
-| `pending` | Batch created; awaiting processing |
-| `processing` | Materials being consumed |
-| `completed` | Finished goods moved into stock |
-| `cancelled` | Batch voided |
+### 2.1 Planning vs. Production
+
+- **Planning** rows are non-financial: they capture expected costs/profit, quantity, and whether the plan is finalized.
+- **Production** rows carry `accounting_version` and `journal_entry_id` and post a `bomExpense` transaction, a cashbook outflow, and a balanced journal entry (inventory debit / cash credit) equal to `production_cost + other_cost`.
 
 ## 3. Key Models
 
-- **Material** (`app/Models/Material.php`) — `unit()`, `warehouse()`, `materialReceipts()`, `productionDetails()`.
-- **MaterialReceipt** — `supplier()`, `warehouse()`, `details()`.
-- **Production** (`app/Models/Production.php`) — `product()` (finished good), `warehouse()`, `admin()`, `details()` (material consumption).
-- **ProductionDetail** — material line: quantity, unit price, subtotal, discount.
+- **BillOfMaterial** (`app/Models/BillOfMaterial.php`) — `product()`, `productionPlannings()`. Table `bill_of_materials`.
+- **ProductionPlanning** — `billOfMaterial()`. Table `production_plannings`.
+- **Production** — `billOfMaterial()`, `journalEntry()`. Table `productions`.
 
 ## 4. Admin Surface (Routes)
 
 | Route Prefix | Controller | Permissions |
 |---|---|---|
-| `materials` | MaterialController | materials.{view,save,edit,delete} |
-| `material-receipts` | MaterialReceiptController | materials.* |
-| `productions` | ProductionController | productions.{view,save,edit,delete} |
+| `bill-of-materials` | BillOfMaterialController | resource except `show`; relies on admin auth group |
+| `production-plannings` | ProductionPlanningController | resource except `show`/`destroy`; relies on admin auth group |
+| `productions` | ProductionController | resource except `destroy`; relies on admin auth group |
 
-### 4.1 Materials
+There is no dedicated Manufacturing permission group in `PermissionSeeder`.
 
-- Full CRUD: name, unit, warehouse, material group, specification, quantity on hand, unit price.
-- Materials may reference a product; consumption is drawn from raw-material stock.
+### 4.1 Bills of Materials
 
-### 4.2 Material Receipts
+- Create/edit a BOM by selecting a product and entering a name, unit, quantity, and description.
+- BOMs are referenced by both planning and production records.
 
-- `POST /material-receipts` — intake raw material: pick supplier, warehouse, material lines with quantity/price.
-- Each receipt line creates an **IN stock movement** for the material (stock type IN) and updates material quantity.
+### 4.2 Production Planning
+
+- Create a plan against a BOM with `production_cost`, `other_cost`, `expected_profit`, `quantity`, and `finalized` (`yes`/`no`).
+- Plans do not post accounting entries.
 
 ### 4.3 Productions
 
-- `POST /productions` — create batch: finished product, target quantity, cost, warehouse.
-- `PUT /productions/{id}` — update batch lines (material consumption) and status.
-- On **completed**: raw materials are consumed (OUT movements per production detail) and finished goods increase (IN movement for the product) — both posted to the stock ledger.
+- Create a production run against a BOM with `production_cost`, `other_cost`, `expected_profit`, and `quantity`.
+- On save, `AccountingPoster::production()` posts the run cost and writes the journal entry.
+- Production runs do not mutate stock quantities or create raw-material consumption records.
 
 ## 5. Inventory Integration
 
+There is currently **no automatic inventory effect** from manufacturing:
+
 | Event | Stock Ledger Effect |
 |---|---|
-| Material receipt | Raw material IN (warehouse) |
-| Production consumption | Raw material OUT (per production detail qty) |
-| Production completion | Finished product IN (batch quantity) |
-| Production cancel | Reverse the above |
+| BOM created/updated | None |
+| Production planned | None |
+| Production recorded | None (finance/accounting only) |
 
-## 6. Permissions
+To reflect finished goods or raw-material movement, stock lines must be created or adjusted through the Inventory module.
 
-| Group | Permissions |
-|---|---|
-| Materials | `materials.view/save/edit/delete` |
-| Productions | `productions.view/save/edit/delete` |
+## 6. Finance Integration
 
-## 7. Related Code Locations
+- `AccountingPoster::production()` creates:
+  - a `Transaction` of type `bomExpense`,
+  - a `Cashbook` outflow for the production cost,
+  - a balanced journal entry (inventory debit, cash credit).
+- Costs are only posted when `production_cost + other_cost > 0`; repeated posting is prevented by `source_key` / `accounting_version` idempotency.
 
-- Models: `laravel/app/Models/{Material,MaterialReceipt,MaterialReceiptDetail,Production,ProductionDetail}.php`
-- Controllers: `laravel/app/Http/Controllers/{MaterialController,MaterialReceiptController,ProductionController}.php`
+## 7. Permissions
+
+There is no Manufacturing-specific permission group. The BOM, production-planning, and production resource routes are protected by `auth:admin` + `active.admin` and rely on menu visibility rather than per-route `permission:` checks.
+
+## 8. Related Code Locations
+
+- Models: `laravel/app/Models/{BillOfMaterial,ProductionPlanning,Production}.php`
+- Controllers: `laravel/app/Http/Controllers/{BillOfMaterialController,ProductionPlanningController,ProductionController}.php`
+- Accounting: `laravel/app/Accounting/AccountingPoster.php` (`production`)
 - Views: `laravel/resources/views/manufacture/`
