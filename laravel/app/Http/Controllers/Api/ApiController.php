@@ -298,6 +298,7 @@ class ApiController extends Controller
             'sku' => $request->input('sku', ''),
             'barcode' => $request->input('barcode', ''),
             'description' => $request->input('description', ''),
+            'specification' => $request->input('specification', ''),
             'status' => $request->input('status', 'active'),
             'image' => $request->hasFile('image') ? $request->file('image')->store('products', 'public') : null,
             'created_by' => $request->user()?->id,
@@ -326,6 +327,7 @@ class ApiController extends Controller
             'sku' => $request->input('sku', $product->sku),
             'barcode' => $request->input('barcode', $product->barcode),
             'description' => $request->input('description', $product->description),
+            'specification' => $request->input('specification', $product->specification),
             'status' => $request->input('status', $product->status),
             'updated_by' => $request->user()?->id,
         ];
@@ -632,7 +634,7 @@ class ApiController extends Controller
 
     public function income(Request $request)
     {
-        $query = Income::query();
+        $query = Income::with('transaction:id,date');
 
         if ($request->has('search') && $request->search !== '') {
             $query->where('description', 'like', "%{$request->search}%");
@@ -716,7 +718,7 @@ class ApiController extends Controller
 
     public function expense(Request $request)
     {
-        $query = Expense::query();
+        $query = Expense::with('transaction:id,date');
 
         if ($request->has('search') && $request->search !== '') {
             $query->where('description', 'like', "%{$request->search}%");

@@ -91,7 +91,7 @@ export default function ProductPage() {
   useEffect(() => {
     const loadCategories = async () => {
       try {
-        const data = await fetchCategories();
+        const data = await fetchCategories({ per_page: 1000 });
         setCategories(data.data || data.categories || data || []);
       } catch (err) {
         console.error("Failed to load categories:", err);
@@ -142,6 +142,13 @@ export default function ProductPage() {
     }
   };
 
+  const categoryNameFor = (product) => {
+    if (product.category?.name) return product.category.name;
+    if (product.category_name) return product.category_name;
+    const match = categories.find((cat) => String(cat.id) === String(product.fk_category_id));
+    return match?.name || "-";
+  };
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -190,7 +197,7 @@ export default function ProductPage() {
                       <tr key={p.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 font-medium text-gray-900">{p.name}</td>
                         <td className="px-6 py-4 text-gray-600 font-mono text-xs">{p.sku}</td>
-                        <td className="px-6 py-4 text-gray-600">{p.category?.name || p.category_name || "-"}</td>
+                        <td className="px-6 py-4 text-gray-600">{categoryNameFor(p)}</td>
                         <td className="px-6 py-4"><StatusBadge status={p.status} /></td>
                         <td className="px-6 py-4 text-right">
                           <button onClick={() => handleEdit(p)} className="text-blue-600 hover:text-blue-800 mr-3"><FaEdit /></button>

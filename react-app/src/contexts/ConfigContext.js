@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { fetchConfiguration } from "../api/axios";
 
 const ConfigContext = createContext();
@@ -16,30 +16,36 @@ export const ConfigProvider = ({ children }) => {
     projectName: "React POS",
   });
 
-  useEffect(() => {
-    const loadConfig = async () => {
-      try {
-        const data = await fetchConfiguration();
-        if (data) {
-          setConfig({
-            currencySign: data.currency_sign || "$",
-            vatPercentage: parseFloat(data.vat_percentage) || 0,
-            taxPercentage: parseFloat(data.tax_percentage) || 0,
-            dateFormat: data.date_format || "Y-m-d",
-            timeFormat: data.time_format || "H:i:s",
-            timezone: data.timezone || "UTC",
-            projectName: data.project_name || "React POS",
-          });
-        }
-      } catch (error) {
-        console.error("Failed to load configuration:", error);
+  const loadConfig = useCallback(async () => {
+    // Configuration requires authentication; skip the call on the login screen.
+    if (!localStorage.getItem("authToken")) return;
+
+    try {
+      const data = await fetchConfiguration();
+      if (data) {
+        setConfig({
+          currencySign: data.currency_sign || "$",
+          vatPercentage: parseFloat(data.vat_percentage) || 0,
+          taxPercentage: parseFloat(data.tax_percentage) || 0,
+          dateFormat: data.date_format || "Y-m-d",
+          timeFormat: data.time_format || "H:i:s",
+          timezone: data.timezone || "UTC",
+          projectName: data.project_name || "React POS",
+        });
       }
-    };
-    loadConfig();
+    } catch (error) {
+      console.error("Failed to load configuration:", error);
+    }
   }, []);
 
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
+
   return (
-    <ConfigContext.Provider value={config}>{children}</ConfigContext.Provider>
+    <ConfigContext.Provider value={{ ...config, refreshConfig: loadConfig }}>
+      {children}
+    </ConfigContext.Provider>
   );
 };
 

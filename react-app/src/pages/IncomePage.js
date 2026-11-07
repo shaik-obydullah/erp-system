@@ -31,8 +31,11 @@ export default function IncomePage() {
     loadIncomes();
   }, []);
 
+  const recordDate = (row) =>
+    String(row.transaction?.date || row.date || row.created_at || "").slice(0, 10);
+
   const filtered = incomes.filter((inc) => {
-    const d = inc.date || inc.created_at || "";
+    const d = recordDate(inc);
     if (startDate && d < startDate) return false;
     if (endDate && d > endDate) return false;
     return true;
@@ -106,7 +109,7 @@ export default function IncomePage() {
                   <tr key={inc.id || i} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-gray-500">{i + 1}</td>
                     <td className="px-4 py-3 font-medium text-gray-800">{inc.description || "-"}</td>
-                    <td className="px-4 py-3 text-gray-600">{inc.date || inc.created_at || "-"}</td>
+                    <td className="px-4 py-3 text-gray-600">{recordDate(inc) || "-"}</td>
                     <td className="px-4 py-3 text-right font-medium text-green-600">{currencySign}{Number(inc.amount || 0).toFixed(2)}</td>
                   </tr>
                 ))

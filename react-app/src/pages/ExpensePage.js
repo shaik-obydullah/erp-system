@@ -31,8 +31,11 @@ export default function ExpensePage() {
     loadExpenses();
   }, []);
 
+  const recordDate = (row) =>
+    String(row.transaction?.date || row.date || row.created_at || "").slice(0, 10);
+
   const filtered = expenses.filter((exp) => {
-    const d = exp.date || exp.created_at || "";
+    const d = recordDate(exp);
     if (startDate && d < startDate) return false;
     if (endDate && d > endDate) return false;
     return true;
@@ -106,7 +109,7 @@ export default function ExpensePage() {
                   <tr key={exp.id || i} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-gray-500">{i + 1}</td>
                     <td className="px-4 py-3 font-medium text-gray-800">{exp.description || "-"}</td>
-                    <td className="px-4 py-3 text-gray-600">{exp.date || exp.created_at || "-"}</td>
+                    <td className="px-4 py-3 text-gray-600">{recordDate(exp) || "-"}</td>
                     <td className="px-4 py-3 text-right font-medium text-red-600">{currencySign}{Number(exp.amount || 0).toFixed(2)}</td>
                   </tr>
                 ))

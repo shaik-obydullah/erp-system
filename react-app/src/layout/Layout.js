@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useConfig } from "../contexts/ConfigContext";
 import { logout } from "../api/axios";
 import {
@@ -33,6 +33,8 @@ const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const config = useConfig();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isPos = location.pathname === "/dashboard";
 
   const userName = localStorage.getItem("userName") || "Admin";
 
@@ -47,33 +49,6 @@ const Layout = () => {
       navigate("/login");
     }
   };
-
-  const sidebarContent = (
-    <>
-      <div className="flex items-center justify-center h-16 text-xl font-bold tracking-wide text-white border-b border-indigo-600">
-        {config.projectName || "React POS"}
-      </div>
-      <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-        {navItems.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            onClick={() => setSidebarOpen(false)}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-indigo-800 text-white"
-                  : "text-indigo-100 hover:bg-indigo-600 hover:text-white"
-              }`
-            }
-          >
-            <Icon className="w-4 h-4 shrink-0" />
-            {label}
-          </NavLink>
-        ))}
-      </nav>
-    </>
-  );
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-100">
@@ -153,7 +128,7 @@ const Layout = () => {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <main className={`flex-1 overflow-y-auto ${isPos ? "" : "p-4 sm:p-6"}`}>
           <Outlet />
         </main>
       </div>

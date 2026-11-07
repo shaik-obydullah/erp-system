@@ -108,6 +108,10 @@ export default function AddStock({ onClose, onSaved }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    if (!form.fk_product_id) {
+      setError("Please select a product from the search results.");
+      return;
+    }
     setLoading(true);
     try {
       await saveStock(form);

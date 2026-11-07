@@ -7,6 +7,57 @@ import { FaUsers, FaBoxes, FaShoppingCart, FaChartLine } from "react-icons/fa";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend, Filler);
 
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// The API returns monthly totals keyed by month number. Normalise that shape
+// into the chart-friendly structure this page renders.
+const normalizeReport = (raw) => {
+  if (!raw || raw.sales_trend) return raw;
+
+  const current = raw.current_year || {};
+  const previous = raw.last_year || {};
+  const pick = (obj, month) => Number(obj?.[month] ?? obj?.[String(month)] ?? 0);
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const labels = MONTH_NAMES;
+  const sales = months.map((m) => pick(current.sales, m));
+  const income = months.map((m) => pick(current.income, m));
+  const expenses = months.map((m) => pick(current.expense, m));
+  const profit = months.map((_, i) => income[i] - expenses[i]);
+  const sum = (values) => values.reduce((total, value) => total + value, 0);
+  const currentYear = new Date().getFullYear();
+  const currentRevenue = sum(sales);
+  const previousRevenue = sum(Object.values(previous.sales || {}).map(Number));
+  const previousExpenses = sum(Object.values(previous.expense || {}).map(Number));
+  const growth = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
+
+  return {
+    ...raw,
+    total_customers: raw.customer_count ?? raw.total_customers ?? 0,
+    sales_growth: raw.sales_growth ?? growth,
+    sales_trend: labels.map((label, i) => ({ label, value: sales[i] })),
+    income_vs_expenses: { labels, income, expenses },
+    profit_analysis: { labels, values: profit },
+    income_pie: labels.map((label, i) => ({ label, value: income[i] })),
+    expense_pie: labels.map((label, i) => ({ label, value: expenses[i] })),
+    annual_performance: {
+      years: [
+        {
+          year: currentYear,
+          revenue: currentRevenue,
+          expenses: sum(expenses),
+          profit: currentRevenue - sum(expenses),
+        },
+        {
+          year: currentYear - 1,
+          revenue: previousRevenue,
+          expenses: previousExpenses,
+          profit: previousRevenue - previousExpenses,
+        },
+      ],
+    },
+  };
+};
+
 const PIE_COLORS = [
   "#4F46E5", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6",
   "#EC4899", "#06B6D4", "#84CC16", "#F97316", "#6366F1",
@@ -25,7 +76,7 @@ export default function ReportPage() {
       setLoading(true);
       try {
         const res = await fetchReports({});
-        setReport(res.data || res);
+        setReport(normalizeReport(res.data || res));
       } catch {
         setReport(null);
       } finally {

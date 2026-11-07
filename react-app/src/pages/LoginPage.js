@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { login } from "../api/axios";
+import { useConfig } from "../contexts/ConfigContext";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { refreshConfig } = useConfig();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -30,6 +32,7 @@ export default function LoginPage() {
       const data = await login({ email, password });
       localStorage.setItem("authToken", data.token || data.authToken);
       localStorage.setItem("userName", data.user?.name || data.userName || "");
+      await refreshConfig?.();
       navigate("/dashboard", { replace: true });
     } catch (err) {
       setError(err.message || "Invalid credentials");
