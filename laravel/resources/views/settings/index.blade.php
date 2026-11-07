@@ -51,15 +51,15 @@
 
             <h3 style="font-size: 15px; font-weight: 600; color: var(--text-primary); margin: 24px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">Financial Settings</h3>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="currency">Currency *</label>
-                    <input type="text" id="currency" name="currency" value="{{ old('currency', $settings['currency']) }}" required>
-                </div>
-                <div class="form-group">
-                    <label for="currency_symbol">Currency Symbol *</label>
-                    <input type="text" id="currency_symbol" name="currency_symbol" value="{{ old('currency_symbol', $settings['currency_symbol']) }}" required>
-                </div>
+            <div class="form-group narrow">
+                <label for="currency">Currency *</label>
+                <select id="currency" name="currency" required>
+                    @foreach($currencies as $code => $details)
+                        <option value="{{ $code }}" {{ old('currency', $settings['currency']) === $code ? 'selected' : '' }}>
+                            {{ $code }} — {{ $details['name'] }} ({{ $details['symbol'] }})
+                        </option>
+                    @endforeach
+                </select>
             </div>
 
             <div class="form-row">

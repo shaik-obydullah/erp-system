@@ -773,6 +773,10 @@ tr:hover {
     margin-bottom: 20px;
 }
 
+.form-group.narrow {
+    max-width: 360px;
+}
+
 .form-group label {
     display: block;
     font-size: 13px;

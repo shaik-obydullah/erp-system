@@ -3,7 +3,13 @@
 @section('title', 'Create Role')
 
 @section('content')
-<div class="card" x-data="roleForm()">
+@php
+    $selectedPermissionIds = old('permissions', []);
+    $permissionGroupIds = $permissions->mapWithKeys(fn ($groupPermissions, $group) => [
+        Str::slug($group) => $groupPermissions->pluck('id')->map(fn ($id) => (string) $id)->values()->all(),
+    ])->all();
+@endphp
+<div class="card" x-data="roleForm({{ Illuminate\Support\Js::from($selectedPermissionIds) }}, {{ Illuminate\Support\Js::from($permissionGroupIds) }})">
     <div class="card-header">
         <h2 class="card-title">Create New Role</h2>
         <a href="{{ route('roles.index') }}" class="btn btn-secondary">Back to Roles</a>
@@ -41,8 +47,7 @@
                                 <div class="permission-item">
                                     <input type="checkbox" name="permissions[]" value="{{ $permission->id }}" 
                                         data-group="{{ $slug }}" 
-                                        @change="updateGroup('{{ $slug }}')"
-                                        {{ in_array($permission->id, old('permissions', [])) ? 'checked' : '' }}>
+                                        x-model="selected">
                                     <label>{{ $permission->name }}</label>
                                 </div>
                             @endforeach
@@ -60,21 +65,26 @@
 </div>
 
 <script>
-function roleForm() {
+function roleForm(selected, groups) {
     return {
+        selected: (selected || []).map(String),
+        groups: groups || {},
+
         toggleGroup(group, checked) {
-            document.querySelectorAll('[data-group="' + group + '"]').forEach(cb => {
-                cb.checked = checked;
-            });
+            const ids = this.groups[group] || [];
+
+            if (checked) {
+                ids.forEach(id => {
+                    if (!this.selected.includes(id)) this.selected.push(id);
+                });
+            } else {
+                this.selected = this.selected.filter(id => !ids.includes(id));
+            }
         },
+
         allChecked(group) {
-            const cbs = document.querySelectorAll('[data-group="' + group + '"]');
-            if (cbs.length === 0) return false;
-            return Array.from(cbs).every(cb => cb.checked);
-        },
-        updateGroup(group) {
-            // Trigger reactivity by forcing Alpine to re-evaluate
-            this.$nextTick(() => {});
+            const ids = this.groups[group] || [];
+            return ids.length > 0 && ids.every(id => this.selected.includes(id));
         }
     };
 }

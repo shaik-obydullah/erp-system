@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Configuration;
+use App\Models\Currency;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\View;
@@ -27,6 +28,20 @@ class ConfigController extends Controller
         'allow_registration' => '1',
     ];
 
+    private function currencies(): array
+    {
+        $currencies = config('currencies', []);
+
+        Currency::where('is_active', true)->orderBy('code')->get()->each(function (Currency $currency) use (&$currencies) {
+            $currencies[$currency->code] = [
+                'name' => $currency->name,
+                'symbol' => $currency->symbol,
+            ];
+        });
+
+        return $currencies;
+    }
+
     public function settings()
     {
         $settings = Configuration::getMany(array_keys($this->erpSettings));
@@ -38,7 +53,16 @@ class ConfigController extends Controller
             }
         }
 
-        return view('settings.index', compact('settings', 'isMaintenance'));
+        $currencies = $this->currencies();
+
+        if (! array_key_exists($settings['currency'], $currencies)) {
+            $currencies[$settings['currency']] = [
+                'name' => $settings['currency'],
+                'symbol' => $settings['currency_symbol'],
+            ];
+        }
+
+        return view('settings.index', compact('settings', 'isMaintenance', 'currencies'));
     }
 
     public function updateSettings(Request $request)
@@ -50,7 +74,6 @@ class ConfigController extends Controller
             'company_address' => 'nullable|string|max:255',
             'company_website' => 'nullable|url|max:100',
             'currency' => 'required|string|max:10',
-            'currency_symbol' => 'required|string|max:5',
             'timezone' => 'required|string|max:50',
             'date_format' => 'required|string|max:20',
             'fiscal_year_start' => 'required|string|max:10',
@@ -60,6 +83,10 @@ class ConfigController extends Controller
             'low_stock_threshold' => 'nullable|integer|min:0',
             'allow_registration' => 'required|in:0,1',
         ]);
+
+        $currencies = $this->currencies();
+        $validated['currency_symbol'] = $currencies[$validated['currency']]['symbol']
+            ?? Configuration::get('currency_symbol', '$');
 
         $validated['updated_by'] = auth('admin')->id();
         Configuration::setMany($validated);
