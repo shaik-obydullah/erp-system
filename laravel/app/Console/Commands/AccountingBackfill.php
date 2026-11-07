@@ -8,7 +8,7 @@ use Illuminate\Console\Command;
 class AccountingBackfill extends Command
 {
     protected $signature = 'accounting:backfill
-                            {--only=* : Only replay these groups (sales, dues, returns, incomes, expenses, funds, shipment_costs, fixed_assets, payrolls, campaign_spend, productions, opening_stock, shipment_returns). Pass stock_adjustments explicitly to replay reviewed legacy rows.}
+                            {--only=* : Only replay these groups (sales, dues, returns, incomes, expenses, funds, shipment_costs, fixed_assets, payrolls, campaign_spend, productions, opening_stock, supplier_openings, shipment_returns). Pass stock_adjustments explicitly to replay reviewed legacy rows.}
                             {--force : Run even when the ledger feature flag is disabled}';
 
     protected $description = 'Replay existing simple-layer rows into the double-entry ledger (idempotent)';

@@ -22,6 +22,7 @@ class AccountingController extends Controller
         $cashBalance = $this->accountBalance('cash');
         $receivable = $this->accountBalance('accounts_receivable');
         $payable = $this->accountBalance('accounts_payable');
+        $supplierAdvances = $this->accountBalance('supplier_advances');
         $taxPayable = $this->accountBalance('sales_tax_payable');
 
         $totalDebit = (float) JournalLine::whereHas('entry', fn ($query) => $query->posted())->sum('debit');
@@ -78,6 +79,7 @@ class AccountingController extends Controller
             'cashBalance',
             'receivable',
             'payable',
+            'supplierAdvances',
             'taxPayable',
             'totalDebit',
             'totalCredit',
@@ -181,11 +183,13 @@ class AccountingController extends Controller
 
         $revenue = $balances->where('type', 'revenue')->map(function ($row) {
             $row->balance = (float) $row->credit - (float) $row->debit;
+
             return $row;
         });
 
         $expenses = $balances->where('type', 'expense')->map(function ($row) {
             $row->balance = (float) $row->debit - (float) $row->credit;
+
             return $row;
         });
 
@@ -211,16 +215,19 @@ class AccountingController extends Controller
 
         $assets = $balances->where('type', 'asset')->map(function ($row) {
             $row->balance = (float) $row->debit - (float) $row->credit;
+
             return $row;
         });
 
         $liabilities = $balances->where('type', 'liability')->map(function ($row) {
             $row->balance = (float) $row->credit - (float) $row->debit;
+
             return $row;
         });
 
         $equity = $balances->where('type', 'equity')->map(function ($row) {
             $row->balance = (float) $row->credit - (float) $row->debit;
+
             return $row;
         });
 

@@ -9,6 +9,7 @@ use App\Models\Expense;
 use App\Models\FixedAsset;
 use App\Models\Income;
 use App\Models\JournalEntry;
+use App\Models\JournalLine;
 use App\Models\Payroll;
 use App\Models\Production;
 use App\Models\PurchaseOrder;
@@ -25,9 +26,7 @@ use Illuminate\Support\Facades\Log;
 
 class AccountingPoster
 {
-    public function __construct(private readonly LedgerService $ledger)
-    {
-    }
+    public function __construct(private readonly LedgerService $ledger) {}
 
     public function sale(Sale $sale, float $paid, float $due, ?float $cogs = null, ?int $adminId = null): void
     {
@@ -940,6 +939,11 @@ class AccountingPoster
     /**
      * Post a supplier opening balance. A positive balance is an advance paid
      * to the supplier; a negative balance is money owed to the supplier.
+     *
+     * The entry only covers the part of the balance the ledger does not already
+     * know about, so it is safe to replay for legacy suppliers whose fund
+     * deposits and purchase postings were recorded before opening balances
+     * were wired into accounting.
      */
     public function supplierOpening(Supplier $supplier, ?int $adminId = null): void
     {
@@ -956,16 +960,22 @@ class AccountingPoster
                 return;
             }
 
+            $delta = round($balance - $this->supplierLedgerPosition($supplier->id), 2);
+
+            if (abs($delta) < 0.01) {
+                return;
+            }
+
             $description = "Opening balance for {$supplier->name}";
 
-            $lines = $balance > 0
+            $lines = $delta > 0
                 ? [
-                    ['account' => 'supplier_advances', 'debit' => $balance, 'party_type' => 'supplier', 'party_id' => $supplier->id, 'description' => $description],
-                    ['account' => 'opening_balance_equity', 'credit' => $balance, 'description' => $description],
+                    ['account' => 'supplier_advances', 'debit' => $delta, 'party_type' => 'supplier', 'party_id' => $supplier->id, 'description' => $description],
+                    ['account' => 'opening_balance_equity', 'credit' => $delta, 'description' => $description],
                 ]
                 : [
-                    ['account' => 'opening_balance_equity', 'debit' => abs($balance), 'description' => $description],
-                    ['account' => 'accounts_payable', 'credit' => abs($balance), 'party_type' => 'supplier', 'party_id' => $supplier->id, 'description' => $description],
+                    ['account' => 'opening_balance_equity', 'debit' => abs($delta), 'description' => $description],
+                    ['account' => 'accounts_payable', 'credit' => abs($delta), 'party_type' => 'supplier', 'party_id' => $supplier->id, 'description' => $description],
                 ];
 
             $entry = $this->ledger->post(
@@ -981,6 +991,54 @@ class AccountingPoster
 
             if ($entry) {
                 Supplier::where('id', $supplier->id)->update(['journal_entry_id' => $entry->id]);
+            }
+        });
+    }
+
+    /**
+     * Signed ledger position for a supplier: advances are positive, amounts we
+     * owe are negative. Mirrors the sign of the suppliers.balance column.
+     */
+    private function supplierLedgerPosition(int $supplierId): float
+    {
+        $advances = (float) JournalLine::query()
+            ->whereHas('account', fn ($query) => $query->where('system_key', 'supplier_advances'))
+            ->where('party_type', 'supplier')
+            ->where('party_id', $supplierId)
+            ->whereHas('entry', fn ($query) => $query->posted())
+            ->selectRaw('COALESCE(SUM(debit - credit), 0) as balance')
+            ->value('balance');
+
+        $payable = (float) JournalLine::query()
+            ->whereHas('account', fn ($query) => $query->where('system_key', 'accounts_payable'))
+            ->where('party_type', 'supplier')
+            ->where('party_id', $supplierId)
+            ->whereHas('entry', fn ($query) => $query->posted())
+            ->selectRaw('COALESCE(SUM(credit - debit), 0) as balance')
+            ->value('balance');
+
+        return round($advances - $payable, 2);
+    }
+
+    /**
+     * Reverse only the opening-balance entries for a supplier. Fund deposits and
+     * payments are separate cash events and must survive a supplier edit/delete.
+     */
+    public function reverseSupplierOpening(Supplier $supplier, ?int $adminId = null): void
+    {
+        $this->safe(function () use ($supplier, $adminId) {
+            $entries = JournalEntry::where('source_type', 'supplier')
+                ->where('source_id', $supplier->id)
+                ->where('event_type', 'supplierOpening')
+                ->where('source_key', 'not like', '%:reversal')
+                ->get();
+
+            foreach ($entries as $entry) {
+                $reversalKey = $entry->source_key.':reversal';
+
+                if (! JournalEntry::withTrashed()->where('source_key', $reversalKey)->exists()) {
+                    $this->ledger->reverse($entry, "Reversal of {$entry->entry_no}", $adminId);
+                }
             }
         });
     }

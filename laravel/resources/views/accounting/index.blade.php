@@ -52,6 +52,10 @@
             <div style="font-size:12px; color:var(--text-secondary); margin-bottom:4px;">You owe suppliers</div>
             <div style="font-size:20px; font-weight:700; color:#b45309;">{{ $currencySymbol }}{{ number_format($payable, 2) }}</div>
         </div>
+        <div style="padding:16px; background:#f0fdfa; border-radius:8px;">
+            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:4px;">Advances to suppliers</div>
+            <div style="font-size:20px; font-weight:700; color:#0f766e;">{{ $currencySymbol }}{{ number_format($supplierAdvances, 2) }}</div>
+        </div>
         <div style="padding:16px; background:#f8fafc; border-radius:8px; border:1px solid var(--border);">
             <div style="font-size:12px; color:var(--text-secondary); margin-bottom:4px;">Tax / VAT payable</div>
             <div style="font-size:20px; font-weight:700;">{{ $currencySymbol }}{{ number_format($taxPayable, 2) }}</div>

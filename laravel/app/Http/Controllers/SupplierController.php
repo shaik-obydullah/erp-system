@@ -5,8 +5,6 @@ namespace App\Http\Controllers;
 use App\Accounting\AccountingPoster;
 use App\Models\Configuration;
 use App\Models\Supplier;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -20,8 +18,8 @@ class SupplierController extends Controller
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('mobile', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('mobile', 'like', "%{$search}%");
             });
         }
 
@@ -127,7 +125,7 @@ class SupplierController extends Controller
             $poster = app(AccountingPoster::class);
 
             if ($balanceChanged || (! $supplier->journal_entry_id && abs((float) $newBalance) >= 0.01)) {
-                $poster->reverseOperational('supplier', $supplier->id, $adminId);
+                $poster->reverseSupplierOpening($supplier, $adminId);
 
                 $supplier->update([
                     'name' => $validated['name'],
@@ -189,7 +187,7 @@ class SupplierController extends Controller
         $adminId = auth('admin')->id();
 
         DB::transaction(function () use ($supplier, $adminId) {
-            app(AccountingPoster::class)->reverseOperational('supplier', $supplier->id, $adminId);
+            app(AccountingPoster::class)->reverseSupplierOpening($supplier, $adminId);
 
             $supplier->update(['journal_entry_id' => null, 'deleted_by' => $adminId]);
             $supplier->delete();
@@ -210,7 +208,7 @@ class SupplierController extends Controller
     {
         $suppliers = Supplier::orderBy('name')->get();
 
-        $filename = 'suppliers_' . now()->format('Y-m-d_His') . '.csv';
+        $filename = 'suppliers_'.now()->format('Y-m-d_His').'.csv';
         $headers = [
             'Content-Type' => 'text/csv',
             'Content-Disposition' => "attachment; filename=\"{$filename}\"",
@@ -253,6 +251,7 @@ class SupplierController extends Controller
         while (($row = fgetcsv($file)) !== false) {
             if (count($row) < 2) {
                 $skipped++;
+
                 continue;
             }
 
@@ -263,12 +262,14 @@ class SupplierController extends Controller
 
             if (empty($name) || empty($email)) {
                 $skipped++;
+
                 continue;
             }
 
             if (Supplier::where('email', $email)->exists()) {
                 $errors[] = "{$email} already exists";
                 $skipped++;
+
                 continue;
             }
 
@@ -291,7 +292,7 @@ class SupplierController extends Controller
 
                 $imported++;
             } catch (\Exception $e) {
-                $errors[] = "{$email}: " . $e->getMessage();
+                $errors[] = "{$email}: ".$e->getMessage();
                 $skipped++;
             }
         }
@@ -302,8 +303,8 @@ class SupplierController extends Controller
         if ($skipped > 0) {
             $message .= " {$skipped} skipped.";
         }
-        if (!empty($errors)) {
-            $message .= " Errors: " . implode('; ', array_slice($errors, 0, 5));
+        if (! empty($errors)) {
+            $message .= ' Errors: '.implode('; ', array_slice($errors, 0, 5));
         }
 
         return redirect()->route('suppliers.index')

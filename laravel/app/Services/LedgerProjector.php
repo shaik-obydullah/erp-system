@@ -27,9 +27,7 @@ use App\Models\Transaction;
  */
 class LedgerProjector
 {
-    public function __construct(private readonly AccountingPoster $poster)
-    {
-    }
+    public function __construct(private readonly AccountingPoster $poster) {}
 
     /**
      * @return array<string, int> number of source rows processed per group
@@ -39,7 +37,7 @@ class LedgerProjector
         // Stock adjustments are opt-in: legacy rows predate the accounting
         // posting and may have been recorded with the old quantity direction,
         // so they should be reviewed before replaying.
-        $only = $only ?: ['sales', 'dues', 'returns', 'incomes', 'expenses', 'funds', 'shipment_costs'];
+        $only = $only ?: ['sales', 'dues', 'returns', 'incomes', 'expenses', 'funds', 'shipment_costs', 'supplier_openings'];
         $counts = [];
 
         foreach ($only as $group) {
@@ -57,6 +55,7 @@ class LedgerProjector
                 'campaign_spend' => $this->campaignSpend(),
                 'productions' => $this->productions(),
                 'opening_stock' => $this->openingStock(),
+                'supplier_openings' => $this->supplierOpenings(),
                 'shipment_returns' => $this->shipmentReturns(),
                 default => 0,
             };
@@ -317,6 +316,23 @@ class LedgerProjector
             ->chunkById(200, function ($stocks) use (&$count) {
                 foreach ($stocks as $stock) {
                     $this->poster->stockIn($stock, $stock->created_by);
+                    $count++;
+                }
+            });
+
+        return $count;
+    }
+
+    public function supplierOpenings(): int
+    {
+        $count = 0;
+
+        Supplier::withTrashed()
+            ->whereRaw('ABS(balance) >= 0.01')
+            ->orderBy('id')
+            ->chunkById(200, function ($suppliers) use (&$count) {
+                foreach ($suppliers as $supplier) {
+                    $this->poster->supplierOpening($supplier, $supplier->created_by);
                     $count++;
                 }
             });
