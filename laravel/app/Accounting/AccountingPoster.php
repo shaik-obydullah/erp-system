@@ -8,6 +8,7 @@ use App\Models\Expense;
 use App\Models\Income;
 use App\Models\Sale;
 use App\Models\SaleReturn;
+use App\Models\ShipmentCost;
 use App\Models\Stock;
 use App\Models\Supplier;
 use App\Models\Transaction;
@@ -351,9 +352,9 @@ class AccountingPoster
         });
     }
 
-    public function supplierPayment(Supplier $supplier, float $amount, int $transactionId, ?string $description = null, ?int $adminId = null): void
+    public function supplierPayment(Supplier $supplier, float $amount, int $transactionId, ?string $description = null, ?int $adminId = null, ?int $cashbookId = null): void
     {
-        $this->safe(function () use ($supplier, $amount, $transactionId, $description, $adminId) {
+        $this->safe(function () use ($supplier, $amount, $transactionId, $description, $adminId, $cashbookId) {
             $amount = round(max(0, $amount), 2);
 
             if ($amount <= 0) {
@@ -377,13 +378,86 @@ class AccountingPoster
             if ($entry) {
                 Transaction::where('id', $transactionId)->whereNull('journal_entry_id')->update(['journal_entry_id' => $entry->id]);
 
-                Cashbook::where('table_name', 'suppliers')
-                    ->where('fk_reference_id', $supplier->id)
+                if ($cashbookId) {
+                    Cashbook::where('id', $cashbookId)
+                        ->whereNull('journal_entry_id')
+                        ->update(['journal_entry_id' => $entry->id]);
+                } else {
+                    Cashbook::where('table_name', 'suppliers')
+                        ->where('fk_reference_id', $supplier->id)
+                        ->whereNull('journal_entry_id')
+                        ->where('out_amount', $amount)
+                        ->latest('id')
+                        ->first()
+                        ?->update(['journal_entry_id' => $entry->id]);
+                }
+            }
+        });
+    }
+
+    /**
+     * Capitalise an inbound shipment cost (freight, duty, handling) into
+     * inventory. Paid costs reduce cash; unpaid costs increase payables.
+     */
+    public function shipmentCost(ShipmentCost $cost, ?int $adminId = null): void
+    {
+        $this->safe(function () use ($cost, $adminId) {
+            $amount = round(max(0, (float) $cost->amount), 2);
+
+            if ($amount <= 0) {
+                return;
+            }
+
+            $cost->loadMissing(['shipment', 'supplier']);
+
+            $tracking = $cost->shipment?->tracking_number ?? ('#'.$cost->fk_shipment_id);
+            $description = $cost->description
+                ?: ucfirst($cost->cost_type)." for shipment {$tracking}";
+
+            $lines = [
+                ['account' => 'inventory', 'debit' => $amount, 'description' => $description],
+            ];
+
+            // A cost paid later started life as a payable, even though its
+            // current status is now "paid". Replays must keep that split.
+            $paidAtCreation = $cost->isPaid() && ! $cost->fk_payment_transaction_id;
+
+            if ($paidAtCreation) {
+                $lines[] = ['account' => 'cash', 'credit' => $amount, 'description' => $description];
+            } else {
+                $payable = ['account' => 'accounts_payable', 'credit' => $amount, 'description' => $description];
+
+                if ($cost->fk_supplier_id) {
+                    $payable['party_type'] = 'supplier';
+                    $payable['party_id'] = $cost->fk_supplier_id;
+                }
+
+                $lines[] = $payable;
+            }
+
+            $entry = $this->ledger->post(
+                'shipmentCost',
+                'shipment_cost',
+                $cost->id,
+                "shipment_cost:{$cost->id}:cost",
+                $cost->cost_date ?? now(),
+                $description,
+                $lines,
+                $adminId
+            );
+
+            if ($entry) {
+                ShipmentCost::where('id', $cost->id)->update(['journal_entry_id' => $entry->id]);
+
+                Transaction::where('id', $cost->fk_transaction_id)
                     ->whereNull('journal_entry_id')
-                    ->where('out_amount', $amount)
-                    ->latest('id')
-                    ->first()
-                    ?->update(['journal_entry_id' => $entry->id]);
+                    ->update(['journal_entry_id' => $entry->id]);
+
+                if ($cost->fk_cashbook_id) {
+                    Cashbook::where('id', $cost->fk_cashbook_id)
+                        ->whereNull('journal_entry_id')
+                        ->update(['journal_entry_id' => $entry->id]);
+                }
             }
         });
     }

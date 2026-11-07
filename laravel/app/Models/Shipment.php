@@ -31,4 +31,14 @@ class Shipment extends Model
     {
         return $this->belongsTo(Warehouse::class, 'fk_warehouse_id');
     }
+
+    public function costs()
+    {
+        return $this->hasMany(ShipmentCost::class, 'fk_shipment_id');
+    }
+
+    public function landedCostTotal(): float
+    {
+        return round((float) $this->costs->sum('amount'), 2);
+    }
 }

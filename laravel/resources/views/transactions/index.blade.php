@@ -12,11 +12,15 @@
         <form method="GET" action="{{ route('transactions.index') }}" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
             <select name="type" class="form-input" style="max-width: 200px;">
                 <option value="">All Types</option>
-                <option value="sale" {{ request('type') === 'sale' ? 'selected' : '' }}>Sale</option>
-                <option value="purchase" {{ request('type') === 'purchase' ? 'selected' : '' }}>Purchase</option>
+                <option value="saleIncome" {{ request('type') === 'saleIncome' ? 'selected' : '' }}>Sale Income</option>
+                <option value="saleDue" {{ request('type') === 'saleDue' ? 'selected' : '' }}>Sale Due</option>
                 <option value="income" {{ request('type') === 'income' ? 'selected' : '' }}>Income</option>
                 <option value="expense" {{ request('type') === 'expense' ? 'selected' : '' }}>Expense</option>
-                <option value="payroll" {{ request('type') === 'payroll' ? 'selected' : '' }}>Payroll</option>
+                <option value="shipmentCost" {{ request('type') === 'shipmentCost' ? 'selected' : '' }}>Shipment Cost</option>
+                <option value="supplierPayment" {{ request('type') === 'supplierPayment' ? 'selected' : '' }}>Supplier Payment</option>
+                <option value="supplierDeposit" {{ request('type') === 'supplierDeposit' ? 'selected' : '' }}>Supplier Advance</option>
+                <option value="userFund" {{ request('type') === 'userFund' ? 'selected' : '' }}>Customer Fund</option>
+                <option value="miscExpense" {{ request('type') === 'miscExpense' ? 'selected' : '' }}>Misc Expense</option>
             </select>
             <button type="submit" class="btn btn-primary">Filter</button>
             @if(request()->has('type'))
@@ -41,7 +45,7 @@
                     <tr>
                         <td>{{ $transaction->id }}</td>
                         <td>{{ $transaction->date ? \Carbon\Carbon::parse($transaction->date)->format('d M Y') : '—' }}</td>
-                        <td><span class="badge badge-orange">{{ ucfirst($transaction->type) }}</span></td>
+                        <td><span class="badge badge-orange">{{ $transaction->typeLabel() }}</span></td>
                         <td>{{ $currencySymbol }}{{ number_format($transaction->amount, 2) }}</td>
                         <td>{{ $currencySymbol }}{{ number_format($transaction->paid_amount, 2) }}</td>
                         <td>

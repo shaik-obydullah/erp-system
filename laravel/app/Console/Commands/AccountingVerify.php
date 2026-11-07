@@ -10,6 +10,7 @@ use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\Sale;
 use App\Models\SaleReturn;
+use App\Models\ShipmentCost;
 use App\Models\Transaction;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -114,6 +115,7 @@ class AccountingVerify extends Command
             'sale returns' => max(0, SaleReturn::where('status', 'approved')->count() - JournalEntry::where('event_type', 'saleReturn')->count()),
             'incomes' => max(0, Income::where('table_name', '!=', 'sales')->count() - JournalEntry::where('event_type', 'income')->distinct()->count('source_id')),
             'expenses' => max(0, Expense::count() - JournalEntry::where('event_type', 'expense')->distinct()->count('source_id')),
+            'shipment costs' => max(0, ShipmentCost::count() - JournalEntry::where('event_type', 'shipmentCost')->distinct()->count('source_id')),
         ];
 
         foreach ($missing as $label => $count) {

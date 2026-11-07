@@ -32,14 +32,14 @@
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="fk_purchase_order_id">Purchase Order *</label>
-                    <select id="fk_purchase_order_id" x-model="form.fk_purchase_order_id" required>
+                    <label for="fk_po_id">Purchase Order *</label>
+                    <select id="fk_po_id" x-model="form.fk_po_id" required>
                         <option value="">Select PO</option>
                         @foreach($purchaseOrders as $po)
                             <option value="{{ $po->id }}">{{ $po->order_number }}</option>
                         @endforeach
                     </select>
-                    <span class="form-error" x-show="errors.fk_purchase_order_id" x-text="errors.fk_purchase_order_id"></span>
+                    <span class="form-error" x-show="errors.fk_po_id" x-text="errors.fk_po_id"></span>
                 </div>
                 <div class="form-group">
                     <label for="fk_warehouse_id">Warehouse *</label>
@@ -71,9 +71,10 @@
                     <label for="status">Status *</label>
                     <select id="status" x-model="form.status" required>
                         <option value="pending">Pending</option>
+                        <option value="shipped">Shipped</option>
                         <option value="in_transit">In Transit</option>
                         <option value="delivered">Delivered</option>
-                        <option value="cancelled">Cancelled</option>
+                        <option value="canceled">Canceled</option>
                     </select>
                     <span class="form-error" x-show="errors.status" x-text="errors.status"></span>
                 </div>
@@ -84,6 +85,71 @@
                     <label for="remark">Remark</label>
                     <textarea id="remark" x-model="form.remark" rows="3"></textarea>
                     <span class="form-error" x-show="errors.remark" x-text="errors.remark"></span>
+                </div>
+            </div>
+
+            <div class="form-row" style="margin-top: 8px;">
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <h3 style="margin: 0 0 4px; font-size: 15px;">Landed cost (optional)</h3>
+                    <p style="margin: 0; color: var(--text-secondary); font-size: 13px;">
+                        Freight, duty, handling or insurance for this shipment. It is added to Inventory automatically and paid from cash or recorded as a supplier payable.
+                    </p>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="cost_type">Cost Type</label>
+                    <select id="cost_type" x-model="form.cost.cost_type">
+                        <option value="freight">Freight</option>
+                        <option value="duty">Duty / customs</option>
+                        <option value="handling">Handling</option>
+                        <option value="insurance">Insurance</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="cost_amount">Amount</label>
+                    <input type="number" id="cost_amount" x-model="form.cost.amount" min="0" step="0.01" placeholder="0.00">
+                    <span class="form-error" x-show="errors['cost.amount']" x-text="errors['cost.amount']"></span>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="cost_supplier">Supplier / Carrier</label>
+                    <select id="cost_supplier" x-model="form.cost.fk_supplier_id">
+                        <option value="">None</option>
+                        @foreach($suppliers as $supplier)
+                            <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
+                        @endforeach
+                    </select>
+                    <span class="form-error" x-show="errors['cost.fk_supplier_id']" x-text="errors['cost.fk_supplier_id']"></span>
+                </div>
+                <div class="form-group">
+                    <label for="cost_payment_status">Payment</label>
+                    <select id="cost_payment_status" x-model="form.cost.payment_status">
+                        <option value="paid">Paid now</option>
+                        <option value="unpaid">On credit (pay later)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="cost_date">Cost Date</label>
+                    <input type="date" id="cost_date" x-model="form.cost.cost_date">
+                </div>
+                <div class="form-group">
+                    <label for="cost_invoice_number">Invoice / Reference</label>
+                    <input type="text" id="cost_invoice_number" x-model="form.cost.invoice_number">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="cost_description">Cost Description</label>
+                    <input type="text" id="cost_description" x-model="form.cost.description" placeholder="e.g. Sea freight for container 12">
                 </div>
             </div>
 
@@ -102,12 +168,21 @@
     function formHandler(url, method) {
         return {
             form: {
-                fk_purchase_order_id: '',
+                fk_po_id: '',
                 fk_warehouse_id: '',
                 tracking_number: '',
                 received_date: '',
                 status: 'pending',
                 remark: '',
+                cost: {
+                    cost_type: 'freight',
+                    amount: '',
+                    fk_supplier_id: '',
+                    payment_status: 'paid',
+                    cost_date: '{{ now()->toDateString() }}',
+                    invoice_number: '',
+                    description: '',
+                },
             },
             errors: {},
             errorMessage: '',

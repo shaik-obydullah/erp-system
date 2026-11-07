@@ -8,6 +8,7 @@ use App\Models\Expense;
 use App\Models\Income;
 use App\Models\Sale;
 use App\Models\SaleReturn;
+use App\Models\ShipmentCost;
 use App\Models\Supplier;
 use App\Models\Transaction;
 
@@ -28,7 +29,7 @@ class LedgerProjector
      */
     public function run(?array $only = null): array
     {
-        $only = $only ?: ['sales', 'dues', 'returns', 'incomes', 'expenses', 'funds'];
+        $only = $only ?: ['sales', 'dues', 'returns', 'incomes', 'expenses', 'funds', 'shipment_costs'];
         $counts = [];
 
         foreach ($only as $group) {
@@ -39,6 +40,7 @@ class LedgerProjector
                 'incomes' => $this->incomes(),
                 'expenses' => $this->expenses(),
                 'funds' => $this->funds(),
+                'shipment_costs' => $this->shipmentCosts(),
                 default => 0,
             };
         }
@@ -187,6 +189,20 @@ class LedgerProjector
                     }
                 }
             });
+
+        return $count;
+    }
+
+    public function shipmentCosts(): int
+    {
+        $count = 0;
+
+        ShipmentCost::query()->orderBy('id')->chunkById(200, function ($costs) use (&$count) {
+            foreach ($costs as $cost) {
+                $this->poster->shipmentCost($cost, $cost->created_by);
+                $count++;
+            }
+        });
 
         return $count;
     }

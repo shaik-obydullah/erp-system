@@ -27,9 +27,10 @@
                 <select name="status" class="form-input" style="max-width: 180px;">
                     <option value="">All Status</option>
                     <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>Pending</option>
+                    <option value="shipped" {{ request('status') === 'shipped' ? 'selected' : '' }}>Shipped</option>
                     <option value="in_transit" {{ request('status') === 'in_transit' ? 'selected' : '' }}>In Transit</option>
                     <option value="delivered" {{ request('status') === 'delivered' ? 'selected' : '' }}>Delivered</option>
-                    <option value="cancelled" {{ request('status') === 'cancelled' ? 'selected' : '' }}>Cancelled</option>
+                    <option value="canceled" {{ request('status') === 'canceled' ? 'selected' : '' }}>Canceled</option>
                 </select>
                 <button type="submit" class="btn btn-primary">Filter</button>
                 @if(request()->hasAny(['search', 'status']))
@@ -45,6 +46,7 @@
                     <th>PO Number</th>
                     <th>Warehouse</th>
                     <th>Received Date</th>
+                    <th>Landed Cost</th>
                     <th>Status</th>
                     <th>Actions</th>
                 </tr>
@@ -56,8 +58,9 @@
                         <td>{{ $shipment->purchaseOrder->order_number ?? '—' }}</td>
                         <td>{{ $shipment->warehouse->name ?? '—' }}</td>
                         <td>{{ $shipment->received_date ? \Carbon\Carbon::parse($shipment->received_date)->format('d M Y') : '—' }}</td>
+                        <td>{{ $currencySymbol }}{{ number_format($shipment->costs->sum('amount'), 2) }}</td>
                         <td>
-                            <span class="badge {{ $shipment->status === 'delivered' ? 'badge-green' : ($shipment->status === 'in_transit' ? 'badge-orange' : ($shipment->status === 'cancelled' ? 'badge-red' : '')) }}">
+                            <span class="badge {{ $shipment->status === 'delivered' ? 'badge-green' : ($shipment->status === 'in_transit' ? 'badge-orange' : ($shipment->status === 'canceled' ? 'badge-red' : '')) }}">
                                 {{ ucfirst(str_replace('_', ' ', $shipment->status)) }}
                             </span>
                         </td>
@@ -80,7 +83,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="empty-state">No shipments found.</td>
+                        <td colspan="7" class="empty-state">No shipments found.</td>
                     </tr>
                 @endforelse
             </tbody>

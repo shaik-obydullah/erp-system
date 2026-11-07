@@ -43,6 +43,7 @@ use App\Http\Controllers\TaskController;
 use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\ShipmentController;
+use App\Http\Controllers\ShipmentCostController;
 use App\Http\Controllers\ShipmentReturnController;
 use App\Http\Controllers\ShippingZoneController;
 use App\Http\Controllers\ShippingMethodController;
@@ -476,6 +477,15 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
 
     // Logistics - Shipments
     Route::resource('shipments', ShipmentController::class);
+    Route::post('/shipments/{shipment}/costs', [ShipmentCostController::class, 'store'])
+        ->middleware('permission:shipments.save')
+        ->name('shipments.costs.store');
+    Route::post('/shipments/costs/{shipmentCost}/pay', [ShipmentCostController::class, 'pay'])
+        ->middleware('permission:shipments.edit')
+        ->name('shipments.costs.pay');
+    Route::delete('/shipments/costs/{shipmentCost}', [ShipmentCostController::class, 'destroy'])
+        ->middleware('permission:shipments.delete')
+        ->name('shipments.costs.destroy');
 
     // Logistics - Shipping Zones
     Route::resource('shipping-zones', ShippingZoneController::class);

@@ -33,14 +33,14 @@
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="fk_purchase_order_id">Purchase Order *</label>
-                    <select id="fk_purchase_order_id" x-model="form.fk_purchase_order_id" required>
+                    <label for="fk_po_id">Purchase Order *</label>
+                    <select id="fk_po_id" x-model="form.fk_po_id" required>
                         <option value="">Select PO</option>
                         @foreach($purchaseOrders as $po)
-                            <option value="{{ $po->id }}" {{ $shipment->fk_purchase_order_id == $po->id ? 'selected' : '' }}>{{ $po->order_number }}</option>
+                            <option value="{{ $po->id }}" {{ $shipment->fk_po_id == $po->id ? 'selected' : '' }}>{{ $po->order_number }}</option>
                         @endforeach
                     </select>
-                    <span class="form-error" x-show="errors.fk_purchase_order_id" x-text="errors.fk_purchase_order_id"></span>
+                    <span class="form-error" x-show="errors.fk_po_id" x-text="errors.fk_po_id"></span>
                 </div>
                 <div class="form-group">
                     <label for="fk_warehouse_id">Warehouse *</label>
@@ -72,9 +72,10 @@
                     <label for="status">Status *</label>
                     <select id="status" x-model="form.status" required>
                         <option value="pending" {{ $shipment->status == 'pending' ? 'selected' : '' }}>Pending</option>
+                        <option value="shipped" {{ $shipment->status == 'shipped' ? 'selected' : '' }}>Shipped</option>
                         <option value="in_transit" {{ $shipment->status == 'in_transit' ? 'selected' : '' }}>In Transit</option>
                         <option value="delivered" {{ $shipment->status == 'delivered' ? 'selected' : '' }}>Delivered</option>
-                        <option value="cancelled" {{ $shipment->status == 'cancelled' ? 'selected' : '' }}>Cancelled</option>
+                        <option value="canceled" {{ $shipment->status == 'canceled' ? 'selected' : '' }}>Canceled</option>
                     </select>
                     <span class="form-error" x-show="errors.status" x-text="errors.status"></span>
                 </div>
@@ -103,7 +104,7 @@
     function formHandler(url, method) {
         return {
             form: {
-                fk_purchase_order_id: '{{ old('fk_purchase_order_id', $shipment->fk_purchase_order_id) }}',
+                fk_po_id: '{{ old('fk_po_id', $shipment->fk_po_id) }}',
                 fk_warehouse_id: '{{ old('fk_warehouse_id', $shipment->fk_warehouse_id) }}',
                 tracking_number: '{{ old('tracking_number', $shipment->tracking_number) }}',
                 received_date: '{{ old('received_date', $shipment->received_date) }}',

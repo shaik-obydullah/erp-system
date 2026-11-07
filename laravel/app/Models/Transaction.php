@@ -29,6 +29,7 @@ class Transaction extends Model
     const TYPE_EXPENSE = 'expense';
     const TYPE_MISC_INCOME = 'miscIncome';
     const TYPE_MISC_EXPENSE = 'miscExpense';
+    const TYPE_SHIPMENT_COST = 'shipmentCost';
 
     protected $fillable = [
         'date',
@@ -61,5 +62,28 @@ class Transaction extends Model
     public function journalEntry()
     {
         return $this->belongsTo(JournalEntry::class);
+    }
+
+    public function typeLabel(): string
+    {
+        return match ($this->type) {
+            self::TYPE_USER_FUND => 'Customer Fund',
+            self::TYPE_SUPPLIER_DEPOSIT => 'Supplier Advance',
+            self::TYPE_SUPPLIER_PAYMENT => 'Supplier Payment',
+            self::TYPE_BOM_EXPENSE => 'Production Cost',
+            self::TYPE_SALARY_PAYMENT => 'Salary Payment',
+            self::TYPE_CAMPAIGN_EXPENSE => 'Campaign Expense',
+            self::TYPE_STOCK_IN => 'Stock In',
+            self::TYPE_STOCK_OUT => 'Stock Out',
+            self::TYPE_SALE_INCOME => 'Sale Income',
+            self::TYPE_SALE_DUE => 'Sale Due',
+            self::TYPE_FIXED_ASSET => 'Fixed Asset',
+            self::TYPE_INCOME => 'Income',
+            self::TYPE_EXPENSE => 'Expense',
+            self::TYPE_MISC_INCOME => 'Misc Income',
+            self::TYPE_MISC_EXPENSE => 'Misc Expense',
+            self::TYPE_SHIPMENT_COST => 'Shipment Cost',
+            default => ucfirst((string) $this->type),
+        };
     }
 }
