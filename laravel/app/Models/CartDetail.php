@@ -17,13 +17,14 @@ class CartDetail extends Model
     protected $fillable = [
         'fk_cart_id', 'fk_stock_id', 'stock_name',
         'total_stock', 'qty', 'unit', 'vat', 'tax',
-        'discount', 'subtotal', 'buy_price',
+        'discount', 'subtotal', 'buy_price', 'vat_code', 'vat_rate',
     ];
 
     protected $casts = [
         'unit' => 'decimal:2',
         'subtotal' => 'decimal:2',
         'buy_price' => 'decimal:2',
+        'vat_rate' => 'decimal:2',
     ];
 
     public function cart()

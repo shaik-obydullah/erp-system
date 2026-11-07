@@ -163,16 +163,23 @@
                               x-text="selectedShippingCost > 0 ? '{{ $currencySymbol }}' + selectedShippingCost.toFixed(2) : 'Free'"></span>
                         <span x-show="!selectedShipping" class="font-medium text-gray-400">Calculated at checkout</span>
                     </div>
+                    <div class="flex justify-between text-xs text-gray-400">
+                        <span>VAT</span>
+                        <span>Included in prices</span>
+                    </div>
                     <div class="border-t pt-2 flex justify-between">
                         <span class="font-bold">Total</span>
                         <span class="font-bold text-lg text-primary-600" x-text="'{{ $currencySymbol }}' + total().toFixed(2)"></span>
                     </div>
                 </div>
 
-                <button @click="placeOrder()"
+                <p x-show="orderError" x-cloak class="mt-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3" x-text="orderError"></p>
+
+                <button @click="placeOrder()" :disabled="placing"
                     class="w-full mt-6 py-3 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition shadow-md flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>
-                    Place Order
+                    <span x-show="!placing">Place Order</span>
+                    <span x-show="placing">Placing order...</span>
                 </button>
 
                 <p class="text-xs text-gray-400 text-center mt-3">By placing your order, you agree to our terms and conditions.</p>
@@ -187,7 +194,11 @@
                 <svg class="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>
             </div>
             <h3 class="text-xl font-bold mb-2">Order Placed!</h3>
-            <p class="text-sm text-gray-500 mb-6">Thank you for your order. Your order number is <strong x-text="orderNumber"></strong>.</p>
+            <p class="text-sm text-gray-500 mb-2">Thank you for your order. Your order number is <strong x-text="orderNumber"></strong>.</p>
+            <p class="text-xs text-gray-400 mb-6">
+                Total <strong x-text="'{{ $currencySymbol }}' + orderTotal.toFixed(2)"></strong>,
+                including VAT of <strong x-text="'{{ $currencySymbol }}' + orderVat.toFixed(2)"></strong>.
+            </p>
             <a href="{{ route('store.home') }}" class="px-6 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition">
                 Continue Shopping
             </a>
@@ -203,7 +214,11 @@
             items: JSON.parse(localStorage.getItem('cart') || '[]'),
             paymentMethod: 'cod',
             showSuccess: false,
+            placing: false,
+            orderError: '',
             orderNumber: '',
+            orderVat: 0,
+            orderTotal: 0,
             form: {
                 customer_name: '',
                 customer_email: '',
@@ -277,13 +292,59 @@
                 }
                 return Object.keys(this.errors).length === 0;
             },
-            placeOrder() {
-                if (!this.validate()) return;
+            async placeOrder() {
+                if (!this.validate() || this.placing) return;
 
-                this.orderNumber = 'ORD-' + Date.now().toString(36).toUpperCase();
-                this.showSuccess = true;
-                localStorage.removeItem('cart');
-                localStorage.setItem('cartCount', '0');
+                this.placing = true;
+                this.orderError = '';
+
+                try {
+                    const response = await fetch('{{ route('store.checkout.place') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}',
+                        },
+                        body: JSON.stringify({
+                            customer_name: this.form.customer_name,
+                            customer_email: this.form.customer_email,
+                            customer_phone: this.form.customer_phone,
+                            address: this.form.address,
+                            city: this.form.city,
+                            postal_code: this.form.postal_code,
+                            country: this.form.country,
+                            notes: this.form.notes,
+                            payment_method: this.paymentMethod,
+                            shipping_method_id: this.selectedShippingId,
+                            items: this.items.map(i => ({ id: i.id, qty: i.qty })),
+                        }),
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        if (data.errors) {
+                            this.errors = Object.fromEntries(
+                                Object.entries(data.errors).map(([key, value]) => [key, value[0]])
+                            );
+                        }
+                        this.orderError = data.message || 'Unable to place your order. Please try again.';
+                        return;
+                    }
+
+                    this.orderNumber = data.order_number;
+                    this.orderVat = Number(data.vat_amount || 0);
+                    this.orderTotal = Number(data.total || 0);
+                    this.showSuccess = true;
+                    localStorage.removeItem('cart');
+                    localStorage.setItem('cartCount', '0');
+                    this.items = [];
+                } catch (e) {
+                    this.orderError = 'An unexpected error occurred. Please try again.';
+                } finally {
+                    this.placing = false;
+                }
             }
         }
     }

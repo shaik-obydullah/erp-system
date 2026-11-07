@@ -16,11 +16,16 @@ class SaleDetail extends Model
         'fk_sale_id', 'fk_stock_id', 'stock_name',
         'size', 'color', 'total_stock', 'sale_stock',
         'subtotal', 'cost_price', 'return_reason',
+        'vat_code', 'vat_rate', 'net_amount', 'vat_amount', 'gross_amount',
     ];
 
     protected $casts = [
         'subtotal' => 'decimal:2',
         'cost_price' => 'decimal:2',
+        'vat_rate' => 'decimal:2',
+        'net_amount' => 'decimal:2',
+        'vat_amount' => 'decimal:2',
+        'gross_amount' => 'decimal:2',
     ];
 
     public function stock()

@@ -21,7 +21,9 @@ class Configuration extends Model
 
     public static function set(string $key, $value)
     {
-        static::updateOrCreate(['name' => $key], ['setting' => $value]);
+        // The setting column is NOT NULL, so store an empty string rather than
+        // allowing an optional form field to trigger a constraint violation.
+        static::updateOrCreate(['name' => $key], ['setting' => $value ?? '']);
     }
 
     public static function getMany(array $keys)

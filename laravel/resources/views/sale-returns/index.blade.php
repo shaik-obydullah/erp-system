@@ -45,7 +45,9 @@
                     <th>Sale Invoice</th>
                     <th>Product</th>
                     <th>Qty</th>
-                    <th>Refund</th>
+                    <th>Refund (incl. VAT)</th>
+                    <th>Net</th>
+                    <th>VAT</th>
                     <th>Reason</th>
                     <th>Status</th>
                     <th>Actions</th>
@@ -59,6 +61,8 @@
                         <td>{{ $return->stock->product->name ?? '—' }}</td>
                         <td>{{ $return->quantity }}</td>
                         <td>{{ $currencySymbol }}{{ number_format($return->refund_amount, 2) }}</td>
+                        <td>{{ $currencySymbol }}{{ number_format($return->net_amount, 2) }}</td>
+                        <td>{{ $currencySymbol }}{{ number_format($return->vat_amount, 2) }}</td>
                         <td>{{ ucfirst(str_replace('_', ' ', $return->reason)) }}</td>
                         <td>
                             <span class="badge {{ $return->status === 'approved' ? 'badge-green' : ($return->status === 'pending' ? 'badge-orange' : ($return->status === 'completed' ? 'badge-green' : 'badge-red')) }}">
@@ -83,6 +87,12 @@
                                         </button>
                                     </form>
                                 @endif
+                                @if(in_array($return->status, ['approved', 'completed'], true))
+                                    <a href="{{ route('sale-returns.credit-note', $return) }}" class="btn btn-ghost btn-sm" target="_blank">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                        Credit Note
+                                    </a>
+                                @endif
                                 <a href="{{ route('sale-returns.edit', $return) }}" class="btn btn-ghost btn-sm">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                     Edit
@@ -96,7 +106,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="empty-state">No sale returns found.</td>
+                        <td colspan="10" class="empty-state">No sale returns found.</td>
                     </tr>
                 @endforelse
             </tbody>

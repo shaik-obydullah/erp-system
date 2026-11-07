@@ -102,7 +102,7 @@ class LedgerProjector
         $count = 0;
 
         SaleReturn::query()
-            ->where('status', 'approved')
+            ->whereIn('status', ['approved', 'completed'])
             ->orderBy('id')
             ->chunkById(200, function ($returns) use (&$count) {
                 foreach ($returns as $return) {

@@ -244,6 +244,28 @@
 
             <div class="form-row">
                 <div class="form-group">
+                    <label for="vat_code">VAT Code</label>
+                    <select id="vat_code" x-model="form.vat_code" @change="applyVatCode()">
+                        <option value="">Use company default</option>
+                        <option value="standard">Standard rate (20%)</option>
+                        <option value="reduced">Reduced rate (5%)</option>
+                        <option value="zero">Zero rate (0%)</option>
+                        <option value="exempt">Exempt</option>
+                        <option value="outside_scope">Outside the scope of VAT</option>
+                    </select>
+                    <span class="form-error" x-show="errors.vat_code" x-text="errors.vat_code"></span>
+                </div>
+                <div class="form-group">
+                    <label for="vat_rate">VAT Rate (%)</label>
+                    <input type="number" id="vat_rate" x-model="form.vat_rate" min="0" max="100" step="0.01"
+                        placeholder="e.g. 20">
+                    <small class="form-hint">Selling prices are entered VAT-inclusive.</small>
+                    <span class="form-error" x-show="errors.vat_rate" x-text="errors.vat_rate"></span>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
                     <label>Product Images</label>
                     <div class="image-upload-zone" @click="$refs.imageInput.click()" @dragover.prevent="dragOver = true"
                         @dragleave.prevent="dragOver = false" @drop.prevent="handleDrop($event); dragOver = false"
@@ -321,8 +343,17 @@ function productForm() {
             barcode: @json(old('barcode', $product->barcode)),
             size: @json(old('size', $product->size)),
             color: @json(old('color', $product->color)),
+            vat_code: @json(old('vat_code', $product->vat_code)),
+            vat_rate: @json(old('vat_rate', $product->vat_rate)),
             description: @json(old('description', $product->description)),
             status: @json(old('status', $product->status)),
+        },
+        vatRates: { standard: 20, reduced: 5, zero: 0, exempt: 0, outside_scope: 0 },
+
+        applyVatCode() {
+            if (this.form.vat_code && this.vatRates[this.form.vat_code] !== undefined) {
+                this.form.vat_rate = this.vatRates[this.form.vat_code];
+            }
         },
         categoriesData: @json($categories),
         errors: {},
@@ -487,6 +518,8 @@ function productForm() {
             if (this.form.barcode) formData.append('barcode', this.form.barcode);
             if (this.form.size) formData.append('size', this.form.size);
             if (this.form.color) formData.append('color', this.form.color);
+            if (this.form.vat_code) formData.append('vat_code', this.form.vat_code);
+            if (this.form.vat_rate !== '' && this.form.vat_rate !== null) formData.append('vat_rate', this.form.vat_rate);
             if (this.form.description) formData.append('description', this.form.description);
 
             for (var i = 0; i < this.newImageFiles.length; i++) {

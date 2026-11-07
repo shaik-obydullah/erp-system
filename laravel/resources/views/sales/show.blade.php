@@ -31,6 +31,8 @@
             <div>
                 <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-secondary);">Payment Summary</h3>
                 <div style="display: grid; gap: 8px;">
+                    <div style="display: flex; gap: 8px;"><span style="color: var(--text-secondary); min-width: 120px;">Net (excl. VAT):</span> {{ $currencySymbol }}{{ number_format($sale->net_price, 2) }}</div>
+                    <div style="display: flex; gap: 8px;"><span style="color: var(--text-secondary); min-width: 120px;">VAT:</span> {{ $currencySymbol }}{{ number_format($sale->vat_amount, 2) }}</div>
                     <div style="display: flex; gap: 8px;"><span style="color: var(--text-secondary); min-width: 120px;">Grand Total:</span> <strong>{{ $currencySymbol }}{{ number_format($sale->grand_total, 2) }}</strong></div>
                     <div style="display: flex; gap: 8px;"><span style="color: var(--text-secondary); min-width: 120px;">Discount:</span> {{ $currencySymbol }}{{ number_format($sale->discount_amount, 2) }}</div>
                     <div style="display: flex; gap: 8px;"><span style="color: var(--text-secondary); min-width: 120px;">Shipping:</span> {{ $currencySymbol }}{{ number_format($sale->shipping_cost, 2) }}</div>
@@ -47,26 +49,63 @@
                     <th>#</th>
                     <th>Product</th>
                     <th>Quantity</th>
-                    <th>Unit Price</th>
+                    <th>Unit Price (excl. VAT)</th>
+                    <th>VAT Rate</th>
+                    <th>Net</th>
+                    <th>VAT</th>
                     <th>Total</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($sale->saleItems as $index => $item)
+                    @php
+                        $gross = (float) ($item->gross_amount ?? $item->subtotal ?? 0);
+                        $vat = (float) ($item->vat_amount ?? 0);
+                        $net = (float) ($item->net_amount ?? ($gross - $vat));
+                        $qty = (float) ($item->sale_stock ?? 0);
+                        $unitNet = $qty > 0 ? $net / $qty : $net;
+                    @endphp
                     <tr>
                         <td>{{ $index + 1 }}</td>
                         <td>{{ $item->stock_name ?? '—' }}</td>
                         <td>{{ $item->sale_stock }}</td>
-                        <td>{{ $currencySymbol }}{{ number_format($item->sale_stock > 0 ? $item->subtotal / $item->sale_stock : 0, 2) }}</td>
-                        <td><strong>{{ $currencySymbol }}{{ number_format($item->subtotal, 2) }}</strong></td>
+                        <td>{{ $currencySymbol }}{{ number_format($unitNet, 2) }}</td>
+                        <td>{{ number_format((float) ($item->vat_rate ?? 0), 0) }}%</td>
+                        <td>{{ $currencySymbol }}{{ number_format($net, 2) }}</td>
+                        <td>{{ $currencySymbol }}{{ number_format($vat, 2) }}</td>
+                        <td><strong>{{ $currencySymbol }}{{ number_format($gross, 2) }}</strong></td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="5" class="empty-state">No items found.</td>
+                        <td colspan="8" class="empty-state">No items found.</td>
                     </tr>
                 @endforelse
             </tbody>
         </table>
+
+        @if(is_array($sale->vat_breakdown) && count($sale->vat_breakdown))
+            <h3 style="font-size: 14px; font-weight: 600; margin: 24px 0 12px; color: var(--text-secondary);">VAT Breakdown</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>VAT Rate</th>
+                        <th>Net</th>
+                        <th>VAT</th>
+                        <th>Gross</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($sale->vat_breakdown as $band)
+                        <tr>
+                            <td>{{ number_format((float) ($band['rate'] ?? 0), 0) }}% <span style="color: var(--text-secondary);">{{ $band['label'] ?? '' }}</span></td>
+                            <td>{{ $currencySymbol }}{{ number_format((float) ($band['net'] ?? 0), 2) }}</td>
+                            <td>{{ $currencySymbol }}{{ number_format((float) ($band['vat'] ?? 0), 2) }}</td>
+                            <td>{{ $currencySymbol }}{{ number_format((float) ($band['gross'] ?? 0), 2) }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endif
 
         @if($sale->note)
         <div style="margin-top: 24px; padding: 16px; background: var(--bg-secondary, #f9fafb); border-radius: 8px;">

@@ -2,17 +2,27 @@
 
 namespace App\Http\Controllers;
 
+use App\Accounting\AccountingPoster;
 use App\Models\Brand;
+use App\Models\Cashbook;
 use App\Models\Category;
 use App\Models\Configuration;
 use App\Models\Content;
+use App\Models\Customer;
+use App\Models\Income;
 use App\Models\Product;
+use App\Models\Sale;
+use App\Models\SaleDetail;
 use App\Models\ShippingMethod;
 use App\Models\ShippingZone;
 use App\Models\Stock;
 use App\Models\Supplier;
+use App\Models\Transaction;
+use App\Services\VatCalculator;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\View;
 
 class StorefrontController extends Controller
@@ -228,6 +238,202 @@ class StorefrontController extends Controller
             'currencySymbol' => $this->currencySymbol,
             'countries' => config('countries'),
         ]);
+    }
+
+    public function placeOrder(Request $request)
+    {
+        $validated = $request->validate([
+            'customer_name' => 'required|string|max:100',
+            'customer_email' => 'required|email|max:100',
+            'customer_phone' => 'nullable|string|max:20',
+            'address' => 'required|string|max:255',
+            'city' => 'nullable|string|max:100',
+            'postal_code' => 'nullable|string|max:20',
+            'country' => 'required|string|size:2',
+            'notes' => 'nullable|string',
+            'payment_method' => 'nullable|string|max:30',
+            'shipping_method_id' => 'nullable|exists:shipping_methods,id',
+            'items' => 'required|array|min:1',
+            'items.*.id' => 'required|integer',
+            'items.*.qty' => 'required|integer|min:1',
+        ]);
+
+        $vat = app(VatCalculator::class);
+        $lines = [];
+
+        foreach ($validated['items'] as $item) {
+            $product = Product::where('status', 'active')
+                ->with(['stocks' => fn ($q) => $q->where('status', 'active')->where('quantity', '>', 0)])
+                ->find($item['id']);
+
+            if (! $product) {
+                return response()->json(['message' => 'One of the products is no longer available.'], 422);
+            }
+
+            $stock = $product->stocks->first();
+
+            if (! $stock || $stock->quantity < (int) $item['qty']) {
+                return response()->json(['message' => "Insufficient stock for {$product->name}."], 422);
+            }
+
+            $treatment = $vat->forProduct($product);
+            $quantity = (int) $item['qty'];
+            $gross = round((float) $stock->sale_price * $quantity, 2);
+
+            $lines[] = $vat->line($gross, $treatment['code'], $treatment['rate']) + [
+                'quantity' => $quantity,
+                'stock_id' => $stock->id,
+                'stock_name' => $product->name,
+                'cost_price' => (float) $stock->buy_price,
+                'total_stock' => (int) $stock->quantity,
+            ];
+        }
+
+        if (empty($lines)) {
+            return response()->json(['message' => 'Your cart is empty.'], 422);
+        }
+
+        $shippingCost = 0.0;
+
+        if (! empty($validated['shipping_method_id'])) {
+            $method = ShippingMethod::where('status', 'active')->find($validated['shipping_method_id']);
+            $subtotal = round(array_sum(array_column($lines, 'gross')), 2);
+
+            if ($method) {
+                $shippingCost = round((float) $method->calculateCost($subtotal), 2);
+            }
+        }
+
+        if ($shippingCost > 0) {
+            $lines[] = $vat->line($shippingCost, null, null) + [
+                'description' => 'Shipping',
+                'quantity' => 1,
+                'stock_id' => null,
+                'stock_name' => 'Shipping',
+                'cost_price' => 0.0,
+                'total_stock' => 0,
+                'is_shipping' => true,
+            ];
+        }
+
+        $summary = $vat->summary($lines);
+        $grandTotal = round($summary['gross'], 2);
+        $buyPrice = round(array_sum(array_map(
+            fn (array $line) => (float) $line['cost_price'] * (int) $line['quantity'],
+            $lines
+        )), 2);
+
+        DB::beginTransaction();
+
+        try {
+            $customer = Customer::firstOrCreate(
+                ['email' => $validated['customer_email']],
+                [
+                    'name' => $validated['customer_name'],
+                    'password' => Hash::make(Str::random(24)),
+                    'phone' => $validated['customer_phone'] ?? null,
+                    'address' => trim(implode(', ', array_filter([
+                        $validated['address'],
+                        $validated['city'] ?? null,
+                        $validated['postal_code'] ?? null,
+                    ]))),
+                    'country' => strtoupper($validated['country']),
+                    'balance' => 0,
+                    'status' => 'active',
+                ]
+            );
+
+            $prefix = Configuration::get('invoice_prefix', 'INV') ?: 'INV';
+            $invoiceId = $prefix . '-' . strtoupper(Str::random(8)) . '-' . time();
+
+            $sale = Sale::create([
+                'table_name' => 'sales',
+                'fk_user_id' => $customer->id,
+                'invoice_id' => $invoiceId,
+                'type' => 'Ecommerce',
+                'net_price' => $summary['net'],
+                'vat_amount' => $summary['vat'],
+                'tax_amount' => 0,
+                'shipping_cost' => $shippingCost,
+                'discount_amount' => 0,
+                'grand_total' => $grandTotal,
+                'paid_amount' => 0,
+                'buy_price' => $buyPrice,
+                'sale_due' => $grandTotal,
+                'status' => 'completed',
+                'note' => trim(($validated['notes'] ?? '') . ' ' . ($validated['payment_method'] ?? '')),
+                'vat_breakdown' => $summary['breakdown'],
+            ]);
+
+            foreach ($lines as $line) {
+                if (! empty($line['is_shipping']) || empty($line['stock_id'])) {
+                    continue;
+                }
+
+                SaleDetail::create([
+                    'fk_sale_id' => $sale->id,
+                    'fk_stock_id' => $line['stock_id'],
+                    'stock_name' => $line['stock_name'],
+                    'total_stock' => $line['total_stock'],
+                    'sale_stock' => $line['quantity'],
+                    'subtotal' => $line['gross'],
+                    'cost_price' => $line['cost_price'],
+                    'vat_code' => $line['code'],
+                    'vat_rate' => $line['rate'],
+                    'net_amount' => $line['net'],
+                    'vat_amount' => $line['vat'],
+                    'gross_amount' => $line['gross'],
+                ]);
+
+                Stock::where('id', $line['stock_id'])->decrement('quantity', $line['quantity']);
+            }
+
+            $transaction = Transaction::create([
+                'date' => now()->toDateString(),
+                'type' => Transaction::TYPE_SALE_INCOME,
+                'fk_reference_id' => $sale->id,
+                'amount' => $grandTotal,
+                'paid_amount' => 0,
+                'due_amount' => $grandTotal,
+            ]);
+
+            Income::create([
+                'table_name' => 'sales',
+                'fk_transaction_id' => $transaction->id,
+                'description' => "Order {$invoiceId}",
+                'amount' => $grandTotal,
+                'net_amount' => $summary['net'],
+                'vat_amount' => $summary['vat'],
+            ]);
+
+            Cashbook::create([
+                'table_name' => 'sales',
+                'fk_reference_id' => $sale->id,
+                'description' => "Due for {$invoiceId}",
+                'in_amount' => 0,
+                'out_amount' => 0,
+                'amount_payable' => 0,
+                'amount_receivable' => $grandTotal,
+            ]);
+
+            app(AccountingPoster::class)->sale($sale, 0, $grandTotal, $buyPrice);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Order placed successfully.',
+                'order_number' => $invoiceId,
+                'sale_id' => $sale->id,
+                'net_amount' => $summary['net'],
+                'vat_amount' => $summary['vat'],
+                'shipping' => $shippingCost,
+                'total' => $grandTotal,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return response()->json(['message' => 'Unable to place order: ' . $e->getMessage()], 500);
+        }
     }
 
     public function shippingOptions(Request $request)

@@ -40,7 +40,7 @@
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="amount">Amount *</label>
+                    <label for="amount">Amount (VAT inclusive) *</label>
                     <input type="number" id="amount" x-model="form.amount" step="0.01" min="0" required>
                     <span class="form-error" x-show="errors.amount" x-text="errors.amount"></span>
                     <p x-show="form.amount > 0" x-cloak style="margin-top:6px; font-size:13px; color:var(--text-secondary);">
@@ -49,6 +49,35 @@
                         ·
                         <strong x-text="'Cash decreases {{ $currencySymbol }}' + Number(form.amount || 0).toFixed(2)"></strong>
                     </p>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="vat_code">VAT Code</label>
+                    <select id="vat_code" x-model="form.vat_code" @change="applyVatCode()">
+                        <option value="">Use company default</option>
+                        <option value="standard">Standard rate (20%)</option>
+                        <option value="reduced">Reduced rate (5%)</option>
+                        <option value="zero">Zero rate (0%)</option>
+                        <option value="exempt">Exempt</option>
+                        <option value="outside_scope">Outside the scope of VAT</option>
+                    </select>
+                    <span class="form-error" x-show="errors.vat_code" x-text="errors.vat_code"></span>
+                </div>
+                <div class="form-group">
+                    <label for="vat_rate">VAT Rate (%)</label>
+                    <input type="number" id="vat_rate" x-model="form.vat_rate" min="0" max="100" step="0.01" placeholder="e.g. 20">
+                    <span class="form-error" x-show="errors.vat_rate" x-text="errors.vat_rate"></span>
+                </div>
+            </div>
+
+            <div class="form-row" x-show="parseFloat(form.amount) > 0">
+                <div class="form-group">
+                    <small class="form-hint">
+                        Net: <strong x-text="'{{ $currencySymbol }}' + vatNet.toFixed(2)"></strong> ·
+                        Input VAT: <strong x-text="'{{ $currencySymbol }}' + vatAmount.toFixed(2)"></strong>
+                    </small>
                 </div>
             </div>
 
@@ -69,6 +98,23 @@
             form: {
                 description: '',
                 amount: '',
+                vat_code: '',
+                vat_rate: '',
+            },
+            vatRates: { standard: 20, reduced: 5, zero: 0, exempt: 0, outside_scope: 0 },
+            applyVatCode() {
+                if (this.form.vat_code && this.vatRates[this.form.vat_code] !== undefined) {
+                    this.form.vat_rate = this.vatRates[this.form.vat_code];
+                }
+            },
+            get vatRateValue() {
+                return this.form.vat_rate !== '' && this.form.vat_rate !== null ? parseFloat(this.form.vat_rate) || 0 : 20;
+            },
+            get vatNet() {
+                return Math.round((parseFloat(this.form.amount) || 0) / (1 + this.vatRateValue / 100) * 100) / 100;
+            },
+            get vatAmount() {
+                return Math.round(((parseFloat(this.form.amount) || 0) - this.vatNet) * 100) / 100;
             },
             errors: {},
             errorMessage: '',

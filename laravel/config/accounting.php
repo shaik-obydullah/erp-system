@@ -36,7 +36,8 @@ return [
         ['code' => '1500', 'system_key' => 'fixed_assets', 'name' => 'Fixed assets', 'type' => 'asset', 'normal_balance' => 'debit', 'is_system' => true],
 
         ['code' => '2000', 'system_key' => 'accounts_payable', 'name' => 'Money you owe suppliers', 'type' => 'liability', 'normal_balance' => 'credit', 'is_system' => true],
-        ['code' => '2100', 'system_key' => 'sales_tax_payable', 'name' => 'Sales tax / VAT payable', 'type' => 'liability', 'normal_balance' => 'credit', 'is_system' => true],
+        ['code' => '2100', 'system_key' => 'sales_tax_payable', 'name' => 'Output VAT payable', 'type' => 'liability', 'normal_balance' => 'credit', 'is_system' => true],
+        ['code' => '2110', 'system_key' => 'input_vat', 'name' => 'Input VAT recoverable', 'type' => 'asset', 'normal_balance' => 'debit', 'is_system' => true],
         ['code' => '2200', 'system_key' => 'customer_advances', 'name' => 'Customer advances', 'type' => 'liability', 'normal_balance' => 'credit', 'is_system' => true],
         ['code' => '2300', 'system_key' => 'salaries_payable', 'name' => 'Salaries payable', 'type' => 'liability', 'normal_balance' => 'credit', 'is_system' => true],
 

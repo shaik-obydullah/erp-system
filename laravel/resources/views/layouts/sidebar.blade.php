@@ -246,6 +246,7 @@
                 <a href="{{ route('reports.stock') }}" class="nav-dropdown-item {{ request()->routeIs('reports.stock') ? 'active' : '' }}">Stock Report</a>
                 <a href="{{ route('reports.customers') }}" class="nav-dropdown-item {{ request()->routeIs('reports.customers') ? 'active' : '' }}">Customer Report</a>
                 <a href="{{ route('reports.suppliers') }}" class="nav-dropdown-item {{ request()->routeIs('reports.suppliers') ? 'active' : '' }}">Supplier Report</a>
+                <a href="{{ route('reports.vat-return') }}" class="nav-dropdown-item {{ request()->routeIs('reports.vat-return') ? 'active' : '' }}">VAT Return</a>
             </div>
         </div>
 

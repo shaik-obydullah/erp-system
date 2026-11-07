@@ -16,12 +16,16 @@ class PurchaseOrder extends Model
 
     protected $fillable = [
         'fk_need_id', 'fk_supplier_id', 'order_number',
-        'total_amount', 'remarks', 'due_amount',
+        'total_amount', 'net_amount', 'vat_amount', 'vat_code', 'vat_rate',
+        'remarks', 'due_amount', 'journal_entry_id',
         'created_by', 'updated_by', 'deleted_by',
     ];
 
     protected $casts = [
         'total_amount' => 'decimal:2',
+        'net_amount' => 'decimal:2',
+        'vat_amount' => 'decimal:2',
+        'vat_rate' => 'decimal:2',
         'due_amount' => 'decimal:2',
     ];
 

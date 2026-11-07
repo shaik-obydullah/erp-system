@@ -49,10 +49,16 @@ class SaleController extends Controller
 
     public function invoice(Sale $sale)
     {
-        $sale->load('details', 'transaction');
+        $sale->load('details', 'transaction', 'customer');
         $currencySymbol = Configuration::get('currency_symbol', '$');
+        $company = [
+            'name' => Configuration::get('company_name', config('app.name', 'ERP System')),
+            'address' => Configuration::get('company_address', ''),
+            'vat_number' => Configuration::get('company_vat_number', ''),
+            'country' => Configuration::get('company_country', 'GB'),
+        ];
 
-        return view('sales.invoice', compact('sale', 'currencySymbol'));
+        return view('sales.invoice', compact('sale', 'currencySymbol', 'company'));
     }
 
     public function receiveDue(Request $request, Sale $sale)

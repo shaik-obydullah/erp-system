@@ -6,6 +6,7 @@ use App\Models\Cashbook;
 use App\Models\Customer;
 use App\Models\Expense;
 use App\Models\Income;
+use App\Models\PurchaseOrder;
 use App\Models\Sale;
 use App\Models\SaleReturn;
 use App\Models\ShipmentCost;
@@ -158,6 +159,21 @@ class AccountingPoster
                 return;
             }
 
+            $vat = round(min(max(0, (float) $income->vat_amount), $amount), 2);
+            $net = round($amount - $vat, 2);
+
+            $lines = [
+                ['account' => 'cash', 'debit' => $amount, 'description' => $income->description],
+            ];
+
+            if ($net > 0) {
+                $lines[] = ['account' => 'general_income', 'credit' => $net, 'description' => $income->description];
+            }
+
+            if ($vat > 0) {
+                $lines[] = ['account' => 'sales_tax_payable', 'credit' => $vat, 'description' => "Output VAT: {$income->description}"];
+            }
+
             $entry = $this->ledger->post(
                 'income',
                 'income',
@@ -165,10 +181,7 @@ class AccountingPoster
                 "income:{$income->id}:income",
                 $income->transaction?->date ?? now(),
                 $income->description,
-                [
-                    ['account' => 'cash', 'debit' => $amount, 'description' => $income->description],
-                    ['account' => 'general_income', 'credit' => $amount, 'description' => $income->description],
-                ],
+                $lines,
                 $adminId
             );
 
@@ -195,6 +208,21 @@ class AccountingPoster
                 return;
             }
 
+            $vat = round(min(max(0, (float) $expense->vat_amount), $amount), 2);
+            $net = round($amount - $vat, 2);
+
+            $lines = [];
+
+            if ($net > 0) {
+                $lines[] = ['account' => 'general_expense', 'debit' => $net, 'description' => $expense->description];
+            }
+
+            if ($vat > 0) {
+                $lines[] = ['account' => 'input_vat', 'debit' => $vat, 'description' => "Input VAT: {$expense->description}"];
+            }
+
+            $lines[] = ['account' => 'cash', 'credit' => $amount, 'description' => $expense->description];
+
             $entry = $this->ledger->post(
                 'expense',
                 'expense',
@@ -202,10 +230,7 @@ class AccountingPoster
                 "expense:{$expense->id}:expense",
                 $expense->transaction?->date ?? now(),
                 $expense->description,
-                [
-                    ['account' => 'general_expense', 'debit' => $amount, 'description' => $expense->description],
-                    ['account' => 'cash', 'credit' => $amount, 'description' => $expense->description],
-                ],
+                $lines,
                 $adminId
             );
 
@@ -223,6 +248,67 @@ class AccountingPoster
         });
     }
 
+    /**
+     * Post a purchase order as an inventory purchase, recovering input VAT and
+     * splitting the balance between cash paid and supplier credit.
+     */
+    public function purchaseOrder(PurchaseOrder $order, ?int $adminId = null, ?string $suffix = null): void
+    {
+        $this->safe(function () use ($order, $adminId, $suffix) {
+            $gross = round(max(0, (float) $order->total_amount), 2);
+
+            if ($gross <= 0) {
+                return;
+            }
+
+            $vat = round(min(max(0, (float) $order->vat_amount), $gross), 2);
+            $net = round($gross - $vat, 2);
+            $due = round(min(max(0, (float) $order->due_amount), $gross), 2);
+            $paid = round($gross - $due, 2);
+
+            $lines = [];
+
+            if ($net > 0) {
+                $lines[] = ['account' => 'inventory', 'debit' => $net, 'description' => "Purchase {$order->order_number}"];
+            }
+
+            if ($vat > 0) {
+                $lines[] = ['account' => 'input_vat', 'debit' => $vat, 'description' => "Input VAT on {$order->order_number}"];
+            }
+
+            if ($paid > 0) {
+                $lines[] = ['account' => 'cash', 'credit' => $paid, 'description' => "Paid for {$order->order_number}"];
+            }
+
+            if ($due > 0) {
+                $lines[] = [
+                    'account' => 'accounts_payable',
+                    'credit' => $due,
+                    'party_type' => 'supplier',
+                    'party_id' => $order->fk_supplier_id,
+                    'description' => "Due for {$order->order_number}",
+                ];
+            }
+
+            $entry = $this->ledger->post(
+                'purchase',
+                'purchase_order',
+                $order->id,
+                "purchase_order:{$order->id}:purchase".($suffix ?? ''),
+                $order->created_at ?? now(),
+                "Purchase order #{$order->order_number}",
+                $lines,
+                $adminId
+            );
+
+            if ($entry) {
+                PurchaseOrder::where('id', $order->id)
+                    ->whereNull('journal_entry_id')
+                    ->update(['journal_entry_id' => $entry->id]);
+            }
+        });
+    }
+
     public function saleReturn(SaleReturn $return, Sale $sale, ?int $adminId = null): void
     {
         $this->safe(function () use ($return, $sale, $adminId) {
@@ -230,6 +316,21 @@ class AccountingPoster
             $date = $return->created_at ?? now();
 
             if ($refund > 0) {
+                $vat = round(min(max(0, (float) $return->vat_amount), $refund), 2);
+                $net = round($refund - $vat, 2);
+
+                $lines = [];
+
+                if ($net > 0) {
+                    $lines[] = ['account' => 'sales_returns', 'debit' => $net];
+                }
+
+                if ($vat > 0) {
+                    $lines[] = ['account' => 'sales_tax_payable', 'debit' => $vat, 'description' => 'Output VAT reversed'];
+                }
+
+                $lines[] = ['account' => 'cash', 'credit' => $refund];
+
                 $entry = $this->ledger->post(
                     'saleReturn',
                     'sale_return',
@@ -237,14 +338,15 @@ class AccountingPoster
                     "sale_return:{$return->id}:refund",
                     $date,
                     "Refund for return #{$return->id} (Sale {$sale->invoice_id})",
-                    [
-                        ['account' => 'sales_returns', 'debit' => $refund],
-                        ['account' => 'cash', 'credit' => $refund],
-                    ],
+                    $lines,
                     $adminId
                 );
 
                 if ($entry) {
+                    SaleReturn::where('id', $return->id)
+                        ->whereNull('journal_entry_id')
+                        ->update(['journal_entry_id' => $entry->id]);
+
                     Cashbook::where('table_name', 'sale_returns')
                         ->where('fk_reference_id', $return->id)
                         ->whereNull('journal_entry_id')

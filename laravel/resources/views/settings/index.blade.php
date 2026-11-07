@@ -49,6 +49,18 @@
                 <input type="text" id="company_address" name="company_address" value="{{ old('company_address', $settings['company_address']) }}">
             </div>
 
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="company_vat_number">VAT Registration Number</label>
+                    <input type="text" id="company_vat_number" name="company_vat_number" value="{{ old('company_vat_number', $settings['company_vat_number']) }}" placeholder="e.g. GB123456789">
+                    <small class="form-hint">Shown on VAT invoices and credit notes.</small>
+                </div>
+                <div class="form-group">
+                    <label for="company_country">Country</label>
+                    <input type="text" id="company_country" name="company_country" value="{{ old('company_country', $settings['company_country']) }}" maxlength="2" placeholder="e.g. GB">
+                </div>
+            </div>
+
             <h3 style="font-size: 15px; font-weight: 600; color: var(--text-primary); margin: 24px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">Financial Settings</h3>
 
             <div class="form-group narrow">
@@ -67,6 +79,13 @@
                     <label for="tax_rate">Tax Rate (%) *</label>
                     <input type="number" id="tax_rate" name="tax_rate" value="{{ old('tax_rate', $settings['tax_rate']) }}" min="0" max="100" step="0.01" required>
                 </div>
+                <div class="form-group">
+                    <label for="vat_rate">VAT (%) *</label>
+                    <input type="number" id="vat_rate" name="vat_rate" value="{{ old('vat_rate', $settings['vat_rate']) }}" min="0" max="100" step="0.01" required>
+                </div>
+            </div>
+
+            <div class="form-row">
                 <div class="form-group">
                     <label for="fiscal_year_start">Fiscal Year Start *</label>
                     <input type="text" id="fiscal_year_start" name="fiscal_year_start" value="{{ old('fiscal_year_start', $settings['fiscal_year_start']) }}" placeholder="MM-DD" required>

@@ -6,10 +6,12 @@ use App\Accounting\AccountingPoster;
 use App\Models\Cashbook;
 use App\Models\Configuration;
 use App\Models\Sale;
+use App\Models\SaleDetail;
 use App\Models\SaleReturn;
 use App\Models\Stock;
 use App\Models\Transaction;
 use App\Services\ActivityLogger;
+use App\Services\VatCalculator;
 use Illuminate\Http\Request;
 
 class SaleReturnController extends Controller
@@ -39,6 +41,20 @@ class SaleReturnController extends Controller
         return view('sale-returns.index', compact('returns', 'currencySymbol'));
     }
 
+    public function creditNote(SaleReturn $saleReturn)
+    {
+        $saleReturn->load('sale.customer', 'stock.product');
+        $currencySymbol = Configuration::get('currency_symbol', '$');
+        $company = [
+            'name' => Configuration::get('company_name', config('app.name', 'ERP System')),
+            'address' => Configuration::get('company_address', ''),
+            'vat_number' => Configuration::get('company_vat_number', ''),
+            'country' => Configuration::get('company_country', 'GB'),
+        ];
+
+        return view('sale-returns.credit-note', compact('saleReturn', 'currencySymbol', 'company'));
+    }
+
     public function create()
     {
         $sales = Sale::orderBy('id', 'desc')->get();
@@ -61,8 +77,14 @@ class SaleReturnController extends Controller
             'note' => 'nullable|string',
         ]);
 
+        $calculated = $this->calculateVat($validated);
+
         $return = SaleReturn::create([
             ...$validated,
+            'vat_code' => $calculated['code'],
+            'vat_rate' => $calculated['rate'],
+            'net_amount' => $calculated['net'],
+            'vat_amount' => $calculated['vat'],
             'status' => 'pending',
             'created_by' => auth('admin')->id(),
         ]);
@@ -103,8 +125,14 @@ class SaleReturnController extends Controller
             'status' => 'required|in:pending,approved,rejected,completed',
         ]);
 
+        $calculated = $this->calculateVat($validated);
+
         $saleReturn->update([
             ...$validated,
+            'vat_code' => $calculated['code'],
+            'vat_rate' => $calculated['rate'],
+            'net_amount' => $calculated['net'],
+            'vat_amount' => $calculated['vat'],
             'updated_by' => auth('admin')->id(),
         ]);
 
@@ -141,6 +169,25 @@ class SaleReturnController extends Controller
     public function approve(Request $request, SaleReturn $saleReturn)
     {
         $adminId = auth('admin')->id();
+
+        // Ensure legacy/pending returns carry a VAT split before the credit
+        // note and ledger reversal are posted.
+        if ((float) $saleReturn->refund_amount > 0) {
+            $calculated = $this->calculateVat([
+                'fk_sale_id' => $saleReturn->fk_sale_id,
+                'fk_stock_id' => $saleReturn->fk_stock_id,
+                'refund_amount' => $saleReturn->refund_amount,
+            ]);
+
+            if (round((float) $saleReturn->vat_amount, 2) !== round($calculated['vat'], 2)) {
+                $saleReturn->update([
+                    'vat_code' => $calculated['code'],
+                    'vat_rate' => $calculated['rate'],
+                    'net_amount' => $calculated['net'],
+                    'vat_amount' => $calculated['vat'],
+                ]);
+            }
+        }
 
         $saleReturn->update([
             'status' => 'approved',
@@ -201,6 +248,39 @@ class SaleReturnController extends Controller
 
         return redirect()->route('sale-returns.index')
             ->with('success', 'Sale return approved and item restocked.');
+    }
+
+    /**
+     * Resolve the VAT treatment for a return, preferring the original sale
+     * line's rate and falling back to the product's current rate.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{code: string, rate: float, net: float, vat: float, gross: float}
+     */
+    private function calculateVat(array $data): array
+    {
+        $vat = app(VatCalculator::class);
+        $code = null;
+        $rate = null;
+
+        $detail = SaleDetail::where('fk_sale_id', $data['fk_sale_id'])
+            ->where('fk_stock_id', $data['fk_stock_id'])
+            ->orderByDesc('id')
+            ->first();
+
+        if ($detail) {
+            $code = $detail->vat_code;
+            $rate = $detail->vat_rate !== null ? (float) $detail->vat_rate : null;
+        }
+
+        if ($code === null && $rate === null) {
+            $stock = Stock::with('product')->find($data['fk_stock_id']);
+            $treatment = $vat->forProduct($stock?->product);
+            $code = $treatment['code'];
+            $rate = $treatment['rate'];
+        }
+
+        return $vat->extract((float) $data['refund_amount'], $code, $rate);
     }
 
     public function reject(Request $request, SaleReturn $saleReturn)

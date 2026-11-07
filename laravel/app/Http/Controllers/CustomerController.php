@@ -51,6 +51,9 @@ class CustomerController extends Controller
             'password' => 'required|string|min:8|confirmed',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
+            'vat_number' => 'nullable|string|max:30',
+            'country' => 'nullable|string|size:2',
+            'vat_treatment' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
             'status' => 'required|in:active,inactive',
         ]);
 
@@ -60,6 +63,9 @@ class CustomerController extends Controller
             'password' => $validated['password'],
             'phone' => $validated['phone'] ?? null,
             'address' => $validated['address'] ?? null,
+            'vat_number' => $validated['vat_number'] ?? null,
+            'country' => isset($validated['country']) ? strtoupper($validated['country']) : null,
+            'vat_treatment' => $validated['vat_treatment'] ?? null,
             'status' => $validated['status'],
             'created_by' => auth('admin')->id(),
         ]);
@@ -95,6 +101,9 @@ class CustomerController extends Controller
             'password' => 'nullable|string|min:8|confirmed',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
+            'vat_number' => 'nullable|string|max:30',
+            'country' => 'nullable|string|size:2',
+            'vat_treatment' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
             'status' => 'required|in:active,inactive',
         ]);
 
@@ -103,6 +112,9 @@ class CustomerController extends Controller
             'email' => $validated['email'],
             'phone' => $validated['phone'] ?? null,
             'address' => $validated['address'] ?? null,
+            'vat_number' => $validated['vat_number'] ?? null,
+            'country' => isset($validated['country']) ? strtoupper($validated['country']) : null,
+            'vat_treatment' => $validated['vat_treatment'] ?? null,
             'status' => $validated['status'],
             'updated_by' => auth('admin')->id(),
         ];

@@ -54,6 +54,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CmsController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\VatReturnController;
 use App\Http\Controllers\BiController;
 use App\Http\Controllers\CustomerPortalController;
 use App\Http\Controllers\SupplierPortalController;
@@ -358,6 +359,9 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     Route::get('/sale-returns', [SaleReturnController::class, 'index'])
         ->middleware('permission:sales.view')
         ->name('sale-returns.index');
+    Route::get('/sale-returns/{saleReturn}/credit-note', [SaleReturnController::class, 'creditNote'])
+        ->middleware('permission:sales.view')
+        ->name('sale-returns.credit-note');
     Route::get('/sale-returns/create', [SaleReturnController::class, 'create'])
         ->middleware('permission:sales.save')
         ->name('sale-returns.create');
@@ -540,6 +544,9 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     Route::get('/reports/suppliers', [ReportController::class, 'supplier'])
         ->middleware('permission:dashboard.view')
         ->name('reports.suppliers');
+    Route::get('/reports/vat-return', [VatReturnController::class, 'index'])
+        ->middleware('permission:dashboard.view')
+        ->name('reports.vat-return');
 
     // Permissions
     Route::get('/permissions', [PermissionController::class, 'index'])
@@ -585,6 +592,7 @@ Route::post('/vendors/register', [StorefrontController::class, 'vendorRegister']
 Route::get('/vendor/{slug}', [StorefrontController::class, 'vendorStore'])->name('store.vendor');
 Route::get('/cart', [StorefrontController::class, 'cart'])->name('store.cart');
 Route::get('/checkout', [StorefrontController::class, 'checkout'])->name('store.checkout');
+Route::post('/checkout', [StorefrontController::class, 'placeOrder'])->name('store.checkout.place');
 Route::get('/shipping/options', [StorefrontController::class, 'shippingOptions'])->name('store.shipping.options');
 
 // Customer Portal

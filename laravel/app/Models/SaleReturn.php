@@ -14,12 +14,16 @@ class SaleReturn extends Model
 
     protected $fillable = [
         'fk_sale_id', 'fk_stock_id', 'quantity', 'refund_amount',
+        'vat_code', 'vat_rate', 'net_amount', 'vat_amount', 'journal_entry_id',
         'reason', 'note', 'status',
         'created_by', 'updated_by', 'deleted_by',
     ];
 
     protected $casts = [
         'refund_amount' => 'decimal:2',
+        'vat_rate' => 'decimal:2',
+        'net_amount' => 'decimal:2',
+        'vat_amount' => 'decimal:2',
         'quantity' => 'integer',
     ];
 

@@ -6,6 +6,7 @@ use App\Accounting\AccountingPoster;
 use App\Http\Controllers\Controller;
 use App\Models\{Admin, Cashbook, Category, Configuration, Customer, Expense, Income, Product, Sale, SaleDetail, Stock, Transaction};
 use App\Services\ActivityLogger;
+use App\Services\VatCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{Auth, Hash, DB};
 use Illuminate\Support\Str;
@@ -47,13 +48,40 @@ class ApiController extends Controller
     {
         $config = Configuration::getMany([
             'currency_sign',
+            'currency_symbol',
+            'vat_rate',
             'vat_percentage',
+            'tax_rate',
             'tax_percentage',
             'date_format',
             'time_format',
             'timezone',
             'project_name',
+            'company_name',
+            'company_address',
+            'company_vat_number',
+            'company_country',
+            'company_email',
+            'company_phone',
         ]);
+
+        $vatRate = $config['vat_rate'] !== ''
+            ? (float) $config['vat_rate']
+            : ($config['vat_percentage'] !== ''
+                ? (float) $config['vat_percentage']
+                : app(VatCalculator::class)->defaultRate());
+
+        $taxRate = $config['tax_rate'] !== ''
+            ? (float) $config['tax_rate']
+            : (float) ($config['tax_percentage'] !== '' ? $config['tax_percentage'] : 0);
+
+        // Keep both the new and legacy key names in sync so existing React
+        // clients keep working while VAT becomes the single source of truth.
+        $config['vat_rate'] = $vatRate;
+        $config['vat_percentage'] = $vatRate;
+        $config['tax_rate'] = $taxRate;
+        $config['tax_percentage'] = $taxRate;
+        $config['currency_sign'] = $config['currency_sign'] ?: ($config['currency_symbol'] ?: '$');
 
         return response()->json($config);
     }
@@ -113,6 +141,9 @@ class ApiController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:customers,email',
+            'vat_number' => 'nullable|string|max:30',
+            'country' => 'nullable|string|size:2',
+            'vat_treatment' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
         ]);
 
         $customer = Customer::create([
@@ -121,6 +152,9 @@ class ApiController extends Controller
             'password' => Hash::make($request->email),
             'phone' => $request->input('phone', ''),
             'address' => $request->input('address', ''),
+            'vat_number' => $request->input('vat_number'),
+            'country' => $request->filled('country') ? strtoupper((string) $request->input('country')) : null,
+            'vat_treatment' => $request->input('vat_treatment'),
             'status' => $request->input('status', 'active'),
             'balance' => 0,
             'created_by' => Auth::guard('admin')->id(),
@@ -138,6 +172,9 @@ class ApiController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:customers,email,' . $id,
+            'vat_number' => 'nullable|string|max:30',
+            'country' => 'nullable|string|size:2',
+            'vat_treatment' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
         ]);
 
         $customer->update([
@@ -145,6 +182,9 @@ class ApiController extends Controller
             'email' => $request->email,
             'phone' => $request->input('phone', $customer->phone),
             'address' => $request->input('address', $customer->address),
+            'vat_number' => $request->input('vat_number', $customer->vat_number),
+            'country' => $request->filled('country') ? strtoupper((string) $request->input('country')) : $customer->country,
+            'vat_treatment' => $request->input('vat_treatment', $customer->vat_treatment),
             'status' => $request->input('status', $customer->status),
             'updated_by' => Auth::guard('admin')->id(),
         ]);
@@ -255,6 +295,8 @@ class ApiController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'fk_category_id' => 'required|exists:categories,id',
+            'vat_code' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
+            'vat_rate' => 'nullable|numeric|min:0|max:100',
         ]);
 
         $product = Product::create([
@@ -267,6 +309,8 @@ class ApiController extends Controller
             'barcode' => $request->input('barcode', ''),
             'description' => $request->input('description', ''),
             'status' => $request->input('status', 'active'),
+            'vat_code' => $request->input('vat_code'),
+            'vat_rate' => $request->input('vat_rate'),
             'image' => $request->hasFile('image') ? $request->file('image')->store('products', 'public') : null,
             'created_by' => Auth::guard('admin')->id(),
         ]);
@@ -283,6 +327,8 @@ class ApiController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'fk_category_id' => 'required|exists:categories,id',
+            'vat_code' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
+            'vat_rate' => 'nullable|numeric|min:0|max:100',
         ]);
 
         $data = [
@@ -295,6 +341,8 @@ class ApiController extends Controller
             'barcode' => $request->input('barcode', $product->barcode),
             'description' => $request->input('description', $product->description),
             'status' => $request->input('status', $product->status),
+            'vat_code' => $request->input('vat_code', $product->vat_code),
+            'vat_rate' => $request->input('vat_rate', $product->vat_rate),
             'updated_by' => Auth::guard('admin')->id(),
         ];
 
@@ -419,12 +467,13 @@ class ApiController extends Controller
             'items' => 'required|array|min:1',
             'items.*.fk_stock_id' => 'required|exists:stocks,id',
             'items.*.sale_stock' => 'required|integer|min:1',
-            'items.*.subtotal' => 'required|numeric|min:0',
-            'subtotal' => 'required|numeric|min:0',
-            'vat_amount' => 'required|numeric|min:0',
-            'tax_amount' => 'required|numeric|min:0',
-            'discount_amount' => 'required|numeric|min:0',
-            'total' => 'required|numeric|min:0',
+            'items.*.subtotal' => 'nullable|numeric|min:0',
+            'subtotal' => 'nullable|numeric|min:0',
+            'vat_amount' => 'nullable|numeric|min:0',
+            'tax_amount' => 'nullable|numeric|min:0',
+            'discount_amount' => 'nullable|numeric|min:0',
+            'total' => 'nullable|numeric|min:0',
+            'customer_id' => 'nullable|exists:customers,id',
         ]);
 
         DB::beginTransaction();
@@ -433,47 +482,91 @@ class ApiController extends Controller
             $invoiceId = 'INV-' . strtoupper(Str::random(8)) . '-' . time();
             $adminId = Auth::guard('admin')->id();
             $today = now()->toDateString();
+            $vat = app(VatCalculator::class);
+            $discount = round((float) $request->input('discount_amount', 0), 2);
+
+            // The server is the source of truth: rebuild every line from the
+            // stock price and the product's own VAT treatment.
+            $lines = [];
+
+            foreach ($request->items as $item) {
+                $stock = Stock::with('product')->find($item['fk_stock_id']);
+
+                if (! $stock) {
+                    continue;
+                }
+
+                $quantity = (int) $item['sale_stock'];
+                $treatment = $vat->forProduct($stock->product);
+                $gross = round((float) $stock->sale_price * $quantity, 2);
+
+                $lines[] = $vat->line($gross, $treatment['code'], $treatment['rate']) + [
+                    'quantity' => $quantity,
+                    'stock_id' => $stock->id,
+                    'stock_name' => $stock->product->name ?? '',
+                    'cost_price' => (float) $stock->buy_price,
+                    'total_stock' => (int) $stock->quantity,
+                ];
+            }
+
+            if (empty($lines)) {
+                DB::rollBack();
+                return response()->json(['error' => 'No valid items in sale'], 422);
+            }
+
+            $lines = $vat->applyDiscount($lines, $discount);
+            $summary = $vat->summary($lines);
+            $grandTotal = round($summary['gross'], 2);
+            $buyPrice = round(array_sum(array_map(
+                fn (array $line) => (float) $line['cost_price'] * (int) $line['quantity'],
+                $lines
+            )), 2);
 
             $sale = Sale::create([
                 'fk_user_id' => $request->input('customer_id'),
                 'invoice_id' => $invoiceId,
                 'type' => 'POS',
-                'net_price' => $request->subtotal,
-                'vat_amount' => $request->vat_amount,
-                'tax_amount' => $request->tax_amount,
+                'net_price' => $summary['net'],
+                'vat_amount' => $summary['vat'],
+                'tax_amount' => 0,
                 'shipping_cost' => 0,
-                'discount_amount' => $request->discount_amount,
-                'grand_total' => $request->total,
-                'paid_amount' => $request->total,
+                'discount_amount' => $discount,
+                'grand_total' => $grandTotal,
+                'paid_amount' => $grandTotal,
+                'buy_price' => $buyPrice,
                 'sale_due' => 0,
                 'status' => 'completed',
                 'note' => $request->input('note', ''),
+                'vat_breakdown' => $summary['breakdown'],
                 'created_by' => $adminId,
             ]);
 
-            foreach ($request->items as $item) {
-                $stock = Stock::find($item['fk_stock_id']);
-
+            foreach ($lines as $line) {
                 SaleDetail::create([
                     'fk_sale_id' => $sale->id,
-                    'fk_stock_id' => $item['fk_stock_id'],
-                    'stock_name' => $stock->product->name ?? '',
-                    'total_stock' => $stock->quantity ?? 0,
-                    'sale_stock' => $item['sale_stock'],
-                    'subtotal' => $item['subtotal'],
-                    'cost_price' => $stock->buy_price ?? 0,
+                    'fk_stock_id' => $line['stock_id'],
+                    'stock_name' => $line['stock_name'],
+                    'total_stock' => $line['total_stock'],
+                    'sale_stock' => $line['quantity'],
+                    'subtotal' => $line['gross'],
+                    'cost_price' => $line['cost_price'],
+                    'vat_code' => $line['code'],
+                    'vat_rate' => $line['rate'],
+                    'net_amount' => $line['net'],
+                    'vat_amount' => $line['vat'],
+                    'gross_amount' => $line['gross'],
                 ]);
 
-                Stock::where('id', $item['fk_stock_id'])
-                    ->decrement('quantity', $item['sale_stock']);
+                Stock::where('id', $line['stock_id'])
+                    ->decrement('quantity', $line['quantity']);
             }
 
             $transaction = Transaction::create([
                 'date' => $today,
                 'type' => Transaction::TYPE_SALE_INCOME,
                 'fk_reference_id' => $sale->id,
-                'amount' => $request->total,
-                'paid_amount' => $request->total,
+                'amount' => $grandTotal,
+                'paid_amount' => $grandTotal,
                 'due_amount' => 0,
                 'created_by' => $adminId,
             ]);
@@ -482,7 +575,9 @@ class ApiController extends Controller
                 'table_name' => 'sales',
                 'fk_transaction_id' => $transaction->id,
                 'description' => "Sale #{$invoiceId}",
-                'amount' => $request->total,
+                'amount' => $grandTotal,
+                'net_amount' => $summary['net'],
+                'vat_amount' => $summary['vat'],
                 'created_by' => $adminId,
             ]);
 
@@ -490,19 +585,26 @@ class ApiController extends Controller
                 'table_name' => 'sales',
                 'fk_reference_id' => $sale->id,
                 'description' => "Sale #{$invoiceId}",
-                'in_amount' => $request->total,
+                'in_amount' => $grandTotal,
                 'out_amount' => 0,
                 'amount_payable' => 0,
                 'amount_receivable' => 0,
                 'created_by' => $adminId,
             ]);
 
-            app(AccountingPoster::class)->sale($sale, (float) $request->total, 0, null, $adminId);
+            app(AccountingPoster::class)->sale($sale, (float) $grandTotal, 0, $buyPrice, $adminId);
 
             ActivityLogger::created('Sale', $sale);
 
             DB::commit();
-            return response()->json(['message' => 'Sale completed successfully', 'sale' => $sale, 'invoice_id' => $invoiceId]);
+            return response()->json([
+                'message' => 'Sale completed successfully',
+                'sale' => $sale,
+                'invoice_id' => $invoiceId,
+                'net_amount' => $summary['net'],
+                'vat_amount' => $summary['vat'],
+                'total' => $grandTotal,
+            ]);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['error' => 'Failed to process sale'], 500);
@@ -525,9 +627,11 @@ class ApiController extends Controller
 
     public function saveIncome(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'description' => 'required|string|max:255',
             'amount' => 'required|numeric|min:0',
+            'vat_code' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
+            'vat_rate' => 'nullable|numeric|min:0|max:100',
         ]);
 
         DB::beginTransaction();
@@ -535,13 +639,19 @@ class ApiController extends Controller
         try {
             $adminId = Auth::guard('admin')->id();
             $today = now()->toDateString();
+            $vat = app(VatCalculator::class);
+            $calculated = $vat->extract(
+                (float) $validated['amount'],
+                $validated['vat_code'] ?? null,
+                isset($validated['vat_rate']) ? (float) $validated['vat_rate'] : null
+            );
 
             $transaction = Transaction::create([
                 'date' => $today,
                 'type' => Transaction::TYPE_INCOME,
                 'fk_reference_id' => 0,
-                'amount' => $request->amount,
-                'paid_amount' => $request->amount,
+                'amount' => $validated['amount'],
+                'paid_amount' => $validated['amount'],
                 'due_amount' => 0,
                 'created_by' => $adminId,
             ]);
@@ -549,8 +659,12 @@ class ApiController extends Controller
             $income = Income::create([
                 'table_name' => 'incomes',
                 'fk_transaction_id' => $transaction->id,
-                'description' => $request->description,
-                'amount' => $request->amount,
+                'description' => $validated['description'],
+                'amount' => $validated['amount'],
+                'vat_code' => $calculated['code'],
+                'vat_rate' => $calculated['rate'],
+                'net_amount' => $calculated['net'],
+                'vat_amount' => $calculated['vat'],
                 'created_by' => $adminId,
             ]);
 
@@ -595,9 +709,11 @@ class ApiController extends Controller
 
     public function saveExpense(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'description' => 'required|string|max:255',
             'amount' => 'required|numeric|min:0',
+            'vat_code' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
+            'vat_rate' => 'nullable|numeric|min:0|max:100',
         ]);
 
         DB::beginTransaction();
@@ -605,13 +721,19 @@ class ApiController extends Controller
         try {
             $adminId = Auth::guard('admin')->id();
             $today = now()->toDateString();
+            $vat = app(VatCalculator::class);
+            $calculated = $vat->extract(
+                (float) $validated['amount'],
+                $validated['vat_code'] ?? null,
+                isset($validated['vat_rate']) ? (float) $validated['vat_rate'] : null
+            );
 
             $transaction = Transaction::create([
                 'date' => $today,
                 'type' => Transaction::TYPE_EXPENSE,
                 'fk_reference_id' => 0,
-                'amount' => $request->amount,
-                'paid_amount' => $request->amount,
+                'amount' => $validated['amount'],
+                'paid_amount' => $validated['amount'],
                 'due_amount' => 0,
                 'created_by' => $adminId,
             ]);
@@ -619,8 +741,12 @@ class ApiController extends Controller
             $expense = Expense::create([
                 'table_name' => 'expenses',
                 'fk_transaction_id' => $transaction->id,
-                'description' => $request->description,
-                'amount' => $request->amount,
+                'description' => $validated['description'],
+                'amount' => $validated['amount'],
+                'vat_code' => $calculated['code'],
+                'vat_rate' => $calculated['rate'],
+                'net_amount' => $calculated['net'],
+                'vat_amount' => $calculated['vat'],
                 'created_by' => $adminId,
             ]);
 

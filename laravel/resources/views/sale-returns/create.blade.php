@@ -60,8 +60,9 @@
                     <span class="form-error" x-show="errors.quantity" x-text="errors.quantity"></span>
                 </div>
                 <div class="form-group">
-                    <label for="refund_amount">Refund Amount *</label>
+                    <label for="refund_amount">Refund Amount (VAT inclusive) *</label>
                     <input type="number" id="refund_amount" x-model="form.refund_amount" step="0.01" min="0" required>
+                    <small class="form-hint">VAT is extracted using the original sale line's VAT rate.</small>
                     <span class="form-error" x-show="errors.refund_amount" x-text="errors.refund_amount"></span>
                 </div>
             </div>

@@ -85,6 +85,32 @@
                 </div>
             </div>
 
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="vat_number">VAT Number</label>
+                    <input type="text" id="vat_number" x-model="form.vat_number" placeholder="e.g. GB123456789">
+                    <span class="form-error" x-show="errors.vat_number" x-text="errors.vat_number"></span>
+                </div>
+                <div class="form-group">
+                    <label for="country">Country</label>
+                    <input type="text" id="country" x-model="form.country" maxlength="2" placeholder="e.g. GB">
+                    <span class="form-error" x-show="errors.country" x-text="errors.country"></span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="vat_treatment">VAT Treatment</label>
+                <select id="vat_treatment" x-model="form.vat_treatment">
+                    <option value="">Use product/default rate</option>
+                    <option value="standard">Standard rate (20%)</option>
+                    <option value="reduced">Reduced rate (5%)</option>
+                    <option value="zero">Zero rate (0%)</option>
+                    <option value="exempt">Exempt</option>
+                    <option value="outside_scope">Outside the scope of VAT</option>
+                </select>
+                <span class="form-error" x-show="errors.vat_treatment" x-text="errors.vat_treatment"></span>
+            </div>
+
             <div style="display: flex; gap: 12px; margin-top: 24px;">
                 <button type="submit" class="btn btn-primary" :disabled="submitting">
                     <span x-show="!submitting">Update Supplier</span>
@@ -107,6 +133,9 @@
                 mobile: '{{ $supplier->mobile }}',
                 balance: '{{ $supplier->balance }}',
                 address: '{{ $supplier->address }}',
+                vat_number: '{{ $supplier->vat_number }}',
+                country: '{{ $supplier->country }}',
+                vat_treatment: '{{ $supplier->vat_treatment }}',
                 status: '{{ $supplier->status }}',
             },
             errors: {},

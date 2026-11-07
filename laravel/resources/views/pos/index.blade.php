@@ -70,6 +70,7 @@
                         <div style="flex: 1; min-width: 0;">
                             <div style="font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" x-text="item.name"></div>
                             <div style="font-size: 12px; color: var(--text-secondary);" x-text="currencySymbol + parseFloat(item.price).toFixed(2) + ' each'"></div>
+                            <div style="font-size: 11px; color: var(--text-secondary);" x-text="'VAT ' + itemVatRate(item).toFixed(0) + '% included'" x-show="itemVatRate(item) > 0"></div>
                         </div>
                         <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
                             <button type="button" class="btn btn-ghost btn-sm" @click="updateQuantity(index, -1)">-</button>
@@ -96,6 +97,14 @@
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                     <span style="min-width: 70px;">Shipping:</span>
                     <input type="number" x-model.number="shipping" min="0" step="0.01" class="form-input" style="width: 100px;" placeholder="0.00">
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 13px; color: var(--text-secondary);">
+                    <span>Net (excl. VAT):</span>
+                    <span x-text="currencySymbol + cartNet.toFixed(2)"></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; color: var(--text-secondary);">
+                    <span>VAT:</span>
+                    <span x-text="currencySymbol + cartVat.toFixed(2)"></span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 16px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 18px;">
                     <span>Total:</span>
@@ -145,6 +154,7 @@
             errorMessage: '',
             successMessage: '',
             currencySymbol: '{{ $currencySymbol }}',
+            defaultVatRate: {{ (float) $vatRate }},
             csrfToken: '',
             init() {
                 this.csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -157,8 +167,38 @@
             get subtotal() {
                 return this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             },
+            itemVatRate(item) {
+                return (item.vat_rate !== null && item.vat_rate !== undefined && item.vat_rate !== '')
+                    ? parseFloat(item.vat_rate)
+                    : this.defaultVatRate;
+            },
+            vatSplit(gross, rate) {
+                gross = Math.max(0, parseFloat(gross) || 0);
+                rate = Math.max(0, parseFloat(rate) || 0);
+                const net = Math.round((gross / (1 + rate / 100)) * 100) / 100;
+                return { net: net, vat: Math.round((gross - net) * 100) / 100 };
+            },
+            get vatLines() {
+                const grossSubtotal = this.subtotal;
+                const discount = Math.min(Math.max(parseFloat(this.discount) || 0, 0), grossSubtotal);
+                const lines = this.cart.map(item => {
+                    const gross = item.price * item.quantity;
+                    const share = grossSubtotal > 0 ? discount * (gross / grossSubtotal) : 0;
+                    return this.vatSplit(gross - share, this.itemVatRate(item));
+                });
+                if (parseFloat(this.shipping) > 0) {
+                    lines.push(this.vatSplit(parseFloat(this.shipping), this.defaultVatRate));
+                }
+                return lines;
+            },
+            get cartNet() {
+                return this.vatLines.reduce((sum, line) => sum + line.net, 0);
+            },
+            get cartVat() {
+                return this.vatLines.reduce((sum, line) => sum + line.vat, 0);
+            },
             get grandTotal() {
-                return Math.max(0, this.subtotal - this.discount + this.shipping);
+                return Math.max(0, this.cartNet + this.cartVat);
             },
             get dueAmount() {
                 return Math.max(0, this.grandTotal - this.paidAmount);
@@ -176,6 +216,8 @@
                         price: parseFloat(product.sale_price),
                         quantity: 1,
                         stock_quantity: product.stock_quantity,
+                        vat_code: product.vat_code,
+                        vat_rate: product.vat_rate,
                     });
                 }
             },

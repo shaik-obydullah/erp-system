@@ -88,6 +88,8 @@ class ProductController extends Controller
             'color' => 'nullable',
             'description' => 'nullable',
             'status' => 'required|in:active,inactive,archive',
+            'vat_code' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
+            'vat_rate' => 'nullable|numeric|min:0|max:100',
             'images.*' => 'nullable|file|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
         ]);
 
@@ -113,6 +115,8 @@ class ProductController extends Controller
             'description' => $validated['description'] ?? null,
             'image' => !empty($images) ? json_encode($images) : null,
             'status' => $validated['status'],
+            'vat_code' => $validated['vat_code'] ?? null,
+            'vat_rate' => $validated['vat_rate'] ?? null,
             'created_by' => auth('admin')->id(),
         ]);
 
@@ -154,6 +158,8 @@ class ProductController extends Controller
             'color' => 'nullable',
             'description' => 'nullable',
             'status' => 'required|in:active,inactive,archive',
+            'vat_code' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
+            'vat_rate' => 'nullable|numeric|min:0|max:100',
             'images.*' => 'nullable|file|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
         ]);
 
@@ -198,6 +204,8 @@ class ProductController extends Controller
             'description' => $validated['description'] ?? null,
             'image' => !empty($allImages) ? json_encode($allImages) : null,
             'status' => $validated['status'],
+            'vat_code' => $validated['vat_code'] ?? null,
+            'vat_rate' => $validated['vat_rate'] ?? null,
             'updated_by' => auth('admin')->id(),
         ]);
 

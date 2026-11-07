@@ -19,7 +19,12 @@ class Product extends Model
         'name', 'url_slug', 'image', 'sku', 'barcode',
         'size', 'color', 'specification', 'attribute',
         'review_number', 'review_avg', 'description', 'status',
+        'vat_code', 'vat_rate',
         'created_by', 'updated_by', 'deleted_by',
+    ];
+
+    protected $casts = [
+        'vat_rate' => 'decimal:2',
     ];
 
     protected static function booted(): void

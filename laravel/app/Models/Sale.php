@@ -16,7 +16,7 @@ class Sale extends Model
         'table_name', 'fk_user_id', 'invoice_id', 'type',
         'net_price', 'vat_amount', 'tax_amount', 'shipping_cost',
         'discount_amount', 'grand_total', 'paid_amount', 'buy_price',
-        'sale_due', 'status', 'send_notification', 'note',
+        'sale_due', 'status', 'send_notification', 'note', 'vat_breakdown',
         'created_by', 'updated_by', 'deleted_by',
     ];
 
@@ -24,6 +24,10 @@ class Sale extends Model
         'grand_total' => 'decimal:2',
         'paid_amount' => 'decimal:2',
         'sale_due' => 'decimal:2',
+        'net_price' => 'decimal:2',
+        'vat_amount' => 'decimal:2',
+        'tax_amount' => 'decimal:2',
+        'vat_breakdown' => 'array',
     ];
 
     public function details()

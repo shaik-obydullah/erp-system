@@ -19,6 +19,7 @@ class Expense extends Model
         'fk_transaction_id',
         'description',
         'amount',
+        'vat_code', 'vat_rate', 'net_amount', 'vat_amount',
         'journal_entry_id',
         'created_by',
         'updated_by',
@@ -29,6 +30,9 @@ class Expense extends Model
     {
         return [
             'amount' => 'decimal:2',
+            'vat_rate' => 'decimal:2',
+            'net_amount' => 'decimal:2',
+            'vat_amount' => 'decimal:2',
         ];
     }
 

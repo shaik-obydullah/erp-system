@@ -14,11 +14,16 @@ use App\Models\SaleDetail;
 use App\Models\Stock;
 use App\Models\Transaction;
 use App\Services\ActivityLogger;
+use App\Services\VatCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class PosController extends Controller
 {
+    public function __construct(private readonly VatCalculator $vat)
+    {
+    }
+
     public function index()
     {
         $adminId = auth('admin')->id();
@@ -39,17 +44,21 @@ class PosController extends Controller
             ->get();
 
         $products = $stocks->map(function ($stock) {
+            $treatment = $this->vat->forProduct($stock->product);
+
             return [
                 'id' => $stock->id,
                 'name' => $stock->product?->name ?? 'Product',
                 'sku' => $stock->product?->sku ?? '',
                 'sale_price' => $stock->sale_price,
                 'stock_quantity' => $stock->quantity,
+                'vat_code' => $treatment['code'],
+                'vat_rate' => $treatment['rate'],
             ];
         });
 
         $currencySymbol = Configuration::get('currency_symbol', '$');
-        $vatRate = Configuration::get('vat_rate', 0);
+        $vatRate = $this->vat->defaultRate();
         $taxRate = Configuration::get('tax_rate', 0);
         $customers = Customer::where('status', 'active')->orderBy('name')->get();
 
@@ -63,7 +72,7 @@ class PosController extends Controller
             'quantity' => 'required|integer|min:1',
         ]);
 
-        $stock = Stock::findOrFail($validated['stock_id']);
+        $stock = Stock::with('product')->findOrFail($validated['stock_id']);
         $adminId = auth('admin')->id();
 
         if ($stock->quantity < $validated['quantity']) {
@@ -78,6 +87,8 @@ class PosController extends Controller
                 'created_by' => $adminId,
             ]
         );
+
+        $treatment = $this->vat->forProduct($stock->product);
 
         $existingDetail = CartDetail::where('fk_cart_id', $cart->id)
             ->where('fk_stock_id', $stock->id)
@@ -94,6 +105,8 @@ class PosController extends Controller
             $existingDetail->update([
                 'qty' => $newQty,
                 'subtotal' => $stock->sale_price * $newQty,
+                'vat_code' => $treatment['code'],
+                'vat_rate' => $treatment['rate'],
             ]);
         } else {
             CartDetail::create([
@@ -108,6 +121,8 @@ class PosController extends Controller
                 'discount' => 0,
                 'subtotal' => $subtotal,
                 'buy_price' => $stock->buy_price,
+                'vat_code' => $treatment['code'],
+                'vat_rate' => $treatment['rate'],
             ]);
         }
 
@@ -136,29 +151,58 @@ class PosController extends Controller
         $validated = $request->validate([
             'paid_amount' => 'required|numeric|min:0',
             'discount_amount' => 'nullable|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0',
             'shipping_cost' => 'nullable|numeric|min:0',
+            'shipping' => 'nullable|numeric|min:0',
+            'customer_id' => 'nullable|exists:customers,id',
             'note' => 'nullable|string',
+            'cart' => 'nullable|array',
+            'cart.*.product_id' => 'nullable|integer',
+            'cart.*.stock_id' => 'nullable|integer',
+            'cart.*.quantity' => 'nullable|integer|min:1',
         ]);
 
         $adminId = auth('admin')->id();
         $cart = Cart::where('fk_admin_id', $adminId)->first();
 
-        if (!$cart || $cart->details()->count() === 0) {
+        $requestLines = $validated['cart'] ?? [];
+
+        if (empty($requestLines) && (! $cart || $cart->details()->count() === 0)) {
             return response()->json(['message' => 'Cart is empty.'], 422);
         }
 
-        $cart->load('details.stock');
+        $discountAmount = round((float) ($validated['discount_amount'] ?? $validated['discount'] ?? 0), 2);
+        $shippingCost = round((float) ($validated['shipping_cost'] ?? $validated['shipping'] ?? 0), 2);
+        $paidAmount = round((float) $validated['paid_amount'], 2);
 
-        $netPrice = $cart->details->sum('subtotal');
-        $discountAmount = $validated['discount_amount'] ?? 0;
-        $shippingCost = $validated['shipping_cost'] ?? 0;
-        $grandTotal = $netPrice - $discountAmount + $shippingCost;
-        $paidAmount = $validated['paid_amount'];
-        $saleDue = max(0, $grandTotal - $paidAmount);
+        $lines = $this->checkoutLines($requestLines, $cart);
 
-        $buyPrice = $cart->details->sum(function ($detail) {
-            return $detail->buy_price * $detail->qty;
-        });
+        if (empty($lines)) {
+            return response()->json(['message' => 'Cart is empty.'], 422);
+        }
+
+        $lines = $this->vat->applyDiscount($lines, $discountAmount);
+
+        if ($shippingCost > 0) {
+            $lines[] = $this->vat->line($shippingCost, null, null) + [
+                'description' => 'Shipping',
+                'quantity' => 1,
+                'stock_id' => null,
+                'stock_name' => 'Shipping',
+                'buy_price' => 0.0,
+                'total_stock' => 0,
+                'is_shipping' => true,
+            ];
+        }
+
+        $summary = $this->vat->summary($lines);
+
+        $grandTotal = round($summary['gross'], 2);
+        $saleDue = round(max(0, $grandTotal - $paidAmount), 2);
+        $buyPrice = round(array_sum(array_map(
+            fn (array $line) => (float) ($line['buy_price'] ?? 0) * (int) ($line['quantity'] ?? 0),
+            $lines
+        )), 2);
 
         $invoiceId = 'INV-' . strtoupper(uniqid());
 
@@ -167,11 +211,11 @@ class PosController extends Controller
         try {
             $sale = Sale::create([
                 'table_name' => 'sales',
-                'fk_user_id' => null,
+                'fk_user_id' => $validated['customer_id'] ?? null,
                 'invoice_id' => $invoiceId,
                 'type' => 'POS',
-                'net_price' => $netPrice,
-                'vat_amount' => 0,
+                'net_price' => $summary['net'],
+                'vat_amount' => $summary['vat'],
                 'tax_amount' => 0,
                 'shipping_cost' => $shippingCost,
                 'discount_amount' => $discountAmount,
@@ -181,26 +225,36 @@ class PosController extends Controller
                 'sale_due' => $saleDue,
                 'status' => 'completed',
                 'note' => $validated['note'] ?? null,
+                'vat_breakdown' => $summary['breakdown'],
                 'created_by' => $adminId,
             ]);
 
-            foreach ($cart->details as $detail) {
+            foreach ($lines as $line) {
+                if (! empty($line['is_shipping']) || empty($line['stock_id'])) {
+                    continue;
+                }
+
                 SaleDetail::create([
                     'fk_sale_id' => $sale->id,
-                    'fk_stock_id' => $detail->fk_stock_id,
-                    'stock_name' => $detail->stock_name,
-                    'size' => $detail->stock?->product?->size,
-                    'color' => $detail->stock?->product?->color,
-                    'total_stock' => $detail->total_stock,
-                    'sale_stock' => $detail->qty,
-                    'subtotal' => $detail->subtotal,
-                    'cost_price' => $detail->buy_price,
+                    'fk_stock_id' => $line['stock_id'],
+                    'stock_name' => $line['stock_name'],
+                    'size' => $line['size'] ?? null,
+                    'color' => $line['color'] ?? null,
+                    'total_stock' => $line['total_stock'] ?? 0,
+                    'sale_stock' => $line['quantity'],
+                    'subtotal' => $line['gross'],
+                    'cost_price' => $line['buy_price'],
+                    'vat_code' => $line['code'],
+                    'vat_rate' => $line['rate'],
+                    'net_amount' => $line['net'],
+                    'vat_amount' => $line['vat'],
+                    'gross_amount' => $line['gross'],
                 ]);
 
-                $stock = Stock::find($detail->fk_stock_id);
+                $stock = Stock::find($line['stock_id']);
                 if ($stock) {
                     $stock->update([
-                        'quantity' => max(0, $stock->quantity - $detail->qty),
+                        'quantity' => max(0, $stock->quantity - $line['quantity']),
                         'updated_by' => $adminId,
                     ]);
                 }
@@ -217,12 +271,16 @@ class PosController extends Controller
                 'created_by' => $adminId,
             ]);
 
-            // Accounting: record income from sale
+            // Accounting: record income from sale (gross, VAT split happens in the ledger)
             Income::create([
                 'table_name' => 'sales',
                 'fk_transaction_id' => $transaction->id,
                 'description' => "Sale {$invoiceId}",
                 'amount' => $grandTotal,
+                'vat_code' => null,
+                'vat_rate' => null,
+                'net_amount' => $summary['net'],
+                'vat_amount' => $summary['vat'],
                 'created_by' => $adminId,
             ]);
 
@@ -254,13 +312,15 @@ class PosController extends Controller
                 ]);
             }
 
-            app(AccountingPoster::class)->sale($sale, (float) $paidAmount, (float) $saleDue, (float) $buyPrice, $adminId);
+            app(AccountingPoster::class)->sale($sale, $paidAmount, $saleDue, $buyPrice, $adminId);
 
-            $cart->details()->delete();
-            $cart->update([
-                'net_total' => 0, 'vat_total' => 0, 'tax_total' => 0,
-                'discount_total' => 0, 'grand_total' => 0, 'buy_total' => 0,
-            ]);
+            if ($cart) {
+                $cart->details()->delete();
+                $cart->update([
+                    'net_total' => 0, 'vat_total' => 0, 'tax_total' => 0,
+                    'discount_total' => 0, 'grand_total' => 0, 'buy_total' => 0,
+                ]);
+            }
 
             DB::commit();
 
@@ -277,12 +337,92 @@ class PosController extends Controller
         }
     }
 
+    /**
+     * Build VAT-inclusive lines from the POS request payload, falling back to
+     * the persisted database cart when the client did not send a cart array.
+     *
+     * @param  array<int, array<string, mixed>>  $requestLines
+     * @return array<int, array<string, mixed>>
+     */
+    private function checkoutLines(array $requestLines, ?Cart $cart): array
+    {
+        $lines = [];
+
+        if (! empty($requestLines)) {
+            foreach ($requestLines as $item) {
+                $stockId = (int) ($item['stock_id'] ?? $item['product_id'] ?? 0);
+                $quantity = (int) ($item['quantity'] ?? 0);
+
+                if ($stockId <= 0 || $quantity <= 0) {
+                    continue;
+                }
+
+                $stock = Stock::with('product')->find($stockId);
+                if (! $stock) {
+                    continue;
+                }
+
+                $treatment = $this->vat->forProduct($stock->product);
+                $gross = round((float) $stock->sale_price * $quantity, 2);
+
+                $lines[] = $this->vat->line($gross, $treatment['code'], $treatment['rate']) + [
+                    'description' => $stock->product->name ?? 'Product',
+                    'quantity' => $quantity,
+                    'stock_id' => $stock->id,
+                    'stock_name' => $stock->product->name ?? 'Product',
+                    'size' => $stock->product?->size,
+                    'color' => $stock->product?->color,
+                    'buy_price' => (float) $stock->buy_price,
+                    'total_stock' => (int) $stock->quantity,
+                ];
+            }
+
+            return $lines;
+        }
+
+        if (! $cart) {
+            return $lines;
+        }
+
+        $cart->load('details.stock.product');
+
+        foreach ($cart->details as $detail) {
+            $product = $detail->stock?->product;
+            $treatment = $this->vat->forProduct($product);
+            $gross = round((float) $detail->subtotal, 2);
+
+            $lines[] = $this->vat->line($gross, $treatment['code'], $treatment['rate']) + [
+                'description' => $detail->stock_name,
+                'quantity' => (int) $detail->qty,
+                'stock_id' => $detail->fk_stock_id,
+                'stock_name' => $detail->stock_name,
+                'size' => $product?->size,
+                'color' => $product?->color,
+                'buy_price' => (float) $detail->buy_price,
+                'total_stock' => (int) $detail->total_stock,
+            ];
+        }
+
+        return $lines;
+    }
+
     private function recalculateCart(Cart $cart)
     {
-        $cart->load('details');
+        $cart->load('details.stock.product');
+
+        $lines = $cart->details->map(function ($detail) {
+            $treatment = $this->vat->forProduct($detail->stock?->product);
+
+            return $this->vat->line((float) $detail->subtotal, $treatment['code'], $treatment['rate']);
+        })->all();
+
+        $summary = $this->vat->summary($lines);
+
         $cart->update([
-            'net_total' => $cart->details->sum('subtotal'),
-            'grand_total' => $cart->details->sum('subtotal'),
+            'net_total' => $summary['net'],
+            'vat_total' => $summary['vat'],
+            'tax_total' => 0,
+            'grand_total' => $summary['gross'],
             'buy_total' => $cart->details->sum(function ($d) {
                 return $d->buy_price * $d->qty;
             }),
