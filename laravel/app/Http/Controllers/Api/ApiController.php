@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Accounting\AccountingPoster;
 use App\Http\Controllers\Controller;
 use App\Models\{Admin, Cashbook, Category, Configuration, Customer, Expense, Income, Product, Sale, SaleDetail, Stock, Transaction};
 use App\Services\ActivityLogger;
@@ -451,13 +452,16 @@ class ApiController extends Controller
             ]);
 
             foreach ($request->items as $item) {
+                $stock = Stock::find($item['fk_stock_id']);
+
                 SaleDetail::create([
                     'fk_sale_id' => $sale->id,
                     'fk_stock_id' => $item['fk_stock_id'],
-                    'stock_name' => Stock::find($item['fk_stock_id'])->product->name ?? '',
-                    'total_stock' => Stock::find($item['fk_stock_id'])->quantity ?? 0,
+                    'stock_name' => $stock->product->name ?? '',
+                    'total_stock' => $stock->quantity ?? 0,
                     'sale_stock' => $item['sale_stock'],
                     'subtotal' => $item['subtotal'],
+                    'cost_price' => $stock->buy_price ?? 0,
                 ]);
 
                 Stock::where('id', $item['fk_stock_id'])
@@ -492,6 +496,8 @@ class ApiController extends Controller
                 'amount_receivable' => 0,
                 'created_by' => $adminId,
             ]);
+
+            app(AccountingPoster::class)->sale($sale, (float) $request->total, 0, null, $adminId);
 
             ActivityLogger::created('Sale', $sale);
 
@@ -561,6 +567,8 @@ class ApiController extends Controller
                 'created_by' => $adminId,
             ]);
 
+            app(AccountingPoster::class)->income($income, $adminId);
+
             ActivityLogger::created('Income', $income);
 
             DB::commit();
@@ -628,6 +636,8 @@ class ApiController extends Controller
                 'amount_receivable' => 0,
                 'created_by' => $adminId,
             ]);
+
+            app(AccountingPoster::class)->expense($expense, $adminId);
 
             ActivityLogger::created('Expense', $expense);
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Accounting\AccountingPoster;
 use App\Models\Cashbook;
 use App\Models\Configuration;
 use App\Models\Supplier;
@@ -129,6 +130,15 @@ class SupplierTransactionController extends Controller
                     'amount_receivable' => (float) ($data['Receivable'] ?? 0),
                     'created_by' => auth('admin')->id(),
                 ]);
+
+                app(AccountingPoster::class)->importSupplier($supplier, [
+                    'in' => (float) ($data['In Amount'] ?? 0),
+                    'out' => (float) ($data['Out Amount'] ?? 0),
+                    'payable' => (float) ($data['Payable'] ?? 0),
+                    'receivable' => (float) ($data['Receivable'] ?? 0),
+                    'description' => trim($data['Description'] ?? '') ?: null,
+                ], (string) ($imported + 1), auth('admin')->id());
+
                 $imported++;
             } catch (\Exception $e) {
                 $errors[] = "{$supplierName}: " . $e->getMessage();

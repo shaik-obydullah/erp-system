@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\ConfigController;
@@ -434,6 +435,23 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     Route::post('/currencies/{currency}/set-base', [CurrencyController::class, 'setBase'])
         ->middleware('permission:settings.save')
         ->name('currencies.set-base');
+
+    // Accounting (double-entry)
+    Route::prefix('accounting')->name('accounting.')->middleware('permission:accounting.view')->group(function () {
+        Route::get('/', [AccountingController::class, 'index'])->name('index');
+
+        // Accountant mode: debit/credit reports.
+        Route::middleware('permission:accounting.advanced')->group(function () {
+            Route::get('/journal', [AccountingController::class, 'journal'])->name('journal');
+            Route::get('/ledger', [AccountingController::class, 'ledger'])->name('ledger');
+            Route::get('/trial-balance', [AccountingController::class, 'trialBalance'])->name('trial-balance');
+            Route::get('/profit-loss', [AccountingController::class, 'profitLoss'])->name('profit-loss');
+            Route::get('/balance-sheet', [AccountingController::class, 'balanceSheet'])->name('balance-sheet');
+            Route::get('/cash-flow', [AccountingController::class, 'cashFlow'])->name('cash-flow');
+            Route::get('/chart-of-accounts', [AccountingController::class, 'chartOfAccounts'])->name('chart-of-accounts');
+            Route::get('/reconciliation', [AccountingController::class, 'reconciliation'])->name('reconciliation');
+        });
+    });
 
     // HRM - Employees
     Route::resource('employees', EmployeeController::class)->except(['show']);

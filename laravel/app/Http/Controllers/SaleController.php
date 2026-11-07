@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Accounting\AccountingPoster;
 use App\Models\Cashbook;
 use App\Models\Configuration;
 use App\Models\Sale;
@@ -77,7 +78,7 @@ class SaleController extends Controller
         ]);
 
         // Accounting: record payment transaction
-        Transaction::create([
+        $transaction = Transaction::create([
             'date' => now()->toDateString(),
             'type' => Transaction::TYPE_SALE_DUE,
             'fk_reference_id' => $sale->id,
@@ -98,6 +99,8 @@ class SaleController extends Controller
             'amount_receivable' => -$amount,
             'created_by' => $adminId,
         ]);
+
+        app(AccountingPoster::class)->saleDue($sale, $amount, $transaction->id, $adminId);
 
         ActivityLogger::updated('Sale', $sale, $sale->toArray());
 

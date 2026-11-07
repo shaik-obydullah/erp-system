@@ -19,6 +19,7 @@ class Expense extends Model
         'fk_transaction_id',
         'description',
         'amount',
+        'journal_entry_id',
         'created_by',
         'updated_by',
         'deleted_by',
@@ -34,5 +35,10 @@ class Expense extends Model
     public function transaction()
     {
         return $this->belongsTo(Transaction::class, 'fk_transaction_id');
+    }
+
+    public function journalEntry()
+    {
+        return $this->belongsTo(JournalEntry::class);
     }
 }

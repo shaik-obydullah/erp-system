@@ -23,6 +23,7 @@ class Cashbook extends Model
         'out_amount',
         'amount_payable',
         'amount_receivable',
+        'journal_entry_id',
         'created_by',
         'updated_by',
         'deleted_by',
@@ -66,5 +67,10 @@ class Cashbook extends Model
     public function expense()
     {
         return $this->belongsTo(Expense::class, 'fk_reference_id');
+    }
+
+    public function journalEntry()
+    {
+        return $this->belongsTo(JournalEntry::class);
     }
 }

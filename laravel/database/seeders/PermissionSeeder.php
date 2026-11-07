@@ -117,6 +117,11 @@ class PermissionSeeder extends Seeder
             'transactions.edit' => 'Transactions',
             'transactions.delete' => 'Transactions',
 
+            // Accounting (double-entry)
+            'accounting.view' => 'Accounting',
+            'accounting.advanced' => 'Accounting',
+            'accounting.manage' => 'Accounting',
+
             // Employees
             'employees.view' => 'Employees',
             'employees.save' => 'Employees',
@@ -256,6 +261,7 @@ class PermissionSeeder extends Seeder
                 'incomes.view', 'incomes.save',
                 'expenses.view', 'expenses.save',
                 'cashbook.view',
+                'accounting.view',
             ])->pluck('id')
         );
 

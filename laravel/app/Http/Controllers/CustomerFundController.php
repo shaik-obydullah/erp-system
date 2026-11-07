@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Accounting\AccountingPoster;
 use App\Models\Cashbook;
 use App\Models\Configuration;
 use App\Models\Customer;
@@ -80,6 +81,14 @@ class CustomerFundController extends Controller
                 'amount_receivable' => 0,
                 'created_by' => $adminId,
             ]);
+
+            app(AccountingPoster::class)->customerFund(
+                $customer,
+                $amount,
+                $transaction->id,
+                $validated['description'] ?? null,
+                $adminId
+            );
 
             DB::commit();
 

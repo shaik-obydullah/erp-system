@@ -1,0 +1,5 @@
+services:
+  erp_db:
+    # The app container reaches MariaDB over the internal network; avoid the
+    # host 3309 binding because another local project already uses it.
+    ports: !reset []

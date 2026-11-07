@@ -31,6 +31,9 @@ class DatabaseSeeder extends Seeder
         // Seed configurations
         $this->call(ConfigurationSeeder::class);
 
+        // Seed the double-entry chart of accounts
+        $this->call(ChartOfAccountsSeeder::class);
+
         // Seed customers and suppliers
         $this->call([
             CustomerSeeder::class,

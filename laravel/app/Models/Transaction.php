@@ -37,6 +37,7 @@ class Transaction extends Model
         'amount',
         'paid_amount',
         'due_amount',
+        'journal_entry_id',
         'created_by',
         'updated_by',
         'deleted_by',
@@ -55,5 +56,10 @@ class Transaction extends Model
     public function cashbookEntries()
     {
         return $this->hasMany(Cashbook::class, 'fk_reference_id');
+    }
+
+    public function journalEntry()
+    {
+        return $this->belongsTo(JournalEntry::class);
     }
 }

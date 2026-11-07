@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Accounting\AccountingPoster;
 use App\Models\Cashbook;
 use App\Models\Configuration;
 use App\Models\Supplier;
@@ -76,6 +77,14 @@ class SupplierFundController extends Controller
                 'amount_receivable' => $amount,
                 'created_by' => $adminId,
             ]);
+
+            app(AccountingPoster::class)->supplierFund(
+                $supplier,
+                $amount,
+                $transaction->id,
+                $validated['description'] ?? null,
+                $adminId
+            );
 
             DB::commit();
 

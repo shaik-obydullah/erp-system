@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Accounting\AccountingPoster;
 use App\Models\Cart;
 use App\Models\CartDetail;
 use App\Models\Cashbook;
@@ -193,6 +194,7 @@ class PosController extends Controller
                     'total_stock' => $detail->total_stock,
                     'sale_stock' => $detail->qty,
                     'subtotal' => $detail->subtotal,
+                    'cost_price' => $detail->buy_price,
                 ]);
 
                 $stock = Stock::find($detail->fk_stock_id);
@@ -251,6 +253,8 @@ class PosController extends Controller
                     'created_by' => $adminId,
                 ]);
             }
+
+            app(AccountingPoster::class)->sale($sale, (float) $paidAmount, (float) $saleDue, (float) $buyPrice, $adminId);
 
             $cart->details()->delete();
             $cart->update([

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Accounting\AccountingPoster;
 use App\Models\Cashbook;
 use App\Models\Configuration;
 use App\Models\Income;
@@ -54,7 +55,7 @@ class IncomeController extends Controller
             'created_by' => $adminId,
         ]);
 
-        Income::create([
+        $income = Income::create([
             'table_name' => 'incomes',
             'fk_transaction_id' => $transaction->id,
             'description' => $validated['description'],
@@ -72,6 +73,8 @@ class IncomeController extends Controller
             'amount_receivable' => 0,
             'created_by' => $adminId,
         ]);
+
+        app(AccountingPoster::class)->income($income, $adminId);
 
         ActivityLogger::created('Income', Income::latest('id')->first());
 

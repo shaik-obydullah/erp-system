@@ -15,11 +15,12 @@ class SaleDetail extends Model
     protected $fillable = [
         'fk_sale_id', 'fk_stock_id', 'stock_name',
         'size', 'color', 'total_stock', 'sale_stock',
-        'subtotal', 'return_reason',
+        'subtotal', 'cost_price', 'return_reason',
     ];
 
     protected $casts = [
         'subtotal' => 'decimal:2',
+        'cost_price' => 'decimal:2',
     ];
 
     public function stock()

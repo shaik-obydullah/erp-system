@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Accounting\AccountingPoster;
 use App\Models\Cashbook;
 use App\Models\Configuration;
 use App\Models\Expense;
@@ -54,7 +55,7 @@ class ExpenseController extends Controller
             'created_by' => $adminId,
         ]);
 
-        Expense::create([
+        $expense = Expense::create([
             'table_name' => 'expenses',
             'fk_transaction_id' => $transaction->id,
             'description' => $validated['description'],
@@ -72,6 +73,8 @@ class ExpenseController extends Controller
             'amount_receivable' => 0,
             'created_by' => $adminId,
         ]);
+
+        app(AccountingPoster::class)->expense($expense, $adminId);
 
         ActivityLogger::created('Expense', Expense::latest('id')->first());
 

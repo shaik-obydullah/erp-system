@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Accounting\AccountingPoster;
 use App\Models\Cashbook;
 use App\Models\Configuration;
 use App\Models\Sale;
@@ -178,6 +179,8 @@ class SaleReturnController extends Controller
                 'amount_receivable' => 0,
                 'created_by' => $adminId,
             ]);
+
+            app(AccountingPoster::class)->saleReturn($saleReturn, $sale, $adminId);
 
             // Update sale: reduce paid_amount and grand_total
             $sale->update([

@@ -147,6 +147,32 @@
             </div>
         </div>
 
+        @php($accountingAdmin = auth('admin')->user())
+        @if($accountingAdmin && $accountingAdmin->hasPermission('accounting.view'))
+        <!-- Accounting Dropdown -->
+        <div class="nav-dropdown" x-data="{ open: {{ request()->routeIs('accounting.*') ? 'true' : 'false' }} }" :class="{ 'open': open }">
+            <button class="nav-item nav-dropdown-toggle" @click="open = !open">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><line x1="4" y1="9" x2="20" y2="9"/><line x1="9" y1="9" x2="9" y2="20"/></svg>
+                Accounting
+                <svg class="dropdown-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="nav-dropdown-menu">
+                <a href="{{ route('accounting.index') }}" class="nav-dropdown-item {{ request()->routeIs('accounting.index') ? 'active' : '' }}">Overview</a>
+                @if($accountingAdmin->hasPermission('accounting.advanced'))
+                <a href="{{ route('accounting.journal') }}" class="nav-dropdown-item {{ request()->routeIs('accounting.journal') ? 'active' : '' }}">Journal</a>
+                <a href="{{ route('accounting.ledger') }}" class="nav-dropdown-item {{ request()->routeIs('accounting.ledger') ? 'active' : '' }}">General Ledger</a>
+                <a href="{{ route('accounting.trial-balance') }}" class="nav-dropdown-item {{ request()->routeIs('accounting.trial-balance') ? 'active' : '' }}">Trial Balance</a>
+                <div style="border-top: 1px solid var(--border); margin: 4px 0;"></div>
+                <a href="{{ route('accounting.profit-loss') }}" class="nav-dropdown-item {{ request()->routeIs('accounting.profit-loss') ? 'active' : '' }}">Profit &amp; Loss</a>
+                <a href="{{ route('accounting.balance-sheet') }}" class="nav-dropdown-item {{ request()->routeIs('accounting.balance-sheet') ? 'active' : '' }}">Balance Sheet</a>
+                <a href="{{ route('accounting.cash-flow') }}" class="nav-dropdown-item {{ request()->routeIs('accounting.cash-flow') ? 'active' : '' }}">Cash Flow</a>
+                <a href="{{ route('accounting.chart-of-accounts') }}" class="nav-dropdown-item {{ request()->routeIs('accounting.chart-of-accounts') ? 'active' : '' }}">Chart of Accounts</a>
+                <a href="{{ route('accounting.reconciliation') }}" class="nav-dropdown-item {{ request()->routeIs('accounting.reconciliation') ? 'active' : '' }}">Reconciliation</a>
+                @endif
+            </div>
+        </div>
+        @endif
+
         <!-- HRM Dropdown -->
         <div class="nav-dropdown" x-data="{ open: {{ request()->routeIs('employees.*') || request()->routeIs('payrolls.*') || request()->routeIs('tasks.*') ? 'true' : 'false' }} }" :class="{ 'open': open }">
             <button class="nav-item nav-dropdown-toggle" @click="open = !open">

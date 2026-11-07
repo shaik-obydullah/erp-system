@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Accounting\AccountingPoster;
 use App\Http\Controllers\Controller;
 use App\Models\Cashbook;
 use App\Models\Customer;
@@ -229,6 +230,7 @@ class SyncController extends Controller
             $detail->total_stock = $totalStock;
             $detail->sale_stock = $d['sale_stock'];
             $detail->subtotal = $d['subtotal'];
+            $detail->cost_price = $stock->buy_price;
             $detail->created_at = $createdAt;
             $detail->updated_at = now();
             $detail->save();
@@ -288,6 +290,8 @@ class SyncController extends Controller
             'amount_receivable' => 0,
             'created_by' => $adminId,
         ]);
+
+        app(AccountingPoster::class)->sale($sale, (float) $total, 0, null, $adminId);
 
         return [
             'uuid' => $uuid,
@@ -412,6 +416,8 @@ class SyncController extends Controller
                 'created_by' => $adminId,
             ]);
 
+            app(AccountingPoster::class)->income($entry, $adminId);
+
             return ['uuid' => $uuid, 'id' => $entry->id];
         }
 
@@ -437,6 +443,8 @@ class SyncController extends Controller
             'amount_receivable' => 0,
             'created_by' => $adminId,
         ]);
+
+        app(AccountingPoster::class)->expense($entry, $adminId);
 
         return ['uuid' => $uuid, 'id' => $entry->id];
     }
