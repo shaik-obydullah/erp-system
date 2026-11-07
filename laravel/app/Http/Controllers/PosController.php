@@ -197,6 +197,15 @@ class PosController extends Controller
 
         $grandTotal = round($summary['gross'], 2);
         $saleDue = round(max(0, $grandTotal - $paidAmount), 2);
+
+        // Walk-in customers are anonymous, so there is no one to chase for a
+        // due. Only a registered customer may buy on credit.
+        if (empty($validated['customer_id']) && $saleDue > 0) {
+            return response()->json([
+                'message' => 'Walk-in customers must pay the full amount. Select a customer to allow a due amount.',
+            ], 422);
+        }
+
         $buyPrice = round(array_sum(array_map(
             fn (array $line) => (float) ($line['buy_price'] ?? 0) * (int) ($line['quantity'] ?? 0),
             $lines

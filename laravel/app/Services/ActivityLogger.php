@@ -63,9 +63,11 @@ class ActivityLogger
         );
     }
 
-    public static function updated(string $moduleName, $model, array $changes): Activity
+    public static function updated(string $moduleName, $model, array $changes, ?array $oldData = null): Activity
     {
-        $old = array_intersect_key($model->getOriginal(), $changes);
+        // $model->getOriginal() is synced to the new values after save(), so an
+        // explicit pre-update snapshot must be supplied to record a real diff.
+        $old = array_intersect_key($oldData ?? $model->getOriginal(), $changes);
         $new = array_intersect_key($model->getAttributes(), $changes);
 
         return self::log(

@@ -126,12 +126,16 @@
                     <input type="number" x-model.number="paidAmount" min="0" step="0.01" class="form-input" required>
                 </div>
 
-                <div style="display: flex; justify-content: space-between; margin-bottom: 16px; padding: 8px 12px; background: var(--bg-secondary, #f9fafb); border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; padding: 8px 12px; background: var(--bg-secondary, #f9fafb); border-radius: 8px;">
                     <span>Due:</span>
                     <strong :style="'color: ' + (dueAmount > 0 ? 'var(--error)' : 'var(--success, #22c55e)')" x-text="currencySymbol + dueAmount.toFixed(2)"></strong>
                 </div>
 
-                <button type="button" class="btn btn-primary" style="width: 100%;" @click="checkout()" :disabled="submitting">
+                <div x-show="!customer_id && dueAmount > 0" x-cloak style="margin-bottom: 16px; padding: 8px 12px; background: #fef2f2; color: var(--error); border-radius: 8px; font-size: 13px;">
+                    Walk-in customers must pay the full amount. Select a customer to allow a due.
+                </div>
+
+                <button type="button" class="btn btn-primary" style="width: 100%;" @click="checkout()" :disabled="submitting || (!customer_id && dueAmount > 0)">
                     <span x-show="!submitting">Complete Sale</span>
                     <span x-show="submitting">Processing...</span>
                 </button>
@@ -158,6 +162,21 @@
             csrfToken: '',
             init() {
                 this.csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+                // Walk-in customers must pay in full, so auto-fill the paid
+                // amount with the running total and keep it in sync as the
+                // cart, discount or shipping changes.
+                this.$watch('customer_id', (value) => {
+                    if (!value) {
+                        this.paidAmount = Math.round(this.grandTotal * 100) / 100;
+                    }
+                });
+
+                this.$watch('grandTotal', (value) => {
+                    if (!this.customer_id) {
+                        this.paidAmount = Math.round(value * 100) / 100;
+                    }
+                });
             },
             get filteredProducts() {
                 if (!this.searchQuery) return this.products.filter(p => p.stock_quantity > 0);
@@ -251,6 +270,10 @@
                 }
                 if (this.paidAmount <= 0) {
                     this.errorMessage = 'Please enter a paid amount.';
+                    return;
+                }
+                if (!this.customer_id && this.dueAmount > 0) {
+                    this.errorMessage = 'Walk-in customers must pay in full. Select a customer to sell on credit.';
                     return;
                 }
                 this.submitting = true;

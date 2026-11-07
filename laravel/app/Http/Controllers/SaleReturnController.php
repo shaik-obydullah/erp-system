@@ -126,6 +126,9 @@ class SaleReturnController extends Controller
 
         $calculated = $this->calculateVat($validated);
 
+        // Snapshot before saving so the activity log records the real diff.
+        $oldData = $saleReturn->toArray();
+
         $saleReturn->update([
             ...$validated,
             'vat_code' => $calculated['code'],
@@ -135,7 +138,7 @@ class SaleReturnController extends Controller
             'updated_by' => auth('admin')->id(),
         ]);
 
-        ActivityLogger::updated('Sale Return', $saleReturn, $saleReturn->toArray());
+        ActivityLogger::updated('Sale Return', $saleReturn, $saleReturn->getChanges(), $oldData);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -151,6 +154,9 @@ class SaleReturnController extends Controller
     public function approve(Request $request, SaleReturn $saleReturn)
     {
         $adminId = auth('admin')->id();
+
+        // Snapshot before saving so the activity log records the real diff.
+        $oldData = $saleReturn->toArray();
 
         DB::transaction(function () use ($saleReturn, $adminId) {
             // Ensure legacy/pending returns carry a VAT split before the credit
@@ -200,7 +206,7 @@ class SaleReturnController extends Controller
             }
         });
 
-        ActivityLogger::updated('Sale Return', $saleReturn, $saleReturn->toArray());
+        ActivityLogger::updated('Sale Return', $saleReturn, $saleReturn->getChanges(), $oldData);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -248,12 +254,15 @@ class SaleReturnController extends Controller
 
     public function reject(Request $request, SaleReturn $saleReturn)
     {
+        // Snapshot before saving so the activity log records the real diff.
+        $oldData = $saleReturn->toArray();
+
         $saleReturn->update([
             'status' => 'rejected',
             'updated_by' => auth('admin')->id(),
         ]);
 
-        ActivityLogger::updated('Sale Return', $saleReturn, $saleReturn->toArray());
+        ActivityLogger::updated('Sale Return', $saleReturn, $saleReturn->getChanges(), $oldData);
 
         if ($request->expectsJson()) {
             return response()->json([

@@ -77,6 +77,9 @@ class SaleController extends Controller
         $newPaidAmount = $sale->paid_amount + $amount;
         $newDue = max(0, $sale->sale_due - $amount);
 
+        // Snapshot before saving so the activity log records the real diff.
+        $oldData = $sale->toArray();
+
         $sale->update([
             'paid_amount' => $newPaidAmount,
             'sale_due' => $newDue,
@@ -108,7 +111,7 @@ class SaleController extends Controller
 
         app(AccountingPoster::class)->saleDue($sale, $amount, $transaction->id, $adminId);
 
-        ActivityLogger::updated('Sale', $sale, $sale->toArray());
+        ActivityLogger::updated('Sale', $sale, $sale->getChanges(), $oldData);
 
         if ($request->expectsJson()) {
             return response()->json([
