@@ -142,6 +142,7 @@ class LedgerProjector
 
         Income::query()
             ->where('table_name', '!=', 'sales')
+            ->where('table_name', '!=', 'stock_adjustments')
             ->orderBy('id')
             ->chunkById(200, function ($incomes) use (&$count) {
                 foreach ($incomes as $income) {
@@ -157,12 +158,18 @@ class LedgerProjector
     {
         $count = 0;
 
-        Expense::query()->orderBy('id')->chunkById(200, function ($expenses) use (&$count) {
-            foreach ($expenses as $expense) {
-                $this->poster->expense($expense, $expense->created_by);
-                $count++;
-            }
-        });
+        Expense::query()
+            ->where(function ($query) {
+                $query->whereNull('table_name')
+                    ->orWhere('table_name', '!=', 'stock_adjustments');
+            })
+            ->orderBy('id')
+            ->chunkById(200, function ($expenses) use (&$count) {
+                foreach ($expenses as $expense) {
+                    $this->poster->expense($expense, $expense->created_by);
+                    $count++;
+                }
+            });
 
         return $count;
     }

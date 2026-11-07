@@ -106,6 +106,11 @@ class StockController extends Controller
     public function edit(Stock $stock)
     {
         $products = Product::where('status', 'active')->orderBy('name')->get();
+
+        if ($stock->product && ! $products->contains('id', $stock->fk_product_id)) {
+            $products->push($stock->product);
+        }
+
         $warehouses = Warehouse::orderBy('name')->get();
 
         return view('stocks.edit', compact('stock', 'products', 'warehouses'));

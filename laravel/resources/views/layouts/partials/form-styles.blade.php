@@ -94,6 +94,92 @@
         color: var(--text-disabled);
         cursor: not-allowed;
     }
+    .form-card .searchable-select {
+        position: relative;
+    }
+    .form-card .searchable-select input {
+        padding-right: 40px;
+    }
+    .form-card .searchable-select .select-chevron {
+        position: absolute;
+        top: 50%;
+        right: 14px;
+        width: 16px;
+        height: 16px;
+        color: var(--text-secondary);
+        pointer-events: none;
+        transform: translateY(-50%);
+    }
+    .form-card .searchable-select .clear-btn {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        padding: 0;
+        border: none;
+        border-radius: 50%;
+        background: var(--bg-gray);
+        color: var(--text-secondary);
+        font-size: 15px;
+        line-height: 1;
+        cursor: pointer;
+        transform: translateY(-50%);
+    }
+    .form-card .searchable-select .clear-btn:hover {
+        background: #e8eaed;
+        color: var(--text-primary);
+    }
+    .form-card .searchable-options {
+        position: absolute;
+        z-index: 50;
+        top: calc(100% + 4px);
+        right: 0;
+        left: 0;
+        max-height: 280px;
+        padding: 6px;
+        overflow-y: auto;
+        background: var(--bg-white);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+    }
+    .form-card .searchable-option {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+        width: 100%;
+        padding: 9px 12px;
+        border: none;
+        border-radius: 6px;
+        background: transparent;
+        text-align: left;
+        cursor: pointer;
+    }
+    .form-card .searchable-option:hover,
+    .form-card .searchable-option:focus-visible,
+    .form-card .searchable-option.is-selected {
+        background: #f0f7ff;
+    }
+    .form-card .searchable-option .option-name {
+        font-size: 13.5px;
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+    .form-card .searchable-option .option-meta {
+        font-size: 11.5px;
+        color: var(--text-secondary);
+    }
+    .form-card .searchable-empty {
+        padding: 14px 12px;
+        font-size: 13px;
+        color: var(--text-secondary);
+        text-align: center;
+    }
     .form-card .form-actions {
         margin-top: 0;
     }
@@ -123,6 +209,73 @@
         height: 16px;
         margin-top: 1px;
         color: var(--primary);
+    }
+    .form-card .impact-preview {
+        margin-top: 20px;
+        padding: 16px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--bg-gray);
+    }
+    .form-card .impact-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+    .form-card .impact-title {
+        font-size: 13.5px;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    .form-card .impact-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 9px;
+        border-radius: 999px;
+        font-size: 11.5px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+    }
+    .form-card .impact-badge.is-out {
+        background: #fef2f2;
+        color: #b91c1c;
+    }
+    .form-card .impact-badge.is-in {
+        background: #ecfdf5;
+        color: #047857;
+    }
+    .form-card .impact-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px 20px;
+    }
+    .form-card .impact-label {
+        display: block;
+        margin-bottom: 2px;
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+    }
+    .form-card .impact-value {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    .form-card .impact-hint {
+        margin-top: 14px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--text-secondary);
+    }
+    @media (max-width: 640px) {
+        .form-card .impact-grid {
+            grid-template-columns: 1fr;
+        }
     }
     .image-upload-zone {
         position: relative;

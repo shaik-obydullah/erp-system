@@ -43,7 +43,19 @@ class StockAdjustmentController extends Controller
         $stocks = Stock::where('status', 'active')->with('product')->get();
         $warehouses = Warehouse::orderBy('name')->get();
 
-        return view('stock-adjustments.create', compact('stocks', 'warehouses'));
+        $stockOptions = $stocks->map(fn ($stock) => [
+            'id' => $stock->id,
+            'name' => $stock->product->name ?? 'N/A',
+            'sku' => $stock->product->sku ?? null,
+            'quantity' => $stock->quantity,
+            'buy_price' => (float) $stock->buy_price,
+            'batch' => $stock->batch,
+            'lot' => $stock->lot,
+        ])->values();
+
+        $currencySymbol = Configuration::get('currency_symbol', '$');
+
+        return view('stock-adjustments.create', compact('warehouses', 'stockOptions', 'currencySymbol'));
     }
 
     public function store(Request $request, AccountingPoster $poster)

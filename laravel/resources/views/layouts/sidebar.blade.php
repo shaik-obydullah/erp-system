@@ -94,7 +94,7 @@
                 <svg class="dropdown-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
             <div class="nav-dropdown-menu">
-                <a href="{{ route('stocks.index') }}" class="nav-dropdown-item {{ request()->routeIs('stocks.*') ? 'active' : '' }}">All Stocks</a>
+                <a href="{{ route('stocks.index') }}" class="nav-dropdown-item {{ request()->routeIs('stocks.index') || request()->routeIs('stocks.edit') ? 'active' : '' }}">All Stocks</a>
                 <a href="{{ route('stocks.create') }}" class="nav-dropdown-item {{ request()->routeIs('stocks.create') ? 'active' : '' }}">Add Stock</a>
                 <div style="border-top: 1px solid var(--border); margin: 4px 0;"></div>
                 <a href="{{ route('stock-adjustments.index') }}" class="nav-dropdown-item {{ request()->routeIs('stock-adjustments.*') ? 'active' : '' }}">Stock Adjustments</a>

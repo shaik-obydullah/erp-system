@@ -30,6 +30,8 @@ class Transaction extends Model
     const TYPE_MISC_INCOME = 'miscIncome';
     const TYPE_MISC_EXPENSE = 'miscExpense';
     const TYPE_SHIPMENT_COST = 'shipmentCost';
+    const TYPE_STOCK_ADJUSTMENT_LOSS = 'stockAdjustmentLoss';
+    const TYPE_STOCK_ADJUSTMENT_GAIN = 'stockAdjustmentGain';
 
     protected $fillable = [
         'date',
@@ -83,6 +85,8 @@ class Transaction extends Model
             self::TYPE_MISC_INCOME => 'Misc Income',
             self::TYPE_MISC_EXPENSE => 'Misc Expense',
             self::TYPE_SHIPMENT_COST => 'Shipment Cost',
+            self::TYPE_STOCK_ADJUSTMENT_LOSS => 'Stock Adjustment Loss',
+            self::TYPE_STOCK_ADJUSTMENT_GAIN => 'Stock Adjustment Return',
             default => ucfirst((string) $this->type),
         };
     }

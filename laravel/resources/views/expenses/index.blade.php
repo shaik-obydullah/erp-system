@@ -25,7 +25,12 @@
                 @forelse($expenses as $expense)
                     <tr>
                         <td>{{ $expense->id }}</td>
-                        <td>{{ $expense->description }}</td>
+                        <td>
+                            {{ $expense->description }}
+                            @if($expense->table_name === 'stock_adjustments')
+                                <span class="badge badge-blue" style="margin-left: 6px;">Stock adjustment</span>
+                            @endif
+                        </td>
                         <td style="color: var(--error); font-weight: 600;">{{ $currencySymbol }}{{ number_format($expense->amount, 2) }}</td>
                         <td>{{ $expense->transaction->date ?? '—' }}</td>
                     </tr>

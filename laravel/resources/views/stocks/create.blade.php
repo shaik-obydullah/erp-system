@@ -50,13 +50,34 @@
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="fk_product_id">Product <span class="required">*</span></label>
-                        <select id="fk_product_id" x-model="form.fk_product_id" required>
-                            <option value="">Select Product</option>
-                            @foreach($products as $product)
-                                <option value="{{ $product->id }}">{{ $product->name }}</option>
-                            @endforeach
-                        </select>
+                        <label for="product_search">Product <span class="required">*</span></label>
+                        <div class="searchable-select" @click.outside="productOpen = false">
+                            <input type="text" id="product_search" x-model="productSearch"
+                                @focus="$event.target.select(); productOpen = true"
+                                @input="productOpen = true; form.fk_product_id = ''"
+                                @keydown.escape="productOpen = false"
+                                @keydown.enter="if (productOpen && !form.fk_product_id && filteredProducts.length) { $event.preventDefault(); selectProduct(filteredProducts[0]); }"
+                                placeholder="Search products by name or SKU..."
+                                autocomplete="off"
+                                role="combobox"
+                                aria-autocomplete="list"
+                                aria-controls="product-options"
+                                :aria-expanded="productOpen">
+                            <svg class="select-chevron" x-show="!form.fk_product_id" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                            <button type="button" class="clear-btn" x-show="form.fk_product_id" @click="clearProduct()" aria-label="Clear selected product">&times;</button>
+                            <div class="searchable-options" id="product-options" x-show="productOpen" x-cloak>
+                                <template x-for="product in filteredProducts" :key="product.id">
+                                    <button type="button" class="searchable-option"
+                                        :class="{ 'is-selected': String(form.fk_product_id) === String(product.id) }"
+                                        @click="selectProduct(product)">
+                                        <span class="option-name" x-text="product.name"></span>
+                                        <span class="option-meta" x-show="product.sku" x-text="'SKU: ' + product.sku"></span>
+                                    </button>
+                                </template>
+                                <div class="searchable-empty" x-show="filteredProducts.length === 0">No products match your search.</div>
+                            </div>
+                        </div>
+                        <span class="form-hint">Type to search by product name or SKU.</span>
                         <span class="form-error" x-show="errors.fk_product_id" x-text="errors.fk_product_id"></span>
                     </div>
                     <div class="form-group">
@@ -187,10 +208,35 @@
                 status: 'active',
             },
             vatRates: { standard: 20, reduced: 5, zero: 0, exempt: 0, outside_scope: 0 },
+            products: @json($products->map->only(['id', 'name', 'sku'])->values()),
+            productSearch: '',
+            productOpen: false,
             applyVatCode() {
                 if (this.form.vat_code && this.vatRates[this.form.vat_code] !== undefined) {
                     this.form.vat_rate = this.vatRates[this.form.vat_code];
                 }
+            },
+            get filteredProducts() {
+                const query = this.productSearch.trim().toLowerCase();
+                const matches = query
+                    ? this.products.filter((product) => `${product.name} ${product.sku || ''}`.toLowerCase().includes(query))
+                    : this.products;
+
+                return matches.slice(0, 50);
+            },
+            get selectedProduct() {
+                return this.products.find((product) => String(product.id) === String(this.form.fk_product_id)) || null;
+            },
+            selectProduct(product) {
+                this.form.fk_product_id = String(product.id);
+                this.productSearch = product.name;
+                this.productOpen = false;
+                delete this.errors.fk_product_id;
+            },
+            clearProduct() {
+                this.form.fk_product_id = '';
+                this.productSearch = '';
+                this.productOpen = true;
             },
             errors: {},
             errorMessage: '',
@@ -199,11 +245,19 @@
             csrfToken: '',
             init() {
                 this.csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                const selected = this.selectedProduct;
+                this.productSearch = selected ? selected.name : '';
             },
             async submit() {
                 this.errors = {};
                 this.errorMessage = '';
                 this.successMessage = '';
+
+                if (!this.form.fk_product_id) {
+                    this.errors.fk_product_id = 'Please select a product from the list.';
+                    return;
+                }
+
                 this.submitting = true;
 
                 try {

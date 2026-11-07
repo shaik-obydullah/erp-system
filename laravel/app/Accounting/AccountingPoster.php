@@ -621,12 +621,76 @@ class AccountingPoster
                 $adminId
             );
 
-            if ($entry) {
-                StockAdjustment::where('id', $adjustment->id)
-                    ->whereNull('journal_entry_id')
-                    ->update(['journal_entry_id' => $entry->id]);
+            if (! $entry) {
+                return;
             }
+
+            StockAdjustment::where('id', $adjustment->id)
+                ->whereNull('journal_entry_id')
+                ->update(['journal_entry_id' => $entry->id]);
+
+            $this->recordStockAdjustmentFinance($adjustment, $label, $cost, $entry, $adminId);
         });
+    }
+
+    /**
+     * Mirror a stock adjustment into the Finance module without moving cash.
+     *
+     * Damage/corrections create a non-cash Expense row; returns create a
+     * non-cash Income row. Both link to the same journal entry posted by
+     * stockAdjustment(), so the ledger is not posted twice.
+     */
+    private function recordStockAdjustmentFinance(
+        StockAdjustment $adjustment,
+        string $label,
+        float $cost,
+        JournalEntry $entry,
+        ?int $adminId
+    ): void {
+        $isReturn = $adjustment->reason === 'return';
+        $financeModel = $isReturn ? Income::class : Expense::class;
+
+        if ($financeModel::withTrashed()->where('journal_entry_id', $entry->id)->exists()) {
+            return;
+        }
+
+        $type = $isReturn
+            ? Transaction::TYPE_STOCK_ADJUSTMENT_GAIN
+            : Transaction::TYPE_STOCK_ADJUSTMENT_LOSS;
+
+        $transaction = Transaction::where('type', $type)
+            ->where('fk_reference_id', $adjustment->id)
+            ->first();
+
+        if (! $transaction) {
+            $transaction = Transaction::create([
+                'date' => $adjustment->created_at ?? now(),
+                'type' => $type,
+                'fk_reference_id' => $adjustment->id,
+                'amount' => $cost,
+                'paid_amount' => 0,
+                'due_amount' => 0,
+                'journal_entry_id' => $entry->id,
+                'created_by' => $adminId,
+            ]);
+        } elseif (! $transaction->journal_entry_id) {
+            $transaction->update(['journal_entry_id' => $entry->id]);
+        }
+
+        $description = ucfirst($adjustment->reason)." stock adjustment for {$label} (non-cash)";
+
+        $financeModel::create([
+            'table_name' => 'stock_adjustments',
+            'fk_transaction_id' => $transaction->id,
+            'description' => $description,
+            'amount' => $cost,
+            'vat_code' => null,
+            'vat_rate' => 0,
+            'net_amount' => $cost,
+            'vat_amount' => 0,
+            'journal_entry_id' => $entry->id,
+            'created_by' => $adminId,
+        ]);
     }
 
     /**

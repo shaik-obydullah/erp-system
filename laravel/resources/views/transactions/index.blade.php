@@ -21,6 +21,8 @@
                 <option value="supplierDeposit" {{ request('type') === 'supplierDeposit' ? 'selected' : '' }}>Supplier Advance</option>
                 <option value="userFund" {{ request('type') === 'userFund' ? 'selected' : '' }}>Customer Fund</option>
                 <option value="miscExpense" {{ request('type') === 'miscExpense' ? 'selected' : '' }}>Misc Expense</option>
+                <option value="stockAdjustmentLoss" {{ request('type') === 'stockAdjustmentLoss' ? 'selected' : '' }}>Stock Adjustment Loss</option>
+                <option value="stockAdjustmentGain" {{ request('type') === 'stockAdjustmentGain' ? 'selected' : '' }}>Stock Adjustment Return</option>
             </select>
             <button type="submit" class="btn btn-primary">Filter</button>
             @if(request()->has('type'))
