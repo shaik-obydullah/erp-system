@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { FaPlus, FaSearch, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { fetchStocks } from "../api/axios";
 import { useConfig } from "../contexts/ConfigContext";
+import Modal from "../components/Modal";
+import AddStock from "./AddStock";
 
 function LoadingIndicator() {
   return (
@@ -52,7 +53,6 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
 }
 
 export default function StockPage() {
-  const navigate = useNavigate();
   const { currencySign } = useConfig();
   const [stocks, setStocks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +60,7 @@ export default function StockPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [addModal, setAddModal] = useState(false);
 
   const loadStocks = useCallback(async () => {
     setLoading(true);
@@ -87,7 +88,7 @@ export default function StockPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Stocks</h1>
-        <button onClick={() => navigate("/add-stock")} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
+        <button onClick={() => setAddModal(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
           <FaPlus /> Add Stock
         </button>
       </div>
@@ -148,6 +149,21 @@ export default function StockPage() {
           </>
         )}
       </div>
+
+      <Modal
+        open={addModal}
+        onClose={() => setAddModal(false)}
+        title="Add Stock"
+        maxWidth="max-w-2xl"
+      >
+        <AddStock
+          onClose={() => setAddModal(false)}
+          onSaved={() => {
+            setAddModal(false);
+            loadStocks();
+          }}
+        />
+      </Modal>
     </div>
   );
 }

@@ -34,13 +34,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/category', [ApiController::class, 'category']);
     Route::post('/save-category', [ApiController::class, 'saveCategory']);
     Route::put('/update-category/{id}', [ApiController::class, 'updateCategory']);
-    Route::delete('/delete-category/{id}', [ApiController::class, 'deleteCategory']);
     
     // Products
     Route::get('/product', [ApiController::class, 'product']);
     Route::post('/save-product', [ApiController::class, 'saveProduct']);
     Route::post('/update-product/{id}', [ApiController::class, 'updateProduct']);
-    Route::delete('/delete-product/{id}', [ApiController::class, 'deleteProduct']);
     
     // Stocks
     Route::get('/stock', [ApiController::class, 'stock']);
@@ -49,7 +47,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Sales
     Route::get('/sale', [ApiController::class, 'sale']);
     Route::post('/select-sale/{id}', [ApiController::class, 'selectSale']);
-    Route::delete('/delete-sale/{id}', [ApiController::class, 'deleteSale']);
     Route::post('/save-sale', [ApiController::class, 'saveSale']);
     
     // Incomes

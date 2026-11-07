@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useConfig } from "../contexts/ConfigContext";
-import { fetchSale, fetchSaleDetails, deleteSale } from "../api/axios";
-import { FaSearch, FaEye, FaTrash, FaFileInvoice, FaDollarSign, FaShoppingCart, FaCalendarDay } from "react-icons/fa";
+import { fetchSale, fetchSaleDetails } from "../api/axios";
+import { FaSearch, FaEye, FaFileInvoice, FaDollarSign, FaShoppingCart, FaCalendarDay } from "react-icons/fa";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import Modal from "../components/Modal";
 
 export default function SalePage() {
   const config = useConfig();
@@ -20,10 +21,6 @@ export default function SalePage() {
   const [viewModal, setViewModal] = useState(false);
   const [saleDetail, setSaleDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
-
-  const [deleteModal, setDeleteModal] = useState(false);
-  const [saleToDelete, setSaleToDelete] = useState(null);
-  const [deleting, setDeleting] = useState(false);
 
   const loadSales = async () => {
     setLoading(true);
@@ -59,25 +56,6 @@ export default function SalePage() {
       setSaleDetail(null);
     } finally {
       setDetailLoading(false);
-    }
-  };
-
-  const handleDeleteClick = (sale) => {
-    setSaleToDelete(sale);
-    setDeleteModal(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!saleToDelete) return;
-    setDeleting(true);
-    try {
-      await deleteSale(saleToDelete.id);
-      setDeleteModal(false);
-      setSaleToDelete(null);
-      loadSales();
-    } catch {
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -217,9 +195,6 @@ export default function SalePage() {
                         <button onClick={() => handleView(sale)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
                           <FaEye className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleDeleteClick(sale)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                          <FaTrash className="w-4 h-4" />
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -280,99 +255,69 @@ export default function SalePage() {
         </div>
       </div>
 
-      {viewModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-5 border-b border-gray-200">
-              <h2 className="text-lg font-bold text-gray-800">Invoice Detail</h2>
-              <div className="flex items-center gap-2">
-                <button onClick={downloadInvoice} className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1">
-                  <FaFileInvoice className="w-3.5 h-3.5" /> Download PDF
-                </button>
-                <button onClick={() => { setViewModal(false); setSaleDetail(null); }} className="p-1.5 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
-                  &times;
-                </button>
+      <Modal
+        open={viewModal}
+        onClose={() => {
+          setViewModal(false);
+          setSaleDetail(null);
+        }}
+        title="Invoice Detail"
+        maxWidth="max-w-2xl"
+        headerActions={
+          <button onClick={downloadInvoice} className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1">
+            <FaFileInvoice className="w-3.5 h-3.5" /> Download PDF
+          </button>
+        }
+      >
+        {detailLoading ? (
+          <p className="text-center py-8 text-gray-500">Loading...</p>
+        ) : saleDetail ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div><span className="text-gray-500">Invoice ID:</span> <span className="font-medium">{saleDetail.invoice_id || saleDetail.id}</span></div>
+              <div><span className="text-gray-500">Date:</span> <span className="font-medium">{saleDetail.transaction?.date || ""}</span></div>
+              <div><span className="text-gray-500">Customer:</span> <span className="font-medium">{saleDetail.customer?.name || ""}</span></div>
+              <div><span className="text-gray-500">Phone:</span> <span className="font-medium">{saleDetail.customer?.phone || ""}</span></div>
+              <div className="col-span-2"><span className="text-gray-500">Address:</span> <span className="font-medium">{saleDetail.customer?.address || ""}</span></div>
+            </div>
+
+            <table className="w-full text-sm text-left border border-gray-200 rounded-lg overflow-hidden">
+              <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
+                <tr>
+                  <th className="px-4 py-2">#</th>
+                  <th className="px-4 py-2">Product</th>
+                  <th className="px-4 py-2">Qty</th>
+                  <th className="px-4 py-2">Price</th>
+                  <th className="px-4 py-2">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {(saleDetail.details || saleDetail.items || []).map((item, i) => (
+                  <tr key={i}>
+                    <td className="px-4 py-2">{i + 1}</td>
+                    <td className="px-4 py-2">{item.stock_name || item.product_name || ""}</td>
+                    <td className="px-4 py-2">{item.sale_stock || item.quantity || 0}</td>
+                    <td className="px-4 py-2">{currencySign}{Number(item.subtotal / item.sale_stock || 0).toFixed(2)}</td>
+                    <td className="px-4 py-2">{currencySign}{Number(item.subtotal || 0).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="flex justify-end">
+              <div className="w-64 space-y-1 text-sm">
+                <div className="flex justify-between"><span className="text-gray-500">Subtotal:</span><span>{currencySign}{Number(saleDetail.net_price || 0).toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">VAT:</span><span>{currencySign}{Number(saleDetail.vat_amount || 0).toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Tax:</span><span>{currencySign}{Number(saleDetail.tax_amount || 0).toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Discount:</span><span>{currencySign}{Number(saleDetail.discount_amount || 0).toFixed(2)}</span></div>
+                <div className="flex justify-between font-bold border-t border-gray-200 pt-1"><span>Total:</span><span>{currencySign}{Number(saleDetail.grand_total || 0).toFixed(2)}</span></div>
               </div>
             </div>
-            <div className="p-5">
-              {detailLoading ? (
-                <p className="text-center py-8 text-gray-500">Loading...</p>
-              ) : saleDetail ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div><span className="text-gray-500">Invoice ID:</span> <span className="font-medium">{saleDetail.invoice_id || saleDetail.id}</span></div>
-                    <div><span className="text-gray-500">Date:</span> <span className="font-medium">{saleDetail.transaction?.date || ""}</span></div>
-                    <div><span className="text-gray-500">Customer:</span> <span className="font-medium">{saleDetail.customer?.name || ""}</span></div>
-                    <div><span className="text-gray-500">Phone:</span> <span className="font-medium">{saleDetail.customer?.phone || ""}</span></div>
-                    <div className="col-span-2"><span className="text-gray-500">Address:</span> <span className="font-medium">{saleDetail.customer?.address || ""}</span></div>
-                  </div>
-
-                  <table className="w-full text-sm text-left border border-gray-200 rounded-lg overflow-hidden">
-                    <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
-                      <tr>
-                        <th className="px-4 py-2">#</th>
-                        <th className="px-4 py-2">Product</th>
-                        <th className="px-4 py-2">Qty</th>
-                        <th className="px-4 py-2">Price</th>
-                        <th className="px-4 py-2">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {(saleDetail.details || saleDetail.items || []).map((item, i) => (
-                        <tr key={i}>
-                          <td className="px-4 py-2">{i + 1}</td>
-                          <td className="px-4 py-2">{item.stock_name || item.product_name || ""}</td>
-                          <td className="px-4 py-2">{item.sale_stock || item.quantity || 0}</td>
-                          <td className="px-4 py-2">{currencySign}{Number(item.subtotal / item.sale_stock || 0).toFixed(2)}</td>
-                          <td className="px-4 py-2">{currencySign}{Number(item.subtotal || 0).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-
-                  <div className="flex justify-end">
-                    <div className="w-64 space-y-1 text-sm">
-                      <div className="flex justify-between"><span className="text-gray-500">Subtotal:</span><span>{currencySign}{Number(saleDetail.net_price || 0).toFixed(2)}</span></div>
-                      <div className="flex justify-between"><span className="text-gray-500">VAT:</span><span>{currencySign}{Number(saleDetail.vat_amount || 0).toFixed(2)}</span></div>
-                      <div className="flex justify-between"><span className="text-gray-500">Tax:</span><span>{currencySign}{Number(saleDetail.tax_amount || 0).toFixed(2)}</span></div>
-                      <div className="flex justify-between"><span className="text-gray-500">Discount:</span><span>{currencySign}{Number(saleDetail.discount_amount || 0).toFixed(2)}</span></div>
-                      <div className="flex justify-between font-bold border-t border-gray-200 pt-1"><span>Total:</span><span>{currencySign}{Number(saleDetail.grand_total || 0).toFixed(2)}</span></div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-center py-8 text-gray-500">Failed to load details</p>
-              )}
-            </div>
           </div>
-        </div>
-      )}
-
-      {deleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-2">Delete Sale</h2>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete invoice <strong>{saleToDelete?.invoice_id || saleToDelete?.id}</strong>? This action cannot be undone.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => { setDeleteModal(false); setSaleToDelete(null); }}
-                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteConfirm}
-                disabled={deleting}
-                className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-red-400 transition-colors"
-              >
-                {deleting ? "Deleting..." : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-center py-8 text-gray-500">Failed to load details</p>
+        )}
+      </Modal>
     </div>
   );
 }

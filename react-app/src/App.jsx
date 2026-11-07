@@ -8,18 +8,12 @@ import LoginPage from "./pages/LoginPage";
 import Logout from "./pages/Logout";
 import DashboardPage from "./pages/DashboardPage";
 import CustomerPage from "./pages/CustomerPage";
-import AddCustomer from "./pages/AddCustomer";
 import CategoryPage from "./pages/CategoryPage";
-import AddCategory from "./pages/AddCategory";
 import ProductPage from "./pages/ProductPage";
-import AddProduct from "./pages/AddProduct";
 import StockPage from "./pages/StockPage";
-import AddStock from "./pages/AddStock";
 import SalePage from "./pages/SalePage";
 import IncomePage from "./pages/IncomePage";
-import AddIncome from "./pages/AddIncome";
 import ExpensePage from "./pages/ExpensePage";
-import AddExpense from "./pages/AddExpense";
 import ReportPage from "./pages/ReportPage";
 
 function App() {
@@ -33,18 +27,18 @@ function App() {
           <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/customers" element={<CustomerPage />} />
-            <Route path="/add-customer" element={<AddCustomer />} />
+            <Route path="/add-customer" element={<Navigate to="/customers" replace />} />
             <Route path="/categories" element={<CategoryPage />} />
-            <Route path="/add-category" element={<AddCategory />} />
+            <Route path="/add-category" element={<Navigate to="/categories" replace />} />
             <Route path="/products" element={<ProductPage />} />
-            <Route path="/add-product" element={<AddProduct />} />
+            <Route path="/add-product" element={<Navigate to="/products" replace />} />
             <Route path="/stocks" element={<StockPage />} />
-            <Route path="/add-stock" element={<AddStock />} />
+            <Route path="/add-stock" element={<Navigate to="/stocks" replace />} />
             <Route path="/sales" element={<SalePage />} />
             <Route path="/incomes" element={<IncomePage />} />
-            <Route path="/add-income" element={<AddIncome />} />
+            <Route path="/add-income" element={<Navigate to="/incomes" replace />} />
             <Route path="/expenses" element={<ExpensePage />} />
-            <Route path="/add-expense" element={<AddExpense />} />
+            <Route path="/add-expense" element={<Navigate to="/expenses" replace />} />
             <Route path="/reports" element={<ReportPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/login" replace />} />

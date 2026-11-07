@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { FaPlus, FaEdit, FaTrash, FaSearch, FaChevronLeft, FaChevronRight, FaImage } from "react-icons/fa";
+import { FaPlus, FaEdit, FaSearch, FaChevronLeft, FaChevronRight, FaImage } from "react-icons/fa";
 import { toast } from "react-toastify";
-import { fetchProducts, updateProduct, deleteProduct, fetchCategories } from "../api/axios";
+import { fetchProducts, updateProduct, fetchCategories } from "../api/axios";
 import { useConfig } from "../contexts/ConfigContext";
+import Modal from "../components/Modal";
+import AddProduct from "./AddProduct";
 
 function LoadingIndicator() {
   return (
@@ -53,7 +54,6 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
 }
 
 export default function ProductPage() {
-  const navigate = useNavigate();
   const { currencySign } = useConfig();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -64,14 +64,11 @@ export default function ProductPage() {
   const [totalPages, setTotalPages] = useState(1);
 
   const [editModal, setEditModal] = useState(false);
+  const [addModal, setAddModal] = useState(false);
   const [editData, setEditData] = useState({ id: "", name: "", fk_category_id: "", sku: "", status: "" });
   const [editImage, setEditImage] = useState(null);
   const [editImagePreview, setEditImagePreview] = useState("");
   const [editLoading, setEditLoading] = useState(false);
-
-  const [deleteModal, setDeleteModal] = useState(false);
-  const [deleteId, setDeleteId] = useState(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
@@ -145,31 +142,11 @@ export default function ProductPage() {
     }
   };
 
-  const handleDelete = (id) => {
-    setDeleteId(id);
-    setDeleteModal(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    setDeleteLoading(true);
-    try {
-      await deleteProduct(deleteId);
-      toast.success("Product deleted successfully");
-      setDeleteModal(false);
-      setDeleteId(null);
-      loadProducts();
-    } catch (err) {
-      toast.error(err.message || "Failed to delete product");
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
-
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Products</h1>
-        <button onClick={() => navigate("/add-product")} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
+        <button onClick={() => setAddModal(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
           <FaPlus /> Add Product
         </button>
       </div>
@@ -217,7 +194,6 @@ export default function ProductPage() {
                         <td className="px-6 py-4"><StatusBadge status={p.status} /></td>
                         <td className="px-6 py-4 text-right">
                           <button onClick={() => handleEdit(p)} className="text-blue-600 hover:text-blue-800 mr-3"><FaEdit /></button>
-                          <button onClick={() => handleDelete(p.id)} className="text-red-600 hover:text-red-800"><FaTrash /></button>
                         </td>
                       </tr>
                     ))
@@ -230,78 +206,82 @@ export default function ProductPage() {
         )}
       </div>
 
-      {editModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6 my-8">
-            <h2 className="text-lg font-semibold mb-4">Edit Product</h2>
-            <form onSubmit={handleEditSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                <input type="text" required value={editData.name} onChange={(e) => setEditData({ ...editData, name: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select required value={editData.fk_category_id} onChange={(e) => setEditData({ ...editData, fk_category_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
-                  <option value="">Select category</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">SKU</label>
-                  <input type="text" value={editData.sku} onChange={(e) => setEditData({ ...editData, sku: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select value={editData.status} onChange={(e) => setEditData({ ...editData, status: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Image</label>
-                <div className="flex items-center gap-4">
-                  {editImagePreview ? (
-                    <img src={editImagePreview} alt="Preview" className="h-20 w-20 object-cover rounded-lg border" />
-                  ) : (
-                    <div className="h-20 w-20 bg-gray-100 rounded-lg border flex items-center justify-center">
-                      <FaImage className="text-gray-400" />
-                    </div>
-                  )}
-                  <label className="cursor-pointer px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm flex items-center gap-2">
-                    <FaImage /> Choose Image
-                    <input type="file" accept="image/*" onChange={handleEditImageChange} className="hidden" />
-                  </label>
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setEditModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">Cancel</button>
-                <button type="submit" disabled={editLoading} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition">
-                  {editLoading ? "Saving..." : "Save Changes"}
-                </button>
-              </div>
-            </form>
+      <Modal
+        open={editModal}
+        onClose={() => setEditModal(false)}
+        title="Edit Product"
+        maxWidth="max-w-lg"
+        footer={
+          <>
+            <button type="button" onClick={() => setEditModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-white transition">
+              Cancel
+            </button>
+            <button type="submit" form="edit-product-form" disabled={editLoading} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition">
+              {editLoading ? "Saving..." : "Save Changes"}
+            </button>
+          </>
+        }
+      >
+        <form id="edit-product-form" onSubmit={handleEditSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <input type="text" required value={editData.name} onChange={(e) => setEditData({ ...editData, name: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
           </div>
-        </div>
-      )}
-
-      {deleteModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">Delete Product</h2>
-            <p className="text-gray-600 mb-6">Are you sure you want to delete this product? This action cannot be undone.</p>
-            <div className="flex justify-end gap-3">
-              <button onClick={() => { setDeleteModal(false); setDeleteId(null); }} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">Cancel</button>
-              <button onClick={handleDeleteConfirm} disabled={deleteLoading} className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg transition">
-                {deleteLoading ? "Deleting..." : "Delete"}
-              </button>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+            <select required value={editData.fk_category_id} onChange={(e) => setEditData({ ...editData, fk_category_id: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+              <option value="">Select category</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">SKU</label>
+              <input type="text" value={editData.sku} onChange={(e) => setEditData({ ...editData, sku: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select value={editData.status} onChange={(e) => setEditData({ ...editData, status: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
             </div>
           </div>
-        </div>
-      )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Image</label>
+            <div className="flex items-center gap-4">
+              {editImagePreview ? (
+                <img src={editImagePreview} alt="Preview" className="h-20 w-20 object-cover rounded-lg border" />
+              ) : (
+                <div className="h-20 w-20 bg-gray-100 rounded-lg border flex items-center justify-center">
+                  <FaImage className="text-gray-400" />
+                </div>
+              )}
+              <label className="cursor-pointer px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm flex items-center gap-2">
+                <FaImage /> Choose Image
+                <input type="file" accept="image/*" onChange={handleEditImageChange} className="hidden" />
+              </label>
+            </div>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={addModal}
+        onClose={() => setAddModal(false)}
+        title="Add Product"
+        maxWidth="max-w-3xl"
+      >
+        <AddProduct
+          onClose={() => setAddModal(false)}
+          onSaved={() => {
+            setAddModal(false);
+            loadProducts();
+          }}
+        />
+      </Modal>
     </div>
   );
 }

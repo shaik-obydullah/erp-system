@@ -8,7 +8,6 @@ use App\Models\Product;
 use App\Models\Role;
 use App\Models\Stock;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class ProductDeletionTest extends TestCase
@@ -52,30 +51,6 @@ class ProductDeletionTest extends TestCase
 
         $this->assertSoftDeleted($product);
         $this->assertSame($admin->id, $product->fresh()->deleted_by);
-    }
-
-    public function test_api_delete_product_is_blocked_by_the_same_guard(): void
-    {
-        $admin = $this->adminWith('products.delete');
-        $product = $this->product();
-
-        Stock::create([
-            'fk_product_id' => $product->id,
-            'quantity' => 3,
-            'buy_price' => 5,
-            'sale_price' => 10,
-            'status' => 'active',
-        ]);
-
-        Sanctum::actingAs($admin);
-
-        $this->deleteJson('/api/v1/delete-product/'.$product->id)
-            ->assertStatus(422)
-            ->assertJsonFragment([
-                'message' => 'This product cannot be deleted because it is used in 1 stock record. Mark the product as inactive instead.',
-            ]);
-
-        $this->assertNotSoftDeleted($product);
     }
 
     private function product(array $overrides = []): Product

@@ -129,15 +129,6 @@ export const updateCategory = async (category) => {
   }
 };
 
-export const deleteCategory = async (id) => {
-  try {
-    const response = await api.delete(`/delete-category/${id}`);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to delete category" };
-  }
-};
-
 // Products
 export const fetchProducts = async ({ page = 1, per_page = 10, search = "" } = {}) => {
   try {
@@ -165,15 +156,6 @@ export const updateProduct = async (id, data) => {
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: "Failed to update product" };
-  }
-};
-
-export const deleteProduct = async (id) => {
-  try {
-    const response = await api.delete(`/delete-product/${id}`);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to delete product" };
   }
 };
 
@@ -212,15 +194,6 @@ export const fetchSaleDetails = async (saleId) => {
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: "Failed to fetch sale details" };
-  }
-};
-
-export const deleteSale = async (saleId) => {
-  try {
-    const response = await api.delete(`/delete-sale/${saleId}`);
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { message: "Failed to delete sale" };
   }
 };
 

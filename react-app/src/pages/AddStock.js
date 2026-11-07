@@ -1,12 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { FaArrowLeft, FaSave, FaSpinner, FaSearch } from "react-icons/fa";
+import { FaSave, FaSpinner, FaSearch } from "react-icons/fa";
 import { saveStock, fetchProducts } from "../api/axios";
 import { useConfig } from "../contexts/ConfigContext";
 import { debounce } from "lodash";
+import { toast } from "react-toastify";
 
-export default function AddStock() {
-  const navigate = useNavigate();
+const VAT_RATES = {
+  standard: 20,
+  reduced: 5,
+  zero: 0,
+  exempt: 0,
+  outside_scope: 0,
+};
+
+export default function AddStock({ onClose, onSaved }) {
   const { currencySign } = useConfig();
   const [form, setForm] = useState({
     fk_product_id: "",
@@ -15,7 +22,9 @@ export default function AddStock() {
     quantity: "",
     buy_price: "",
     sale_price: "",
-    status: "Active",
+    vat_code: "",
+    vat_rate: "",
+    status: "active",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -87,13 +96,23 @@ export default function AddStock() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const handleVatCode = (e) => {
+    const code = e.target.value;
+    setForm({
+      ...form,
+      vat_code: code,
+      vat_rate: code ? VAT_RATES[code] : "",
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
       await saveStock(form);
-      navigate("/stocks", { replace: true });
+      toast.success("Stock added successfully");
+      onSaved?.();
     } catch (err) {
       setError(err.message || "Failed to save stock");
     } finally {
@@ -102,20 +121,11 @@ export default function AddStock() {
   };
 
   return (
-    <div className="p-6 max-w-xl">
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => navigate("/stocks")} className="p-2 hover:bg-gray-100 rounded-lg transition">
-          <FaArrowLeft className="text-gray-600" />
-        </button>
-        <h1 className="text-2xl font-bold text-gray-800">Add Stock</h1>
-      </div>
+    <form onSubmit={handleSubmit} className="space-y-5">
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm">{error}</div>
+      )}
 
-      <div className="bg-white rounded-lg shadow p-6">
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm">{error}</div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-5">
           <div className="relative" ref={dropdownRef}>
             <label className="block text-sm font-medium text-gray-700 mb-1">Product</label>
             <div className="relative">
@@ -197,7 +207,7 @@ export default function AddStock() {
               name="quantity"
               required
               min="0"
-              value={form.qty}
+              value={form.quantity}
               onChange={handleChange}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               placeholder="0"
@@ -235,6 +245,43 @@ export default function AddStock() {
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">VAT Code</label>
+              <select
+                name="vat_code"
+                value={form.vat_code}
+                onChange={handleVatCode}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              >
+                <option value="">Use company default</option>
+                <option value="standard">Standard rate (20%)</option>
+                <option value="reduced">Reduced rate (5%)</option>
+                <option value="zero">Zero rate (0%)</option>
+                <option value="exempt">Exempt</option>
+                <option value="outside_scope">Outside the scope of VAT</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">VAT Rate (%)</label>
+              <input
+                type="number"
+                name="vat_rate"
+                min="0"
+                max="100"
+                step="0.01"
+                value={form.vat_rate}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                placeholder="e.g. 20"
+              />
+            </div>
+          </div>
+
+          <div className="p-3 bg-blue-50 border border-blue-100 text-blue-700 rounded-lg text-xs">
+            New stock is posted to inventory at cost. It does not move cash until the stock is sold.
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
             <select
@@ -243,13 +290,14 @@ export default function AddStock() {
               onChange={handleChange}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
             >
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="archive">Archive</option>
             </select>
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={() => navigate("/stocks")} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+            <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition" type="button" onClick={onClose}>
               Cancel
             </button>
             <button type="submit" disabled={loading} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition flex items-center gap-2">
@@ -257,8 +305,6 @@ export default function AddStock() {
               {loading ? "Saving..." : "Save Stock"}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+    </form>
   );
 }

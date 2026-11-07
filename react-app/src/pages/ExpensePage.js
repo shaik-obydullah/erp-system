@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useConfig } from "../contexts/ConfigContext";
 import { fetchExpenses } from "../api/axios";
-import { FaReceipt } from "react-icons/fa";
+import { FaReceipt, FaPlus } from "react-icons/fa";
+import Modal from "../components/Modal";
+import AddExpense from "./AddExpense";
 
 export default function ExpensePage() {
   const config = useConfig();
@@ -11,6 +13,7 @@ export default function ExpensePage() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [addModal, setAddModal] = useState(false);
 
   const loadExpenses = async () => {
     setLoading(true);
@@ -41,10 +44,15 @@ export default function ExpensePage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-800">Expenses</h1>
-        <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-lg">
-          <FaReceipt className="w-4 h-4 text-red-600" />
-          <span className="text-sm font-medium text-red-700">Total Expenses:</span>
-          <span className="text-lg font-bold text-red-800">{currencySign}{runningTotal.toFixed(2)}</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-lg">
+            <FaReceipt className="w-4 h-4 text-red-600" />
+            <span className="text-sm font-medium text-red-700">Total Expenses:</span>
+            <span className="text-lg font-bold text-red-800">{currencySign}{runningTotal.toFixed(2)}</span>
+          </div>
+          <button onClick={() => setAddModal(true)} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition">
+            <FaPlus /> Add Expense
+          </button>
         </div>
       </div>
 
@@ -107,6 +115,21 @@ export default function ExpensePage() {
           </table>
         </div>
       </div>
+
+      <Modal
+        open={addModal}
+        onClose={() => setAddModal(false)}
+        title="Add Expense"
+        maxWidth="max-w-md"
+      >
+        <AddExpense
+          onClose={() => setAddModal(false)}
+          onSaved={() => {
+            setAddModal(false);
+            loadExpenses();
+          }}
+        />
+      </Modal>
     </div>
   );
 }

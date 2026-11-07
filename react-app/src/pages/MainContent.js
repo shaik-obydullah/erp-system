@@ -10,6 +10,7 @@ import {
   FaTimes,
   FaUser,
   FaTag,
+  FaDollarSign,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { debounce } from "lodash";
@@ -20,6 +21,7 @@ import {
   checkout,
 } from "../api/axios";
 import { useConfig } from "../contexts/ConfigContext";
+import Modal from "../components/Modal";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "https://erp.obydullah.com").replace(/\/api\/v1$/, "");
 const getImageUrl = (image) => {
@@ -58,12 +60,13 @@ export default function MainContent({ onCartUpdate }) {
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerSearch, setCustomerSearch] = useState("");
-  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [discount, setDiscount] = useState("");
+  const [paidAmount, setPaidAmount] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [checkingOut, setCheckingOut] = useState(false);
 
   const categoryScrollRef = useRef(null);
-  const customerDropdownRef = useRef(null);
 
   // ── persist cart ──
   useEffect(() => {
@@ -110,7 +113,7 @@ export default function MainContent({ onCartUpdate }) {
       }
     };
     load();
-  }, [activeCategoryId]);
+  }, [activeCategoryId, reloadKey]);
 
   // ── client-side search filter ──
   const applySearch = useCallback(
@@ -151,17 +154,6 @@ export default function MainContent({ onCartUpdate }) {
     };
     load();
   }, [customerSearch]);
-
-  // close customer dropdown on outside click
-  useEffect(() => {
-    const handler = (e) => {
-      if (customerDropdownRef.current && !customerDropdownRef.current.contains(e.target)) {
-        setShowCustomerDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
 
   // ── cart actions ──
   const addToCart = (stock) => {
@@ -261,6 +253,13 @@ export default function MainContent({ onCartUpdate }) {
   const vatAmount = round2(vatLines.reduce((sum, line) => sum + line.vat, 0));
   const grandTotal = round2(netAmount + vatAmount);
 
+  useEffect(() => {
+    setPaidAmount(grandTotal > 0 ? grandTotal.toFixed(2) : "");
+  }, [grandTotal]);
+
+  const paid = Math.min(Math.max(parseFloat(paidAmount) || 0, 0), grandTotal);
+  const due = round2(Math.max(0, grandTotal - paid));
+
   // ── checkout ──
   const handleCheckout = async () => {
     if (cart.length === 0) return;
@@ -272,6 +271,7 @@ export default function MainContent({ onCartUpdate }) {
         vat_amount: vatAmount,
         tax_amount: 0,
         discount_amount: discountAmount,
+        paid_amount: paid,
         total: grandTotal,
         items: cart.map((i) => ({
           fk_stock_id: i.stock_id,
@@ -282,6 +282,7 @@ export default function MainContent({ onCartUpdate }) {
       await checkout(payload);
       toast.success("Sale completed successfully!");
       clearCart();
+      setReloadKey((key) => key + 1);
     } catch (err) {
       toast.error(err.message || "Checkout failed");
     } finally {
@@ -517,65 +518,32 @@ export default function MainContent({ onCartUpdate }) {
         {cart.length > 0 && (
           <div className="border-t border-gray-200 px-4 py-3 space-y-3">
             {/* Customer Assignment */}
-            <div className="relative" ref={customerDropdownRef}>
+            <div>
               <label className="text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
                 <FaUser size={10} /> Customer
               </label>
-              <button
-                onClick={() => setShowCustomerDropdown(!showCustomerDropdown)}
-                className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg text-sm text-left hover:border-gray-400 transition"
-              >
-                <span className={selectedCustomer ? "text-gray-800" : "text-gray-400"}>
-                  {selectedCustomer ? selectedCustomer.name : "Walk-in Customer"}
-                </span>
-                <FaTimes
-                  size={12}
-                  className={`text-gray-400 ${selectedCustomer ? "visible" : "invisible"}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedCustomer(null);
-                  }}
-                />
-              </button>
-
-              {showCustomerDropdown && (
-                <div className="absolute z-50 bottom-full left-0 right-0 mb-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-hidden">
-                  <div className="p-2 border-b border-gray-100">
-                    <input
-                      type="text"
-                      placeholder="Search customers..."
-                      value={customerSearch}
-                      onChange={(e) => setCustomerSearch(e.target.value)}
-                      className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="overflow-y-auto max-h-44">
-                    {filteredCustomers.length === 0 ? (
-                      <p className="p-3 text-sm text-gray-400 text-center">No customers found</p>
-                    ) : (
-                      filteredCustomers.map((c) => (
-                        <button
-                          key={c.id}
-                          onClick={() => {
-                            setSelectedCustomer(c);
-                            setShowCustomerDropdown(false);
-                            setCustomerSearch("");
-                          }}
-                          className={`w-full px-3 py-2 text-left text-sm hover:bg-blue-50 transition ${
-                            selectedCustomer?.id === c.id ? "bg-blue-50 text-blue-700" : ""
-                          }`}
-                        >
-                          <p className="font-medium text-gray-800">{c.name}</p>
-                          <p className="text-xs text-gray-500">
-                            {c.phone || c.email || ""}
-                          </p>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCustomerModal(true)}
+                  className="flex flex-1 items-center justify-between px-3 py-2 border border-gray-300 rounded-lg text-sm text-left hover:border-gray-400 transition"
+                >
+                  <span className={selectedCustomer ? "text-gray-800" : "text-gray-400"}>
+                    {selectedCustomer ? selectedCustomer.name : "Walk-in Customer"}
+                  </span>
+                  <span className="text-xs font-medium text-blue-600">Select</span>
+                </button>
+                {selectedCustomer && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCustomer(null)}
+                    aria-label="Clear customer"
+                    className="px-2.5 rounded-lg border border-gray-300 text-gray-400 hover:border-red-300 hover:text-red-500 transition"
+                  >
+                    <FaTimes size={12} />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Discount */}
@@ -597,6 +565,22 @@ export default function MainContent({ onCartUpdate }) {
                   %
                 </span>
               </div>
+            </div>
+
+            {/* Paid amount */}
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                <FaDollarSign size={10} /> Paid Amount
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={paidAmount}
+                onChange={(e) => setPaidAmount(e.target.value)}
+                placeholder="0.00"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
             </div>
 
             {/* Price Breakdown */}
@@ -638,6 +622,15 @@ export default function MainContent({ onCartUpdate }) {
                   {grandTotal.toFixed(2)}
                 </span>
               </div>
+              {due > 0 && (
+                <div className="flex justify-between text-red-600 font-medium">
+                  <span>Due</span>
+                  <span>
+                    {currencySign}
+                    {due.toFixed(2)}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Sale Button */}
@@ -659,6 +652,67 @@ export default function MainContent({ onCartUpdate }) {
           </div>
         )}
       </div>
+
+      {/* Customer picker modal */}
+      <Modal
+        open={showCustomerModal}
+        onClose={() => {
+          setShowCustomerModal(false);
+          setCustomerSearch("");
+        }}
+        title="Select Customer"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-3">
+          <input
+            type="text"
+            placeholder="Search by name, phone or email..."
+            value={customerSearch}
+            onChange={(e) => setCustomerSearch(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            autoFocus
+          />
+
+          <div className="-mx-1 max-h-72 overflow-y-auto px-1">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCustomer(null);
+                setShowCustomerModal(false);
+                setCustomerSearch("");
+              }}
+              className={`w-full rounded-lg px-3 py-2.5 text-left text-sm transition ${
+                !selectedCustomer ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50"
+              }`}
+            >
+              <p className="font-medium">Walk-in Customer</p>
+              <p className="text-xs text-gray-500">No customer account</p>
+            </button>
+
+            {filteredCustomers.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  setSelectedCustomer(c);
+                  setShowCustomerModal(false);
+                  setCustomerSearch("");
+                }}
+                className={`w-full rounded-lg px-3 py-2.5 text-left text-sm transition ${
+                  selectedCustomer?.id === c.id ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50"
+                }`}
+              >
+                <p className="font-medium">{c.name}</p>
+                <p className="text-xs text-gray-500">{c.phone || c.email || ""}</p>
+              </button>
+            ))}
+
+            {filteredCustomers.length === 0 && (
+              <p className="py-6 text-center text-sm text-gray-400">No customers found</p>
+            )}
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

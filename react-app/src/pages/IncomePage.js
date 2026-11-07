@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useConfig } from "../contexts/ConfigContext";
 import { fetchIncomes } from "../api/axios";
-import { FaMoneyBillWave } from "react-icons/fa";
+import { FaMoneyBillWave, FaPlus } from "react-icons/fa";
+import Modal from "../components/Modal";
+import AddIncome from "./AddIncome";
 
 export default function IncomePage() {
   const config = useConfig();
@@ -11,6 +13,7 @@ export default function IncomePage() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [addModal, setAddModal] = useState(false);
 
   const loadIncomes = async () => {
     setLoading(true);
@@ -41,10 +44,15 @@ export default function IncomePage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-800">Incomes</h1>
-        <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
-          <FaMoneyBillWave className="w-4 h-4 text-green-600" />
-          <span className="text-sm font-medium text-green-700">Total Income:</span>
-          <span className="text-lg font-bold text-green-800">{currencySign}{runningTotal.toFixed(2)}</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
+            <FaMoneyBillWave className="w-4 h-4 text-green-600" />
+            <span className="text-sm font-medium text-green-700">Total Income:</span>
+            <span className="text-lg font-bold text-green-800">{currencySign}{runningTotal.toFixed(2)}</span>
+          </div>
+          <button onClick={() => setAddModal(true)} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition">
+            <FaPlus /> Add Income
+          </button>
         </div>
       </div>
 
@@ -107,6 +115,21 @@ export default function IncomePage() {
           </table>
         </div>
       </div>
+
+      <Modal
+        open={addModal}
+        onClose={() => setAddModal(false)}
+        title="Add Income"
+        maxWidth="max-w-md"
+      >
+        <AddIncome
+          onClose={() => setAddModal(false)}
+          onSaved={() => {
+            setAddModal(false);
+            loadIncomes();
+          }}
+        />
+      </Modal>
     </div>
   );
 }

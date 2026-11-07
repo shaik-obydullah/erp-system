@@ -17,10 +17,8 @@ use App\Models\SaleDetail;
 use App\Models\Stock;
 use App\Models\Transaction;
 use App\Services\ActivityLogger;
-use App\Services\ProductDeletionGuard;
 use App\Services\VatCalculator;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -173,7 +171,7 @@ class ApiController extends Controller
             'vat_treatment' => $request->input('vat_treatment'),
             'status' => $request->input('status', 'active'),
             'balance' => 0,
-            'created_by' => Auth::guard('admin')->id(),
+            'created_by' => $request->user()?->id,
         ]);
 
         ActivityLogger::created('Customer', $customer);
@@ -202,7 +200,7 @@ class ApiController extends Controller
             'country' => $request->filled('country') ? strtoupper((string) $request->input('country')) : $customer->country,
             'vat_treatment' => $request->input('vat_treatment', $customer->vat_treatment),
             'status' => $request->input('status', $customer->status),
-            'updated_by' => Auth::guard('admin')->id(),
+            'updated_by' => $request->user()?->id,
         ]);
 
         ActivityLogger::updated('Customer', $customer, $customer->getChanges());
@@ -236,7 +234,7 @@ class ApiController extends Controller
             'fk_category_id' => $request->input('fk_category_id'),
             'serial' => $request->input('serial', 0),
             'status' => $request->input('status', 'active'),
-            'created_by' => Auth::guard('admin')->id(),
+            'created_by' => $request->user()?->id,
         ]);
 
         ActivityLogger::created('Category', $category);
@@ -257,23 +255,12 @@ class ApiController extends Controller
             'fk_category_id' => $request->input('fk_category_id', $category->fk_category_id),
             'serial' => $request->input('serial', $category->serial),
             'status' => $request->input('status', $category->status),
-            'updated_by' => Auth::guard('admin')->id(),
+            'updated_by' => $request->user()?->id,
         ]);
 
         ActivityLogger::updated('Category', $category, $category->getChanges());
 
         return response()->json(['message' => 'Category updated successfully', 'category' => $category]);
-    }
-
-    public function deleteCategory($id)
-    {
-        $category = Category::findOrFail($id);
-        $category->update(['deleted_by' => Auth::guard('admin')->id()]);
-        $category->delete();
-
-        ActivityLogger::deleted('Category', $category);
-
-        return response()->json(['message' => 'Category deleted successfully']);
     }
 
     public function product(Request $request)
@@ -313,7 +300,7 @@ class ApiController extends Controller
             'description' => $request->input('description', ''),
             'status' => $request->input('status', 'active'),
             'image' => $request->hasFile('image') ? $request->file('image')->store('products', 'public') : null,
-            'created_by' => Auth::guard('admin')->id(),
+            'created_by' => $request->user()?->id,
         ]);
 
         ActivityLogger::created('Product', $product);
@@ -340,7 +327,7 @@ class ApiController extends Controller
             'barcode' => $request->input('barcode', $product->barcode),
             'description' => $request->input('description', $product->description),
             'status' => $request->input('status', $product->status),
-            'updated_by' => Auth::guard('admin')->id(),
+            'updated_by' => $request->user()?->id,
         ];
 
         if ($request->hasFile('image')) {
@@ -352,28 +339,6 @@ class ApiController extends Controller
         ActivityLogger::updated('Product', $product, $product->getChanges());
 
         return response()->json(['message' => 'Product updated successfully', 'product' => $product]);
-    }
-
-    public function deleteProduct($id)
-    {
-        $product = Product::findOrFail($id);
-
-        $guard = app(ProductDeletionGuard::class);
-        $blockers = $guard->blockers($product);
-
-        if ($blockers !== []) {
-            return response()->json([
-                'message' => $guard->message($blockers),
-                'blockers' => $blockers,
-            ], 422);
-        }
-
-        $product->update(['deleted_by' => Auth::guard('admin')->id()]);
-        $product->delete();
-
-        ActivityLogger::deleted('Product', $product);
-
-        return response()->json(['message' => 'Product deleted successfully']);
     }
 
     public function stock(Request $request)
@@ -395,34 +360,48 @@ class ApiController extends Controller
 
     public function saveStock(Request $request)
     {
-        $request->validate([
+        $request->merge(['status' => strtolower((string) $request->input('status', 'active'))]);
+
+        $validated = $request->validate([
             'fk_product_id' => 'required|exists:products,id',
-            'quantity' => 'required|integer|min:1',
+            'fk_warehouses_id' => 'nullable|exists:warehouses,id',
+            'batch' => 'nullable|string|max:100',
+            'lot' => 'nullable|string|max:100',
+            'quantity' => 'required|integer|min:0',
             'buy_price' => 'required|numeric|min:0',
             'sale_price' => 'required|numeric|min:0',
+            'vat_code' => 'nullable|in:standard,reduced,zero,exempt,outside_scope',
+            'vat_rate' => 'nullable|numeric|min:0|max:100',
+            'status' => 'required|in:active,inactive,archive',
         ]);
 
-        $adminId = Auth::guard('admin')->id();
+        $adminId = $request->user()?->id;
 
-        $stock = Stock::create([
-            'fk_product_id' => $request->fk_product_id,
-            'fk_inventory_id' => $request->input('fk_inventory_id'),
-            'fk_warehouses_id' => $request->input('fk_warehouses_id'),
-            'batch' => $request->input('batch', ''),
-            'lot' => $request->input('lot', ''),
-            'quantity' => $request->quantity,
-            'buy_price' => $request->buy_price,
-            'sale_price' => $request->sale_price,
-            'status' => $request->input('status', 'active'),
-            'accounting_version' => 1,
-            'created_by' => $adminId,
-        ]);
+        $stock = DB::transaction(function () use ($request, $validated, $adminId) {
+            $stock = Stock::create([
+                'fk_product_id' => $validated['fk_product_id'],
+                'fk_inventory_id' => $request->input('fk_inventory_id'),
+                'fk_warehouses_id' => $validated['fk_warehouses_id'] ?? null,
+                'batch' => $validated['batch'] ?? null,
+                'lot' => $validated['lot'] ?? null,
+                'quantity' => $validated['quantity'],
+                'buy_price' => $validated['buy_price'],
+                'sale_price' => $validated['sale_price'],
+                'vat_code' => $validated['vat_code'] ?? null,
+                'vat_rate' => $validated['vat_rate'] ?? null,
+                'status' => $validated['status'],
+                'accounting_version' => 1,
+                'created_by' => $adminId,
+            ]);
 
-        app(AccountingPoster::class)->stockIn($stock, $adminId);
+            app(AccountingPoster::class)->stockIn($stock, $adminId);
+
+            return $stock;
+        });
 
         ActivityLogger::created('Stock', $stock);
 
-        return response()->json(['message' => 'Stock created successfully', 'stock' => $stock]);
+        return response()->json(['message' => 'Stock created successfully', 'stock' => $stock->fresh()]);
     }
 
     public function sale(Request $request)
@@ -446,36 +425,6 @@ class ApiController extends Controller
         return response()->json($sale);
     }
 
-    public function deleteSale($id)
-    {
-        DB::beginTransaction();
-
-        try {
-            $sale = Sale::findOrFail($id);
-
-            foreach ($sale->details as $detail) {
-                Stock::where('id', $detail->fk_stock_id)
-                    ->increment('quantity', $detail->sale_stock);
-            }
-
-            $sale->transaction()->delete();
-            $sale->details()->delete();
-
-            $sale->update(['deleted_by' => Auth::guard('admin')->id()]);
-            $sale->delete();
-
-            ActivityLogger::deleted('Sale', $sale);
-
-            DB::commit();
-
-            return response()->json(['message' => 'Sale deleted successfully']);
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            return response()->json(['error' => 'Failed to delete sale'], 500);
-        }
-    }
-
     public function saveSale(Request $request)
     {
         $request->validate([
@@ -487,6 +436,7 @@ class ApiController extends Controller
             'vat_amount' => 'nullable|numeric|min:0',
             'tax_amount' => 'nullable|numeric|min:0',
             'discount_amount' => 'nullable|numeric|min:0',
+            'paid_amount' => 'nullable|numeric|min:0',
             'total' => 'nullable|numeric|min:0',
             'customer_id' => 'nullable|exists:customers,id',
         ]);
@@ -495,17 +445,45 @@ class ApiController extends Controller
 
         try {
             $invoiceId = 'INV-'.strtoupper(Str::random(8)).'-'.time();
-            $adminId = Auth::guard('admin')->id();
+            $adminId = $request->user()?->id;
             $today = now()->toDateString();
             $vat = app(VatCalculator::class);
             $discount = round((float) $request->input('discount_amount', 0), 2);
+
+            // Lock the stock rows and reject the sale up front if any line
+            // (including duplicate lines for the same batch) is short.
+            $requestedQuantities = [];
+
+            foreach ($request->items as $item) {
+                $stockId = (int) $item['fk_stock_id'];
+                $requestedQuantities[$stockId] = ($requestedQuantities[$stockId] ?? 0)
+                    + (int) $item['sale_stock'];
+            }
+
+            $stocks = Stock::with('product')
+                ->whereIn('id', array_keys($requestedQuantities))
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            foreach ($requestedQuantities as $stockId => $quantity) {
+                $stock = $stocks->get($stockId);
+
+                if (! $stock || (int) $stock->quantity < $quantity) {
+                    DB::rollBack();
+
+                    return response()->json([
+                        'error' => 'Insufficient stock for '.($stock?->product?->name ?? 'item').'.',
+                    ], 422);
+                }
+            }
 
             // The server is the source of truth: rebuild every line from the
             // stock price and the product's own VAT treatment.
             $lines = [];
 
             foreach ($request->items as $item) {
-                $stock = Stock::with('product')->find($item['fk_stock_id']);
+                $stock = $stocks->get((int) $item['fk_stock_id']);
 
                 if (! $stock) {
                     continue;
@@ -533,12 +511,18 @@ class ApiController extends Controller
             $lines = $vat->applyDiscount($lines, $discount);
             $summary = $vat->summary($lines);
             $grandTotal = round($summary['gross'], 2);
+            $paidAmount = round(min(
+                max(0, (float) $request->input('paid_amount', $grandTotal)),
+                $grandTotal
+            ), 2);
+            $saleDue = round(max(0, $grandTotal - $paidAmount), 2);
             $buyPrice = round(array_sum(array_map(
                 fn (array $line) => (float) $line['cost_price'] * (int) $line['quantity'],
                 $lines
             )), 2);
 
             $sale = Sale::create([
+                'table_name' => 'sales',
                 'fk_user_id' => $request->input('customer_id'),
                 'invoice_id' => $invoiceId,
                 'type' => 'POS',
@@ -548,9 +532,9 @@ class ApiController extends Controller
                 'shipping_cost' => 0,
                 'discount_amount' => $discount,
                 'grand_total' => $grandTotal,
-                'paid_amount' => $grandTotal,
+                'paid_amount' => $paidAmount,
                 'buy_price' => $buyPrice,
-                'sale_due' => 0,
+                'sale_due' => $saleDue,
                 'status' => 'completed',
                 'note' => $request->input('note', ''),
                 'vat_breakdown' => $summary['breakdown'],
@@ -582,8 +566,8 @@ class ApiController extends Controller
                 'type' => Transaction::TYPE_SALE_INCOME,
                 'fk_reference_id' => $sale->id,
                 'amount' => $grandTotal,
-                'paid_amount' => $grandTotal,
-                'due_amount' => 0,
+                'paid_amount' => $paidAmount,
+                'due_amount' => $saleDue,
                 'created_by' => $adminId,
             ]);
 
@@ -597,18 +581,33 @@ class ApiController extends Controller
                 'created_by' => $adminId,
             ]);
 
-            Cashbook::create([
-                'table_name' => 'sales',
-                'fk_reference_id' => $sale->id,
-                'description' => "Sale #{$invoiceId}",
-                'in_amount' => $grandTotal,
-                'out_amount' => 0,
-                'amount_payable' => 0,
-                'amount_receivable' => 0,
-                'created_by' => $adminId,
-            ]);
+            if ($paidAmount > 0) {
+                Cashbook::create([
+                    'table_name' => 'sales',
+                    'fk_reference_id' => $sale->id,
+                    'description' => "Payment for {$invoiceId}",
+                    'in_amount' => $paidAmount,
+                    'out_amount' => 0,
+                    'amount_payable' => 0,
+                    'amount_receivable' => 0,
+                    'created_by' => $adminId,
+                ]);
+            }
 
-            app(AccountingPoster::class)->sale($sale, (float) $grandTotal, 0, $buyPrice, $adminId);
+            if ($saleDue > 0) {
+                Cashbook::create([
+                    'table_name' => 'sales',
+                    'fk_reference_id' => $sale->id,
+                    'description' => "Due for {$invoiceId}",
+                    'in_amount' => 0,
+                    'out_amount' => 0,
+                    'amount_payable' => 0,
+                    'amount_receivable' => $saleDue,
+                    'created_by' => $adminId,
+                ]);
+            }
+
+            app(AccountingPoster::class)->sale($sale, $paidAmount, $saleDue, $buyPrice, $adminId);
 
             ActivityLogger::created('Sale', $sale);
 
@@ -620,9 +619,11 @@ class ApiController extends Controller
                 'invoice_id' => $invoiceId,
                 'net_amount' => $summary['net'],
                 'vat_amount' => $summary['vat'],
+                'paid_amount' => $paidAmount,
+                'due_amount' => $saleDue,
                 'total' => $grandTotal,
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json(['error' => 'Failed to process sale'], 500);
@@ -655,7 +656,7 @@ class ApiController extends Controller
         DB::beginTransaction();
 
         try {
-            $adminId = Auth::guard('admin')->id();
+            $adminId = $request->user()?->id;
             $today = now()->toDateString();
             $vat = app(VatCalculator::class);
             $calculated = $vat->extract(
@@ -739,7 +740,7 @@ class ApiController extends Controller
         DB::beginTransaction();
 
         try {
-            $adminId = Auth::guard('admin')->id();
+            $adminId = $request->user()?->id;
             $today = now()->toDateString();
             $vat = app(VatCalculator::class);
             $calculated = $vat->extract(
