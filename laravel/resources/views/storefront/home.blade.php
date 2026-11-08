@@ -144,18 +144,43 @@
 
     <!-- Banner Image Carousel -->
     @php
-        $bannerSlides = $sliderContent->count() ? $sliderContent->map(function ($s) {
+        $resolveMediaUrl = function (?string $media): string {
+            $media = trim((string) $media);
+            if ($media === '') {
+                return '';
+            }
+            if (Str::startsWith($media, ['http://', 'https://'])) {
+                return $media;
+            }
+
+            $path = ltrim($media, '/');
+            // Legacy CMS values point at /storage/products/..., but product
+            // uploads are served from /uploads/products/....
+            if (Str::startsWith($path, 'storage/')) {
+                $path = Str::after($path, 'storage/');
+            }
+            if (Str::startsWith($path, 'products/')) {
+                $path = 'uploads/'.$path;
+            }
+            if (! Str::startsWith($path, 'uploads/')) {
+                $path = 'uploads/products/'.$path;
+            }
+
+            return asset($path);
+        };
+
+        $bannerSlides = $sliderContent->count() ? $sliderContent->map(function ($s) use ($resolveMediaUrl) {
             return [
                 'bg' => 'from-primary-600 to-primary-800',
                 'title' => $s->name,
                 'subtitle' => $s->attribute ?? '',
-                'img' => $s->media ?? '',
+                'img' => $resolveMediaUrl($s->media),
                 'href' => Str::contains($s->slug ?? '', ['vendor', 'seller']) ? route('store.vendors') : route('store.products'),
             ];
         }) : collect([
-            ['bg' => 'from-rose-500 to-pink-500', 'title' => 'Summer Sale', 'subtitle' => 'Up to 60% off on selected items', 'img' => '/storage/products/samsung-galaxy-s24-ultra.jpg', 'href' => route('store.products')],
-            ['bg' => 'from-blue-500 to-indigo-500', 'title' => 'New Arrivals', 'subtitle' => 'Check out the latest tech gadgets', 'img' => '/storage/products/macbook-pro-16-m3.jpg', 'href' => route('store.products')],
-            ['bg' => 'from-amber-500 to-orange-500', 'title' => 'Become a Seller', 'subtitle' => 'Join ShopHub and reach millions of customers', 'img' => '/storage/products/iphone-15-pro-max.jpg', 'href' => route('store.vendors')],
+            ['bg' => 'from-rose-500 to-pink-500', 'title' => 'Summer Sale', 'subtitle' => 'Up to 60% off on selected items', 'img' => asset('uploads/products/samsung-galaxy-s24-ultra.jpg'), 'href' => route('store.products')],
+            ['bg' => 'from-blue-500 to-indigo-500', 'title' => 'New Arrivals', 'subtitle' => 'Check out the latest tech gadgets', 'img' => asset('uploads/products/macbook-pro-16-m3.jpg'), 'href' => route('store.products')],
+            ['bg' => 'from-amber-500 to-orange-500', 'title' => 'Become a Seller', 'subtitle' => 'Join ShopHub and reach millions of customers', 'img' => asset('uploads/products/iphone-15-pro-max.jpg'), 'href' => route('store.vendors')],
         ]);
     @endphp
     <section class="max-w-7xl mx-auto px-4 py-6"
