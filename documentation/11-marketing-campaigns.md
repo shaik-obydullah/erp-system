@@ -67,11 +67,7 @@ The campaign resource routes currently rely on the `auth:admin` + `active.admin`
 - There are no delivery, open-rate, click, sent/failed, or recipient-level metrics because no sending/recipient tables or mail/SMS integration exist.
 - Campaign spend appears in finance through the `campaignExpense` transaction, cashbook, and marketing-expense ledger account.
 
-## 6. AI Integration Points
-
-There is no AI campaign copy/targeting integration in the current codebase.
-
-## 7. Permissions
+## 6. Permissions
 
 | Group | Permissions |
 |---|---|
@@ -79,7 +75,7 @@ There is no AI campaign copy/targeting integration in the current codebase.
 
 There are no Leads or Contacts permission groups.
 
-## 8. Related Code Locations
+## 7. Related Code Locations
 
 - Models: `laravel/app/Models/{Campaign,NewsletterSubscriber,Content}.php`
 - Controllers: `laravel/app/Http/Controllers/CampaignController.php`; storefront newsletter in `StorefrontController::newsletterSubscribe`

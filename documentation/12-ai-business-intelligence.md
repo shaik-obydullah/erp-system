@@ -65,7 +65,7 @@ There are **no** `/ai/chat` or `/ai/forecast` endpoints.
 | Setting | Default | Purpose |
 |---|---|---|
 | `OLLAMA_URL` | `http://erp_ollama:11434` | Ollama service URL (`config/services.php`) |
-| `AI_MODEL` | `llama3.2` | Model name used for every AI request |
+| `AI_MODEL` | `qwen2.5:0.5b` | Model name used for every AI request (tiny default for low-spec machines) |
 | `ACCOUNTING_*` | — | Not AI-related; see Finance module |
 
 `OllamaService` uses `POST /api/chat` with a 120-second timeout and `GET /api/tags` for availability/model checks. If Ollama is down or the configured model is not pulled, endpoints return `null` and the controllers respond with a 500 error; the UI must degrade gracefully.
