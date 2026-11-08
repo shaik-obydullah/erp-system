@@ -1,6 +1,19 @@
 @extends('storefront.layout')
 @section('title', 'All Products')
 
+@section('head')
+<style>
+    /* On desktop the category sidebar is a normal column, so it must not sit
+       above the sticky navbar / mega menu. Mobile keeps the z-50 drawer. */
+    @media (min-width: 1024px) {
+        aside.products-sidebar { z-index: auto; }
+    }
+    /* Quick View modal is z-[60]; the prebuilt storefront.css does not include
+       arbitrary-value utilities, so define it here. */
+    .z-\[60\] { z-index: 60; }
+</style>
+@endsection
+
 @section('content')
 <div class="max-w-7xl mx-auto px-4 py-8" x-data="productsPage()">
 
@@ -75,7 +88,7 @@
 
         <!-- Sidebar Filters -->
         <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
-               class="fixed top-0 left-0 z-50 h-full w-72 bg-white lg:bg-transparent lg:relative lg:w-56 lg:h-auto flex-shrink-0 overflow-y-auto lg:overflow-visible transition-transform duration-300 ease-in-out">
+               class="products-sidebar fixed top-0 left-0 z-50 h-full w-72 bg-white lg:bg-transparent lg:relative lg:w-56 lg:h-auto flex-shrink-0 overflow-y-auto lg:overflow-visible transition-transform duration-300 ease-in-out">
             <div class="p-5 lg:p-0 space-y-5">
 
                 <!-- Mobile Close -->

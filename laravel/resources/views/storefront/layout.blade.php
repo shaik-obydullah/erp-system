@@ -13,6 +13,9 @@
         .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* Mega menu sits under the left-most "Shop" link, so anchor it left and
+           keep it inside the viewport on narrower desktop widths. */
+        .mega-panel { max-width: calc(100vw - 2rem); }
     </style>
     @yield('head')
 </head>
@@ -90,7 +93,7 @@
     </nav>
 
     <!-- Desktop Mega Menu Nav -->
-    <div class="hidden md:block bg-white border-b" x-data="megaMenu()" x-cloak>
+    <div class="hidden md:block relative z-40 bg-white border-b" x-data="megaMenu()" x-cloak>
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex items-center gap-1 h-11 text-sm font-medium">
 
@@ -109,7 +112,7 @@
                         x-transition:enter-start="opacity-0 translate-y-1" x-transition:enter-end="opacity-100 translate-y-0"
                         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0"
                         x-transition:leave-end="opacity-0 translate-y-1"
-                        class="absolute top-full left-1/2 -translate-x-1/2 w-[780px] bg-white rounded-xl shadow-2xl border border-gray-100 mt-2 p-6"
+                        class="mega-panel absolute top-full left-0 z-50 w-[780px] bg-white rounded-xl shadow-2xl border border-gray-100 mt-2 p-6"
                         @mouseenter="keepOpen('shop')" @mouseleave="closeMega('shop')">
                         <div class="grid grid-cols-3 gap-6">
                             <!-- Left: Category Grid -->
