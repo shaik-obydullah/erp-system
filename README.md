@@ -12,7 +12,7 @@ AI-powered full-stack ERP and multi-vendor marketplace system featuring a Larave
 ![MariaDB](https://img.shields.io/badge/MariaDB-10.6-003545?style=for-the-badge&logo=mariadb&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-3-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-6-646CFF?style=for-the-badge&logo=vite&logoColor=white)
-![Ollama](https://img.shields.io/badge/Ollama-llama3.2-000000?style=for-the-badge&logo=ollama&logoColor=white)
+![Ollama](https://img.shields.io/badge/Ollama-qwen2.5:0.5b-000000?style=for-the-badge&logo=ollama&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-3.0-000000?style=for-the-badge&logo=flask&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-24-2496ED?style=for-the-badge&logo=docker&logoColor=white)
@@ -51,7 +51,7 @@ AI-powered full-stack ERP and multi-vendor marketplace system featuring a Larave
 
 - **Two POS terminals** — an in-admin Blade POS and a standalone React 19 terminal, both writing to one transactional ledger. The API also exposes pull/push sync endpoints for offline or mobile clients.
 - **Multi-vendor ecommerce** — storefront, cart, checkout (billing + shipping), customer portal, supplier portal, reviews, flash sales, and newsletter subscriptions.
-- **Self-hosted AI (zero API cost)** — product descriptions, natural-language search, inventory insights, sales forecast, price suggestions, and a support chatbot powered by Ollama (llama3.2). Health checks verify the configured model is actually installed, not just that Ollama is reachable.
+- **Self-hosted AI (zero API cost)** — product descriptions, natural-language search, inventory insights, sales forecast, price suggestions, and a support chatbot powered by Ollama (qwen2.5:0.5b by default — a tiny model for low-spec machines). Health checks verify the configured model is actually installed, not just that Ollama is reachable.
 - **ML Business Intelligence** — a separate [Flask/scikit-learn BI service](https://github.com/shaik-obydullah/bi-system) with KMeans clustering, IsolationForest anomaly detection, recommendations, Apriori combos, and linear-regression/Prophet forecasting, consumed through `BiController`.
 - **Full double-entry accounting** — journal entries and lines, a 26-account chart of accounts, ledger, trial balance, profit & loss, balance sheet, cash flow, reconciliation, fiscal periods, opening balances, and a UK 9-box VAT return reconciled against the ledger.
 - **Automated ledger posting** — every operational flow (POS/storefront sale, purchase order, sale return, stock adjustment, shipment landed cost, payroll, production, fixed asset, campaign spend, and customer/supplier fund) posts a balanced journal entry through `AccountingPoster`; `accounting:backfill` replays legacy rows idempotently and `accounting:verify` runs nightly.
@@ -97,7 +97,7 @@ The system is a **monolithic backend with decoupled frontends**, replacing five-
                        │                    │                  │
           ┌────────────▼──────┐   ┌─────────▼───────┐  ┌───────▼──────────┐
           │  MariaDB (10.6)   │   │  Ollama AI      │  │  Flask BI        │
-          │  77 tables ·      │   │  llama3.2       │  │  scikit-learn ·  │
+          │  77 tables ·      │   │  qwen2.5:0.5b   │  │  scikit-learn ·  │
           │  single source    │   │  port 11434     │  │  port 5000       │
           │  of truth         │   │  (self-hosted,  │  │  (run separately)│
           └───────────────────┘   │  zero API cost) │  └──────────────────┘
@@ -118,7 +118,7 @@ The system is a **monolithic backend with decoupled frontends**, replacing five-
 | **Laravel API + Admin + Storefront** | Monolithic application server    | Admin browsers, storefront browsers, React POS |
 | **React 19 POS**                     | Standalone POS terminal (SPA)    | Cashiers                                       |
 | **MariaDB**                          | Relational database (77 tables)  | Laravel                                        |
-| **Ollama (llama3.2)**                | Self-hosted LLM inference        | Laravel (via HTTP `/api/chat`)                 |
+| **Ollama (qwen2.5:0.5b)**            | Self-hosted LLM inference        | Laravel (via HTTP `/api/chat`)                 |
 | **Flask BI**                         | Separate ML analytics service ([bi-system](https://github.com/shaik-obydullah/bi-system)) | Laravel (via HTTP proxy) |
 | **phpMyAdmin**                       | DB admin UI (dev only)           | Developers                                     |
 | **Nginx**                            | Reverse proxy + static server    | Public traffic                                 |
@@ -168,7 +168,7 @@ Route files: `web.php` (admin + storefront, permission-gated), `api.php` (Sanctu
 
 ### AI Layer (Ollama)
 
-Single gateway `app/Services/OllamaService.php` → `http://erp_ollama:11434` with model `llama3.2`, configurable temperature, 120 s timeout, exception-safe. `isAvailable()` calls `GET /api/tags` and confirms the configured model (e.g. `llama3.2` or `llama3.2:latest`) is actually installed, so the status endpoint does not report a false positive when Ollama is running with no models pulled.
+Single gateway `app/Services/OllamaService.php` → `http://erp_ollama:11434` with model `qwen2.5:0.5b` by default (a tiny model for low-spec machines), configurable temperature, 120 s timeout, exception-safe. `isAvailable()` calls `GET /api/tags` and confirms the configured model (e.g. `qwen2.5:0.5b` or `qwen2.5:0.5b-instruct-q4_K_M`) is actually installed, so the status endpoint does not report a false positive when Ollama is running with no models pulled.
 
 | Capability              | Endpoint (`/api/v1`)                 | Temperature |
 | ----------------------- | ------------------------------------ | ----------- |
@@ -210,7 +210,7 @@ HTTPS · 5 guards · permission middleware on gated routes · CSRF · Blade XSS 
 | Frontend   | React 19, Vite 6, Tailwind CSS 3                 |
 | Storefront | Laravel Blade, Vue.js 3, Alpine.js 3             |
 | Database   | MariaDB 10.6 (77 migrated tables)                |
-| AI         | Ollama (llama3.2) — self-hosted LLM              |
+| AI         | Ollama (qwen2.5:0.5b) — self-hosted LLM          |
 | BI         | Flask, scikit-learn (separate service)           |
 | Infra      | Docker, Nginx, Apache                            |
 | PDF        | jsPDF + jspdf-autotable                          |
@@ -685,7 +685,7 @@ Base path `/api/v1` (see `laravel/routes/api.php`) — 33 route definitions (3 p
 
 ## AI Features
 
-All **generative** AI is self-hosted via `App\Services\OllamaService` (`POST {OLLAMA_URL}/api/chat`). Env vars: `OLLAMA_URL` (default `http://erp_ollama:11434`) and `AI_MODEL` (default `llama3.2`). All methods return `null` when Ollama is down — **callers must handle null and degrade gracefully**; the React UI should disable AI widgets based on `GET /ai/status`. The status check verifies the configured model is present in `GET /api/tags`, so a running Ollama with no pulled model correctly reports unavailable.
+All **generative** AI is self-hosted via `App\Services\OllamaService` (`POST {OLLAMA_URL}/api/chat`). Env vars: `OLLAMA_URL` (default `http://erp_ollama:11434`) and `AI_MODEL` (default `qwen2.5:0.5b`, a tiny model suitable for low-spec machines). All methods return `null` when Ollama is down — **callers must handle null and degrade gracefully**; the React UI should disable AI widgets based on `GET /ai/status`. The status check verifies the configured model is present in `GET /api/tags`, so a running Ollama with no pulled model correctly reports unavailable.
 
 > **Scope:** this section covers the in-app generative AI copilot (Ollama). The deterministic ML/analytics layer is a separate project — see [Business Intelligence](#business-intelligence) and the [bi-system repository](https://github.com/shaik-obydullah/bi-system).
 
@@ -785,7 +785,7 @@ These are created by `DatabaseSeeder` (`Admin::firstOrCreate`) and the super-adm
 Ollama must have the configured model pulled before AI features work:
 
 ```bash
-docker compose exec erp_ollama ollama pull llama3.2
+docker compose exec erp_ollama ollama pull qwen2.5:0.5b
 ```
 
 `GET /api/v1/ai/status` reports `available: false` until the model is installed.
@@ -815,7 +815,7 @@ Key variables in `laravel/.env`:
 | `DB_USERNAME` | `laravel` | Database user |
 | `DB_PASSWORD` | `secret` | Database password (change in production) |
 | `OLLAMA_URL` | `http://erp_ollama:11434` | Ollama API base URL |
-| `AI_MODEL` | `llama3.2` | Model used for generative AI |
+| `AI_MODEL` | `qwen2.5:0.5b` | Model used for generative AI (tiny default for low-spec machines) |
 | `BI_API_URL` | `http://bi_nginx:80/api/v1` | BI service base URL |
 | `BI_API_KEY` | — | Must match the BI service's `BI_API_KEY` |
 | `ACCOUNTING_GL_ENABLED` | `true` | Pause or resume automatic ledger postings |

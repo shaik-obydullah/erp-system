@@ -13,7 +13,7 @@ class OllamaService
     public function __construct()
     {
         $this->baseUrl = config('services.ollama.url', env('OLLAMA_URL', 'http://erp_ollama:11434'));
-        $this->model = config('services.ollama.model', env('AI_MODEL', 'llama3.2'));
+        $this->model = config('services.ollama.model', env('AI_MODEL', 'qwen2.5:0.5b'));
     }
 
     public function chat(string $prompt, string $systemPrompt = '', float $temperature = 0.7): ?string

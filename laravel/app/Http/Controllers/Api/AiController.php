@@ -248,7 +248,7 @@ class AiController extends Controller
     {
         return response()->json([
             'available' => $this->ai->isAvailable(),
-            'model' => config('services.ollama.model', env('AI_MODEL', 'llama3.2')),
+            'model' => config('services.ollama.model', env('AI_MODEL', 'qwen2.5:0.5b')),
         ]);
     }
 }

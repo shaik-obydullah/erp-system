@@ -37,7 +37,7 @@ return [
 
     'ollama' => [
         'url' => env('OLLAMA_URL', 'http://erp_ollama:11434'),
-        'model' => env('AI_MODEL', 'llama3.2'),
+        'model' => env('AI_MODEL', 'qwen2.5:0.5b'),
     ],
 
     'bi' => [
