@@ -13,8 +13,8 @@ AI-powered full-stack ERP and multi-vendor marketplace system featuring a Larave
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-3-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-6-646CFF?style=for-the-badge&logo=vite&logoColor=white)
 ![Ollama](https://img.shields.io/badge/Ollama-llama3.2-000000?style=for-the-badge&logo=ollama&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3.10-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![Flask](https://img.shields.io/badge/Flask-2.3-000000?style=for-the-badge&logo=flask&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-3.0-000000?style=for-the-badge&logo=flask&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-24-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![Laravel Sanctum](https://img.shields.io/badge/Laravel%20Sanctum-4-E34F26?style=for-the-badge&logo=laravel&logoColor=white)
 ![Chart.js](https://img.shields.io/badge/Chart.js-4-FF6384?style=for-the-badge&logo=chart.js&logoColor=white)
@@ -170,7 +170,7 @@ Route files: `web.php` (admin + storefront, permission-gated), `api.php` (Sanctu
 
 Single gateway `app/Services/OllamaService.php` → `http://erp_ollama:11434` with model `llama3.2`, configurable temperature, 120 s timeout, exception-safe. `isAvailable()` calls `GET /api/tags` and confirms the configured model (e.g. `llama3.2` or `llama3.2:latest`) is actually installed, so the status endpoint does not report a false positive when Ollama is running with no models pulled.
 
-| Capability              | Endpoint                             | Temperature |
+| Capability              | Endpoint (`/api/v1`)                 | Temperature |
 | ----------------------- | ------------------------------------ | ----------- |
 | Product descriptions    | `POST /ai/product-description`       | 0.8         |
 | Natural-language search | `POST /ai/product-search`            | 0.3         |
@@ -185,16 +185,7 @@ Single gateway `app/Services/OllamaService.php` → `http://erp_ollama:11434` wi
 
 `BiController` proxies to a separately deployed Python/Flask service maintained in the [shaik-obydullah/bi-system](https://github.com/shaik-obydullah/bi-system) repository (30 s timeout). The Flask app, Nginx proxy, scikit-learn/Prophet pipelines, and trained models live there; this repository contains the Laravel proxy, admin views, and `BI_API_URL` / `BI_API_KEY` config. The service is **not** part of the default `docker-compose.yml`; it runs internal-only (`bi_nginx:80` → `bi_flask:5000`) on the `erp-system_default` Docker network, and every request requires the `X-API-Key` header. Admin views live under `/bi/*` behind the admin guard (`auth:admin` + `active.admin`); if the BI service is unavailable they render empty states rather than failing.
 
-| Method | Endpoint (`/api/v1`)        | Analytics                                                                                   |
-| ------ | --------------------------- | ------------------------------------------------------------------------------------------- |
-| POST   | `/analyze`                  | Employee performance (KMeans + IsolationForest + score)                                     |
-| GET    | `/product-analysis`         | Product performance tiers (KMeans + weighted scoring)                                       |
-| GET    | `/sales-forecast`           | Next-month linear-regression forecast + confidence interval                                 |
-| GET    | `/product-combos`           | Apriori association-rule market-basket analysis                                             |
-| POST   | `/recommendations/products` | 6 strategies (popular, trending, content-based KNN, collaborative, similar users, personalized) |
-| GET    | `/prophet-forecast`         | Facebook Prophet forecast with seasonality, trend, and confidence intervals                 |
-
-Forecast payloads are cached (`FORECAST_CACHE_TTL`, default 6 h); the BI service exposes `POST /api/v1/internal/refresh` for scheduled recomputation and `GET /api/v1/internal/cache-status` to report cache age. Configure `BI_API_URL` (e.g. `http://bi_nginx:80/api/v1`) and `BI_API_KEY` in `laravel/.env`.
+Forecast payloads are cached (`FORECAST_CACHE_TTL`, default 6 h) in the BI service, which exposes `POST /api/v1/internal/refresh` for scheduled recomputation and `GET /api/v1/internal/cache-status` to report cache age. Configure `BI_API_URL` (e.g. `http://bi_nginx:80/api/v1`) and `BI_API_KEY` in `laravel/.env`. See [Business Intelligence](#business-intelligence) for the full endpoint table and admin views.
 
 ### Data Layer
 
@@ -247,15 +238,18 @@ HTTPS · 5 guards · permission middleware on gated routes · CSRF · Blade XSS 
 
 ## Screenshots
 
-### Authentication & System
+A few highlights first; expand any group for the full gallery.
 
-**Login**
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="screenshots/ERP_Login.png" alt="Login" width="100%"/><br/><sub><strong>Login</strong></sub></td>
+    <td align="center" width="33%"><img src="screenshots/ERP_Dashboard.png" alt="Dashboard" width="100%"/><br/><sub><strong>Dashboard</strong></sub></td>
+    <td align="center" width="33%"><img src="screenshots/POS.png" alt="Blade POS" width="100%"/><br/><sub><strong>Blade POS</strong></sub></td>
+  </tr>
+</table>
 
-![Login](screenshots/ERP_Login.png)
-
-**Dashboard**
-
-![Dashboard](screenshots/ERP_Dashboard.png)
+<details>
+<summary><strong>Authentication &amp; System</strong> — 5 screenshots</summary>
 
 **Settings**
 
@@ -277,7 +271,10 @@ HTTPS · 5 guards · permission middleware on gated routes · CSRF · Blade XSS 
 
 ![Activity Manager](screenshots/Activity_Manager.png)
 
-### Catalog Management
+</details>
+
+<details>
+<summary><strong>Catalog Management</strong> — 6 screenshots</summary>
 
 **Products**
 
@@ -303,7 +300,10 @@ HTTPS · 5 guards · permission middleware on gated routes · CSRF · Blade XSS 
 
 ![Units](screenshots/Units.png)
 
-### Inventory & Stock
+</details>
+
+<details>
+<summary><strong>Inventory &amp; Stock</strong> — 5 screenshots</summary>
 
 **Stocks**
 
@@ -325,11 +325,10 @@ HTTPS · 5 guards · permission middleware on gated routes · CSRF · Blade XSS 
 
 ![Warehouses](screenshots/Warehouses.png)
 
-### Sales & POS
+</details>
 
-**POS Terminal**
-
-![POS](screenshots/POS.png)
+<details>
+<summary><strong>Sales &amp; POS</strong> — 2 screenshots</summary>
 
 **Sales**
 
@@ -339,7 +338,10 @@ HTTPS · 5 guards · permission middleware on gated routes · CSRF · Blade XSS 
 
 ![Sales Return](screenshots/Sales_Return.png)
 
-### Customers
+</details>
+
+<details>
+<summary><strong>Customers</strong> — 5 screenshots</summary>
 
 **Customers**
 
@@ -361,7 +363,10 @@ HTTPS · 5 guards · permission middleware on gated routes · CSRF · Blade XSS 
 
 ![Outstanding Customer Dues](screenshots/Outstanding_Customer_Dues.png)
 
-### Suppliers
+</details>
+
+<details>
+<summary><strong>Suppliers</strong> — 3 screenshots</summary>
 
 **Suppliers**
 
@@ -375,7 +380,10 @@ HTTPS · 5 guards · permission middleware on gated routes · CSRF · Blade XSS 
 
 ![Supplier Transactions](screenshots/Supplier_Transactions.png)
 
-### Finance & Accounting
+</details>
+
+<details>
+<summary><strong>Finance &amp; Accounting</strong> — 8 screenshots</summary>
 
 **Income**
 
@@ -409,7 +417,10 @@ HTTPS · 5 guards · permission middleware on gated routes · CSRF · Blade XSS 
 
 ![Fixed Assets](screenshots/Fixed_Assets.png)
 
-### Procurement & Supply Chain
+</details>
+
+<details>
+<summary><strong>Procurement &amp; Supply Chain</strong> — 3 screenshots</summary>
 
 **Procurement Needs**
 
@@ -423,7 +434,10 @@ HTTPS · 5 guards · permission middleware on gated routes · CSRF · Blade XSS 
 
 ![Shipments](screenshots/Shipments.png)
 
-### Manufacturing
+</details>
+
+<details>
+<summary><strong>Manufacturing</strong> — 2 screenshots</summary>
 
 **Bill of Materials**
 
@@ -433,7 +447,10 @@ HTTPS · 5 guards · permission middleware on gated routes · CSRF · Blade XSS 
 
 ![Production Planning](screenshots/Production_Planning.png)
 
-### HRM
+</details>
+
+<details>
+<summary><strong>HRM</strong> — 3 screenshots</summary>
 
 **Employees**
 
@@ -447,7 +464,10 @@ HTTPS · 5 guards · permission middleware on gated routes · CSRF · Blade XSS 
 
 ![Tasks](screenshots/Tasks.png)
 
-### Marketing & Content
+</details>
+
+<details>
+<summary><strong>Marketing &amp; Content</strong> — 2 screenshots</summary>
 
 **Campaigns**
 
@@ -457,7 +477,10 @@ HTTPS · 5 guards · permission middleware on gated routes · CSRF · Blade XSS 
 
 ![Content](screenshots/Content.png)
 
-### Reporting
+</details>
+
+<details>
+<summary><strong>Reporting</strong> — 2 screenshots</summary>
 
 **Reports**
 
@@ -467,7 +490,10 @@ HTTPS · 5 guards · permission middleware on gated routes · CSRF · Blade XSS 
 
 ![Supplier Report](screenshots/Supplier_Report.png)
 
-### Ecommerce Storefront
+</details>
+
+<details>
+<summary><strong>Ecommerce Storefront</strong> — 9 screenshots</summary>
 
 **Homepage**
 
@@ -479,7 +505,7 @@ HTTPS · 5 guards · permission middleware on gated routes · CSRF · Blade XSS 
 
 **New Arrivals**
 
-![New Arrivals](screenshots/Ecommerce/E_Commerce_New_Arrivales.png)
+![New Arrivals](screenshots/Ecommerce/E_Commerce_New_Arrivals.png)
 
 **Homepage Footer**
 
@@ -505,7 +531,10 @@ HTTPS · 5 guards · permission middleware on gated routes · CSRF · Blade XSS 
 
 ![Vendor Page](screenshots/Ecommerce/Vendor_Page.png)
 
-### React POS
+</details>
+
+<details>
+<summary><strong>React POS</strong> — 9 screenshots</summary>
 
 **POS Terminal**
 
@@ -542,6 +571,8 @@ HTTPS · 5 guards · permission middleware on gated routes · CSRF · Blade XSS 
 **Reports**
 
 ![Reports](react-app/screenshots/Reports.png)
+
+</details>
 
 ## Project Structure
 
@@ -619,34 +650,46 @@ Base path `/api/v1` (see `laravel/routes/api.php`) — 33 route definitions (3 p
 
 ### Protected Endpoints (`auth:sanctum`)
 
-| Method              | Endpoint                                                        | Purpose                                 |
-| ------------------- | --------------------------------------------------------------- | --------------------------------------- |
-| POST                | `/logout`                                                       | Revoke current token                    |
-| GET/POST            | `/sync/pull`, `/sync/push`                                      | Offline/mobile client sync              |
-| POST                | `/configuration`                                                | System settings for POS                 |
-| POST                | `/dashboard`                                                    | Category tree for POS                   |
-| POST                | `/category-product/{id}`                                        | In-stock items for a category           |
-| POST                | `/customer`, `/save-customer`                                   | Customer list / create                  |
-| PUT                 | `/update-customer/{id}`                                         | Update customer                         |
-| POST                | `/category`, `/save-category`                                   | Category list / create                  |
-| PUT                 | `/update-category/{id}`                                         | Update category                         |
-| GET/POST            | `/product`, `/save-product`, `/update-product/{id}`             | Product list / create / update          |
-| GET/POST            | `/stock`, `/save-stock`                                         | Stock list / create                     |
-| GET/POST            | `/sale`, `/select-sale/{id}`, `/save-sale`                      | Sales list / detail / checkout          |
-| POST                | `/income`, `/save-income`                                       | Income list / create                    |
-| POST                | `/expense`, `/save-expense`                                     | Expense list / create                   |
-| POST                | `/report`                                                       | YTD vs last-year financial report       |
-| POST                | `/ai/product-description`                                       | Generate product description            |
-| POST                | `/ai/product-search`                                            | Natural-language product search         |
-| POST                | `/ai/inventory-insights`                                        | Inventory risk & reorder insights       |
-| POST                | `/ai/sales-forecast`                                            | 12-month revenue forecast               |
-| POST                | `/ai/price-suggestion`                                          | Price range & strategy advice           |
+| Method | Endpoint                        | Purpose                                 |
+| ------ | ------------------------------- | --------------------------------------- |
+| POST   | `/logout`                       | Revoke current token                    |
+| GET    | `/sync/pull`                    | Pull changes for offline/mobile clients |
+| POST   | `/sync/push`                    | Push local changes from offline clients |
+| POST   | `/configuration`                | System settings for POS                 |
+| POST   | `/dashboard`                    | Category tree for POS                   |
+| POST   | `/category-product/{id}`        | In-stock items for a category           |
+| POST   | `/customer`                     | Customer list                           |
+| POST   | `/save-customer`                | Create customer                         |
+| PUT    | `/update-customer/{id}`         | Update customer                         |
+| POST   | `/category`                     | Category list                           |
+| POST   | `/save-category`                | Create category                         |
+| PUT    | `/update-category/{id}`         | Update category                         |
+| GET    | `/product`                      | Product list                            |
+| POST   | `/save-product`                 | Create product                          |
+| POST   | `/update-product/{id}`          | Update product                          |
+| GET    | `/stock`                        | Stock list                              |
+| POST   | `/save-stock`                   | Create stock                            |
+| GET    | `/sale`                         | Sales list                              |
+| POST   | `/select-sale/{id}`             | Sale detail                             |
+| POST   | `/save-sale`                    | Checkout                                |
+| POST   | `/income`                       | Income list                             |
+| POST   | `/save-income`                  | Create income                           |
+| POST   | `/expense`                      | Expense list                            |
+| POST   | `/save-expense`                 | Create expense                          |
+| POST   | `/report`                       | YTD vs last-year financial report       |
+| POST   | `/ai/product-description`       | Generate product description            |
+| POST   | `/ai/product-search`            | Natural-language product search         |
+| POST   | `/ai/inventory-insights`        | Inventory risk & reorder insights       |
+| POST   | `/ai/sales-forecast`            | 12-month revenue forecast               |
+| POST   | `/ai/price-suggestion`          | Price range & strategy advice           |
 
 ## AI Features
 
 All **generative** AI is self-hosted via `App\Services\OllamaService` (`POST {OLLAMA_URL}/api/chat`). Env vars: `OLLAMA_URL` (default `http://erp_ollama:11434`) and `AI_MODEL` (default `llama3.2`). All methods return `null` when Ollama is down — **callers must handle null and degrade gracefully**; the React UI should disable AI widgets based on `GET /ai/status`. The status check verifies the configured model is present in `GET /api/tags`, so a running Ollama with no pulled model correctly reports unavailable.
 
 > **Scope:** this section covers the in-app generative AI copilot (Ollama). The deterministic ML/analytics layer is a separate project — see [Business Intelligence](#business-intelligence) and the [bi-system repository](https://github.com/shaik-obydullah/bi-system).
+
+All AI endpoints below are relative to the `/api/v1` base path.
 
 | Feature              | OllamaService Method           | Input                               |
 | -------------------- | ------------------------------ | ----------------------------------- |
@@ -663,14 +706,14 @@ The deterministic ML layer is a **separate project**, [shaik-obydullah/bi-system
 
 The service is internal-only (`bi_nginx:80` → `bi_flask:5000`) on the shared `erp-system_default` Docker network and is **not** included in this repository's `docker-compose.yml`. Every request requires the `X-API-Key` header; set `BI_API_URL` (e.g. `http://bi_nginx:80/api/v1`) and `BI_API_KEY` in the ERP environment. Forecast payloads are cached (`FORECAST_CACHE_TTL`, default 6 h); the BI service exposes `POST /api/v1/internal/refresh` for scheduled recomputation and `GET /api/v1/internal/cache-status` to report cache age. When the service is unavailable, the BI pages fall back to empty states.
 
-| Method | Endpoint                           | Analytics                                                                                       |
-| ------ | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
-| POST   | `/api/v1/analyze`                  | KMeans (n=3) + IsolationForest employee performance evaluation                                  |
-| GET    | `/api/v1/product-analysis`         | KMeans + weighted scoring product performance tiers                                             |
-| GET    | `/api/v1/sales-forecast`           | Linear-regression next-month forecast with confidence interval                                  |
-| GET    | `/api/v1/product-combos`           | Apriori association-rule market-basket analysis                                                 |
-| POST   | `/api/v1/recommendations/products` | 6 strategies (popular, trending, content-based KNN, collaborative, similar users, personalized) |
-| GET    | `/api/v1/prophet-forecast`         | Facebook Prophet forecast with seasonality, trend, and confidence intervals                     |
+| Method   | Endpoint                           | Analytics                                                                                       |
+| -------- | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
+| POST     | `/api/v1/analyze`                  | KMeans (n=3) + IsolationForest employee performance evaluation                                  |
+| GET/POST | `/api/v1/product-analysis`         | KMeans + weighted scoring product performance tiers                                             |
+| GET      | `/api/v1/sales-forecast`           | Linear-regression next-month forecast with confidence interval                                  |
+| GET      | `/api/v1/product-combos`           | Apriori association-rule market-basket analysis                                                 |
+| POST     | `/api/v1/recommendations/products` | 6 strategies (popular, trending, content-based KNN, collaborative, similar users, personalized) |
+| GET      | `/api/v1/prophet-forecast`         | Facebook Prophet forecast with seasonality, trend, and confidence intervals                     |
 
 ## Financial Integrity
 
@@ -686,6 +729,13 @@ The POS checkout is the canonical transactional flow (`ApiController::saveSale`,
 - **Any new money-moving or stock-moving operation must follow the same transactional pattern** and verify ledger rows are written and stock is decremented exactly once.
 
 ## Quick Start
+
+### Prerequisites
+
+- Docker Engine 24+ with Docker Compose v2
+- Git
+- ~4 GB free RAM if you want to run the Ollama model locally (the rest of the stack runs without it)
+- For the native (non-Docker) path: PHP 8.3+, Composer, Node.js 22+, and npm
 
 ```bash
 # Clone
@@ -751,6 +801,28 @@ docker compose exec erp_ollama ollama pull llama3.2
 | MariaDB         | 3309  | localhost:3309         |
 | Ollama AI       | 11435 | localhost:11435        |
 
+### Configuration
+
+Key variables in `laravel/.env`:
+
+| Variable | Recommended (Docker) | Purpose |
+| -------- | -------------------- | ------- |
+| `APP_URL` | `http://localhost` | Public base URL |
+| `DB_CONNECTION` | `mysql` | Database driver (the `.env.example` default is `sqlite`) |
+| `DB_HOST` | `erp_db` | MariaDB service name on the Docker network |
+| `DB_PORT` | `3306` | MariaDB port inside Docker |
+| `DB_DATABASE` | `laravel_db` | Database name |
+| `DB_USERNAME` | `laravel` | Database user |
+| `DB_PASSWORD` | `secret` | Database password (change in production) |
+| `OLLAMA_URL` | `http://erp_ollama:11434` | Ollama API base URL |
+| `AI_MODEL` | `llama3.2` | Model used for generative AI |
+| `BI_API_URL` | `http://bi_nginx:80/api/v1` | BI service base URL |
+| `BI_API_KEY` | — | Must match the BI service's `BI_API_KEY` |
+| `ACCOUNTING_GL_ENABLED` | `true` | Pause or resume automatic ledger postings |
+| `ACCOUNTING_GL_ENFORCED` | `false` | Block operations when ledger posting fails |
+
+Run `php artisan key:generate` after copying the env file; `APP_KEY` must be set before the app boots.
+
 ## Development Workflow
 
 | Command                                      | Purpose                                                               |
@@ -799,10 +871,10 @@ For the React app, `.env` sets `VITE_API_URL=/api/v1` for local dev (Vite proxie
 77 migrated tables (85 migration files; 78 total in the live database including the `migrations` table) organized into modules: **Auth** (admins, customers, suppliers, roles, permissions, sessions, tokens), **Catalog** (products, categories, brands, sizes, colors, units, reviews, flash_sales), **Inventory** (stocks, warehouses, stock_adjustments), **Sales** (sales, sale_details, sale_returns, cart, cart_details), **Finance & Accounting** (transactions, cashbook, incomes, expenses, payable, receivable, balances, currencies, accounts, journal_entries, journal_lines, fiscal_periods, opening_balances, fixed_assets), **Procurement** (needs, purchase_orders, shipments, shipment_returns, shipment_costs, shipping_zones, shipping_methods), **Manufacturing** (bill_of_materials, production_plannings, productions), **HRM** (employees, payrolls, task_management), **System** (activities, notifications, configurations, contents, campaigns, newsletter_subscribers). Framework tables (`cache`, `jobs`, `sessions`, password resets, personal access tokens) sit alongside these domain tables.
 
 - Most tables use soft deletes and track `created_by` / `updated_by` / `deleted_by` where applicable.
-- A full dump lives at [`u181095087_erp.sql`](u181095087_erp.sql).
+- A development database dump lives at [`u181095087_erp.sql`](u181095087_erp.sql).
 
 See [laravel/README.md](laravel/README.md#database-schema) for the full schema.
 
 ## License
 
-MIT License
+[MIT License](LICENSE)

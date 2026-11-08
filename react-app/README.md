@@ -173,4 +173,4 @@ Password: password
 
 ## License
 
-Private use.
+[MIT](../LICENSE)

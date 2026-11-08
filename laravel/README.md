@@ -196,4 +196,4 @@ php artisan migrate --force
 
 ## License
 
-Private use.
+[MIT](../LICENSE)
