@@ -24,7 +24,6 @@ AI-powered full-stack ERP and multi-vendor marketplace system featuring a Larave
 
 - [Live Demo](#live-demo)
 - [Feature Highlights](#feature-highlights)
-- [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
 - [Key Modules](#key-modules)
 - [Screenshots](#screenshots)
@@ -62,145 +61,6 @@ AI-powered full-stack ERP and multi-vendor marketplace system featuring a Larave
 - **Full audit trail** — every login, failed login, create/update/delete is logged with IP and before/after data.
 - **Multi-currency** — base-currency model with exchange rates and a `set-base` action.
 - **Complete supply chain** — need → purchase order → shipment → return, plus a supplier-facing portal.
-
-## Architecture
-
-> Full deep-dive (services, data flow, AI/BI layers, security, deployment): [docs/erp-architecture.md](docs/erp-architecture.md)
-
-### System Context
-
-The system is a **monolithic backend with decoupled frontends**, replacing five-plus disconnected tools (spreadsheets, separate POS, offline accounting) with one platform.
-
-```
-                    ┌──────────────────────────────────────────────┐
-                    │                 DNS / Domains                │
-                    │   erp.obydullah.com   react-pos.obydullah.com│
-                    └───────────────────┬──────────────────────────┘
-                                        │
-                    ┌───────────────────▼──────────────────────────┐
-                    │            Web Server (Nginx/Apache)         │
-                    │   serves static assets + reverse proxies API │
-                    └───────────────────┬──────────────────────────┘
-                                        │
-        ┌───────────────────────────────▼───────────────────────────────┐
-        │                    LARAVEL MONOLITH (PHP 8.3)                 │
-        │                                                               │
-        │   ┌───────────────┐  ┌───────────────┐  ┌────────────────────┐│
-        │   │ Admin Panel   │  │  Storefront   │  │  REST API (/api/v1)││
-        │   │ (Blade+Vue+   │  │ (Blade +      │  │  Sanctum protected ││
-        │   │  Alpine.js)   │  │  Vue/Alpine)  │  │  + Customer/       ││
-        │   │               │  │               │  │  Supplier portals  ││
-        │   └───────────────┘  └───────────────┘  └───────────────────┘ │
-        │                              │                                │
-        │   Controllers → Services → Eloquent Models → DB::transaction()│
-        └──────────────┬────────────────────┬──────────────────┬────────┘
-                       │                    │                  │
-          ┌────────────▼──────┐   ┌─────────▼───────┐  ┌───────▼──────────┐
-          │  MariaDB (10.6)   │   │  Ollama AI      │  │  Flask BI        │
-          │  77 tables ·      │   │  qwen2.5:0.5b   │  │  scikit-learn ·  │
-          │  single source    │   │  port 11434     │  │  port 5000       │
-          │  of truth         │   │  (self-hosted,  │  │  (run separately)│
-          └───────────────────┘   │  zero API cost) │  └──────────────────┘
-                                  └─────────────────┘
-```
-
-**Design principles:**
-
-- **One source of truth** — every frontend (admin, storefront, React POS) reads/writes the same MariaDB via the Laravel API layer. No duplicated business logic in frontends.
-- **Server-side integrity** — all multi-table mutations (sales, returns, payments) run inside `DB::transaction()` with automatic rollback.
-- **Self-hosted intelligence** — Ollama runs alongside the backend in Docker, and the optional Flask BI service is deployed separately; customer data is never sent to third-party AI APIs.
-- **Guard-per-persona** — admins, customers, and suppliers authenticate with independent guards; machines (React POS) use Sanctum tokens.
-
-### Components
-
-| Component                            | Role                             | Consumer                                       |
-| ------------------------------------ | -------------------------------- | ---------------------------------------------- |
-| **Laravel API + Admin + Storefront** | Monolithic application server    | Admin browsers, storefront browsers, React POS |
-| **React 19 POS**                     | Standalone POS terminal (SPA)    | Cashiers                                       |
-| **MariaDB**                          | Relational database (77 tables)  | Laravel                                        |
-| **Ollama (qwen2.5:0.5b)**            | Self-hosted LLM inference        | Laravel (via HTTP `/api/chat`)                 |
-| **Flask BI**                         | Separate ML analytics service ([bi-system](https://github.com/shaik-obydullah/bi-system)) | Laravel (via HTTP proxy) |
-| **phpMyAdmin**                       | DB admin UI (dev only)           | Developers                                     |
-| **Nginx**                            | Reverse proxy + static server    | Public traffic                                 |
-
-**Communication flows:**
-
-| Flow                       | Transport                              | Direction         |
-| -------------------------- | -------------------------------------- | ----------------- |
-| React POS → Laravel API    | HTTPS + Bearer token (`auth:sanctum`)  | POS → Backend     |
-| Laravel → MariaDB          | PDO/MySQL                              | Backend → DB      |
-| Laravel → Ollama           | HTTP `POST /api/chat`, `GET /api/tags` | Backend → AI      |
-| Laravel → Flask BI         | HTTP `bi_nginx:80/api/v1/*` + `X-API-Key` | Backend → BI   |
-| Admin/Storefront → Laravel | HTTPS + session cookie                 | Browser → Backend |
-
-> **Note:** Ollama and Flask BI are not exposed through the public web server; only the Laravel backend reaches them over the internal Docker network. Ollama's host port (`11435`) is bound for local development only. The React POS talks exclusively to the Laravel API.
-
-### Services & Ports (Dev — Docker Compose)
-
-| Service          | Image                 | Host Port | Purpose                                  |
-| ---------------- | --------------------- | --------- | ---------------------------------------- |
-| `erp_laravel`    | PHP 8.3-FPM (custom)  | 5174      | Laravel + Vite dev server; builds assets |
-| `erp_nginx`      | nginx:stable-alpine   | 8084      | Reverse proxy → PHP-FPM                  |
-| `erp_db`         | mariadb:10.6          | 3309      | Database (`laravel_db`)                  |
-| `erp_react`      | node:22-alpine        | 3060      | React POS Vite dev server                |
-| `erp_ollama`     | alpine/ollama         | 11435     | AI inference (2-core CPU limit)          |
-| `erp_phpmyadmin` | phpmyadmin/phpmyadmin | 8083      | DB admin UI                              |
-
-Persistent volumes: `erp_db_data` (database), `ollama_data` (AI models). The optional `docker-compose.local.yml` removes the host `3309` binding when another local project already uses it; containers still reach MariaDB over the internal Docker network.
-
-### Frontend Layers
-
-- **Admin panel** — Blade + Vue 3 + Alpine.js, Tailwind, Chart.js; permission-gated sidebar, responsive down to mobile, an in-admin Blade POS, and a full accounting suite.
-- **Storefront & portals** — public catalog/cart/checkout (customer guard), product quick view, wishlist, reviews, newsletter subscription, CMS pages; customer order portal; read-only supplier portal for purchase orders and products (supplier guard).
-- **React POS (SPA)** — React 19, Vite 6, Tailwind, React Router, Axios (single instance + bearer-token interceptor), Chart.js, jsPDF; 300 ms debounced search, cart persisted to localStorage, PDF invoices.
-
-### Backend Layer (Laravel)
-
-Layering rules: **Routes** map URL → controller (middleware gating here) → **Controllers** validate + orchestrate → **Services** (ActivityLogger, NotificationHelper, OllamaService, LedgerProjector, ShipmentCostService, VatCalculator) hold cross-cutting logic → **Models** own relationships/scopes/casts → **`DB::transaction()`** wraps any multi-table mutation. The double-entry engine is isolated under `app/Accounting` (`AccountingPoster`, `LedgerService`, `ChartOfAccounts`, `Reconciliation`); `AccountingPoster` is the single entry point that turns an operational event into a balanced journal entry.
-
-Route files: `web.php` (admin + storefront, permission-gated), `api.php` (Sanctum REST + AI), `customer.php`, `supplier.php`, `auth.php`.
-
-### Authentication & Authorization
-
-- **Five guards:** `web` (Laravel default, user provider) plus the four application guards — `admin` / `customer` / `supplier` (session) and `sanctum` (bearer token for React POS).
-- **RBAC:** 4 seeded roles (`super-admin`, `admin`, `manager`, `cashier`), 127 `module.action` permissions across 34 groups, `permission:` middleware on many routes (several resource CRUD groups rely on admin auth + menu visibility). There is no hard-coded super-admin bypass — `super-admin` simply holds all 127 permissions.
-- **Middleware:** RoleMiddleware, PermissionMiddleware, Active\*Middleware, MaintenanceModeMiddleware.
-
-### AI Layer (Ollama)
-
-Single gateway `app/Services/OllamaService.php` → `http://erp_ollama:11434` with model `qwen2.5:0.5b` by default (a tiny model for low-spec machines), configurable temperature, 120 s timeout, exception-safe. `isAvailable()` calls `GET /api/tags` and confirms the configured model (e.g. `qwen2.5:0.5b` or `qwen2.5:0.5b-instruct-q4_K_M`) is actually installed, so the status endpoint does not report a false positive when Ollama is running with no models pulled.
-
-| Capability              | Endpoint (`/api/v1`)                 | Temperature |
-| ----------------------- | ------------------------------------ | ----------- |
-| Product descriptions    | `POST /ai/product-description`       | 0.8         |
-| Natural-language search | `POST /ai/product-search`            | 0.3         |
-| Inventory insights      | `POST /ai/inventory-insights`        | 0.4         |
-| Sales forecast          | `POST /ai/sales-forecast`            | 0.5         |
-| Customer support        | `POST /ai/customer-support` (public) | 0.6         |
-| Price suggestion        | `POST /ai/price-suggestion`          | 0.5         |
-
-> The AI is **generative** (text/insights). For deterministic analytics the system delegates to the Flask BI service.
-
-### BI Layer (Flask)
-
-`BiController` proxies to a separately deployed Python/Flask service maintained in the [shaik-obydullah/bi-system](https://github.com/shaik-obydullah/bi-system) repository (30 s timeout). The Flask app, Nginx proxy, scikit-learn/Prophet pipelines, and trained models live there; this repository contains the Laravel proxy, admin views, and `BI_API_URL` / `BI_API_KEY` config. The service is **not** part of the default `docker-compose.yml`; it runs internal-only (`bi_nginx:80` → `bi_flask:5000`) on the `erp-system_default` Docker network, and every request requires the `X-API-Key` header. Admin views live under `/bi/*` behind the admin guard (`auth:admin` + `active.admin`); if the BI service is unavailable they render empty states rather than failing.
-
-Forecast payloads are cached (`FORECAST_CACHE_TTL`, default 6 h) in the BI service, which exposes `POST /api/v1/internal/refresh` for scheduled recomputation and `GET /api/v1/internal/cache-status` to report cache age. Configure `BI_API_URL` (e.g. `http://bi_nginx:80/api/v1`) and `BI_API_KEY` in `laravel/.env`. See [Business Intelligence](#business-intelligence) for the full endpoint table and admin views.
-
-### Data Layer
-
-77 migrated tables (85 migration files; 78 total in the live database including `migrations`) across 9 modules (Auth, Catalog, Inventory, Sales, Finance & Accounting, Procurement, Manufacturing, HRM, System), plus framework tables (`cache`, `jobs`, sessions, password resets, personal access tokens). Conventions: `created_by`/`updated_by`/`deleted_by`, soft deletes, `fk_`-prefixed foreign keys. Every financially-significant mutation is atomic — e.g. POS checkout wraps sale + sale_details + stock decrement + transaction/income + cashbook entry in one `DB::transaction()`.
-
-The ledger ships with a 26-account chart of accounts (`config/accounting.php`, seeded by `ChartOfAccountsSeeder`). Posting is enabled by default (`ACCOUNTING_GL_ENABLED=true`); set `ACCOUNTING_GL_ENFORCED=true` to make ledger failures block the underlying operation, or leave it `false` (default) to log and continue.
-
-### Security
-
-HTTPS · 5 guards · permission middleware on gated routes · CSRF · Blade XSS escaping · image-only uploads · full audit trail with IP capture · `.env` secrets · soft deletes with `deleted_by`.
-
-### Deployment
-
-- **Dev:** `docker compose up` — Laravel (Vite 5174 / nginx 8084), MariaDB (3309), React POS (3060), Ollama (11435), phpMyAdmin (8083).
-- **Prod (Hostinger):** Laravel via `production/laravel-production.tar.gz` (Apache + cron queue worker), React POS as static build with `VITE_API_URL=https://erp.obydullah.com/api/v1`.
 
 ## Tech Stack
 
@@ -722,7 +582,6 @@ erp-system/
 ├── php/              # PHP-FPM Dockerfile
 ├── documentation/    # Per-module reference documentation (Markdown)
 ├── screenshots/      # Admin panel, storefront, and POS screenshots
-├── docs/             # Case study, feature list, full documentation (md + html), academic papers
 ├── docker-compose.yml
 └── setup.sh
 ```
@@ -733,14 +592,7 @@ The Business Intelligence service is maintained separately in [shaik-obydullah/b
 
 ## Module Documentation
 
-The complete documentation is available as a single page, covering every module with schema, models, routes, API surface, business flows, permissions, and screenshots:
-
-- [**docs/erp-architecture.md**](docs/erp-architecture.md) — comprehensive system architecture (services, data flow, AI/BI layers, security, deployment)
-- [**docs/erp-documentation.md**](docs/erp-documentation.md) — Markdown version (readable directly on GitHub)
-- [**docs/erp-documentation.html**](docs/erp-documentation.html) — styled HTML version
-- [**docs/case-study.html**](docs/case-study.html) — narrative case study (problem, architecture, accounting, AI/BI, results)
-
-Individual per-module reference docs (schema, models, routes, API surface, business flows, and permissions) also live in [`documentation/`](documentation/):
+Per-module reference documentation (schema, models, routes, API surface, business flows, and permissions) lives in [`documentation/`](documentation/):
 
 | Module                         | Document                                                                                             |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------- |
