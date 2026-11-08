@@ -242,51 +242,116 @@ A few highlights first; expand any group for the full gallery.
 
 <table>
   <tr>
-    <td align="center" width="33%"><img src="screenshots/ERP_Login.png" alt="Login" width="100%"/><br/><sub><strong>Login</strong></sub></td>
-    <td align="center" width="33%"><img src="screenshots/ERP_Dashboard.png" alt="Dashboard" width="100%"/><br/><sub><strong>Dashboard</strong></sub></td>
-    <td align="center" width="33%"><img src="screenshots/POS.png" alt="Blade POS" width="100%"/><br/><sub><strong>Blade POS</strong></sub></td>
+    <td align="center" width="33%"><img src="screenshots/Admin-Login.png" alt="Login" width="100%"/><br/><sub><strong>Login</strong></sub></td>
+    <td align="center" width="33%"><img src="screenshots/Dashboard.png" alt="Dashboard" width="100%"/><br/><sub><strong>Dashboard</strong></sub></td>
+    <td align="center" width="33%"><img src="screenshots/POS-Terminal.png" alt="Blade POS" width="100%"/><br/><sub><strong>Blade POS</strong></sub></td>
   </tr>
 </table>
 
 <details>
-<summary><strong>Authentication &amp; System</strong> — 5 screenshots</summary>
+<summary><strong>Authentication &amp; System</strong> — 8 screenshots</summary>
 
-**Settings**
+**Admin Login**
 
-![Settings](screenshots/ERP_Settings.png)
+![Admin Login](screenshots/Admin-Login.png)
+
+**Dashboard Login / Admin Management**
+
+![Admin Management](screenshots/Admin-Management.png)
+
+**Create Admin**
+
+![Create Admin](screenshots/Create-Admin.png)
 
 **Roles & Permissions**
 
-![Roles & Permissions](screenshots/Role_Permission.png)
+![Roles & Permissions](screenshots/Roles-Permissions.png)
+
+**Create Role**
+
+![Create Role](screenshots/Create-Role.png)
 
 **Permissions**
 
 ![Permissions](screenshots/Permissions.png)
 
-**Maintenance Mode**
+**ERP Settings**
 
-![Maintenance Mode](screenshots/Maintenance_Mode.png)
+![ERP Settings](screenshots/ERP-Settings.png)
 
 **Activity Manager**
 
-![Activity Manager](screenshots/Activity_Manager.png)
+![Activity Manager](screenshots/Activity-Manager.png)
 
 </details>
 
 <details>
-<summary><strong>Catalog Management</strong> — 6 screenshots</summary>
+<summary><strong>Dashboard &amp; AI / BI Analytics</strong> — 11 screenshots</summary>
 
-**Products**
+**Dashboard**
 
-![Products](screenshots/Products.png)
+![Dashboard](screenshots/Dashboard.png)
+
+**Business Intelligence Dashboard 1**
+
+![Business Intelligence Dashboard 1](screenshots/Business-Intelligence-Dashboard-1.png)
+
+**Business Intelligence Dashboard 2**
+
+![Business Intelligence Dashboard 2](screenshots/Business-Intelligence-Dashboard-2.png)
+
+**Business Intelligence Dashboard 3**
+
+![Business Intelligence Dashboard 3](screenshots/Business-Intelligence-Dashboard-3.png)
+
+**Product Analytics**
+
+![Product Analytics](screenshots/Product-Analytics.png)
+
+**Product Combo Analysis**
+
+![Product Combo Analysis](screenshots/Product-Combo-Analysis.png)
+
+**Prophet Sales Forecast**
+
+![Prophet Sales Forecast](screenshots/Prophet-Sales-Forecast.png)
+
+**Sales Forecast (Linear)**
+
+![Sales Forecast Linear](screenshots/Sales-Forecast-Linear.png)
+
+**Content-Based Product Recommendations**
+
+![Content-Based Product Recommendations](screenshots/Content-Based-Product-Recommendations.png)
+
+**Personalized Product Recommendations**
+
+![Personalized Product Recommendations](screenshots/Personalized-Product-Recommendations.png)
+
+**Popular Product Recommendations**
+
+![Popular Product Recommendations](screenshots/Popular-Product%20Recommendations.png)
+
+</details>
+
+<details>
+<summary><strong>Catalog Management</strong> — 7 screenshots</summary>
+
+**All Products**
+
+![All Products](screenshots/All-Products.png)
+
+**Create Product**
+
+![Create Product](screenshots/Create-Product.png)
 
 **Categories**
 
 ![Categories](screenshots/Categories.png)
 
-**Brands**
+**All Brands**
 
-![Brands](screenshots/Brands.png)
+![All Brands](screenshots/All-Brands.png)
 
 **Sizes**
 
@@ -303,158 +368,250 @@ A few highlights first; expand any group for the full gallery.
 </details>
 
 <details>
-<summary><strong>Inventory &amp; Stock</strong> — 5 screenshots</summary>
+<summary><strong>Inventory &amp; Stock</strong> — 6 screenshots</summary>
 
 **Stocks**
 
 ![Stocks](screenshots/Stocks.png)
 
-**Stock Add**
+**Add New Stock**
 
-![Stock Add](screenshots/Stock_Add.png)
-
-**Stock Adjustments**
-
-![Stock Adjustments](screenshots/Stock_Adjustments.png)
+![Add New Stock](screenshots/Add-New-Stock.png)
 
 **New Stock Adjustment**
 
-![New Stock Adjustment](screenshots/New_Stock_Adjustment.png)
+![New Stock Adjustment](screenshots/New-Stock-Adjustment.png)
 
 **Warehouses**
 
 ![Warehouses](screenshots/Warehouses.png)
 
-</details>
+**Stock Report**
 
-<details>
-<summary><strong>Sales &amp; POS</strong> — 2 screenshots</summary>
+![Stock Report](screenshots/Stock-Report.png)
 
-**Sales**
+**Stock Report — Stock by Category**
 
-![Sales](screenshots/Sales.png)
-
-**Sales Return**
-
-![Sales Return](screenshots/Sales_Return.png)
+![Stock Report Stock by Category](screenshots/Stock-Report-Stock-by-Category.png)
 
 </details>
 
 <details>
-<summary><strong>Customers</strong> — 5 screenshots</summary>
+<summary><strong>Sales &amp; POS</strong> — 4 screenshots</summary>
+
+**All Sales**
+
+![All Sales](screenshots/All-Sales.png)
+
+**Sale Invoice**
+
+![Sale Invoice](screenshots/Sale-Invoice.png)
+
+**Sale Return**
+
+![Sale Return](screenshots/Sale-Return.png)
+
+**Blade POS Terminal**
+
+![Blade POS Terminal](screenshots/POS-Terminal.png)
+
+</details>
+
+<details>
+<summary><strong>Customers</strong> — 4 screenshots</summary>
 
 **Customers**
 
 ![Customers](screenshots/Customers.png)
 
-**Add Customer**
-
-![Add Customer](screenshots/Add_Customer.png)
-
 **Customer Fund**
 
-![Customer Fund](screenshots/Customer_Fund.png)
-
-**Customer Transactions**
-
-![Customer Transactions](screenshots/Customer_Transactions.png)
+![Customer Fund](screenshots/Customer-Fund.png)
 
 **Outstanding Customer Dues**
 
-![Outstanding Customer Dues](screenshots/Outstanding_Customer_Dues.png)
+![Outstanding Customer Dues](screenshots/Outstanding-Customer-Dues.png)
+
+**Customer Report**
+
+![Customer Report](screenshots/Customer-Report.png)
 
 </details>
 
 <details>
-<summary><strong>Suppliers</strong> — 3 screenshots</summary>
+<summary><strong>Suppliers</strong> — 6 screenshots</summary>
 
 **Suppliers**
 
 ![Suppliers](screenshots/Suppliers.png)
 
-**Supplier Due**
+**Create New Supplier**
 
-![Supplier Due](screenshots/Supplier_Due.png)
+![Create New Supplier](screenshots/Create-New-Supplier.png)
 
-**Supplier Transactions**
+**Supplier Fund**
 
-![Supplier Transactions](screenshots/Supplier_Transactions.png)
+![Supplier Fund](screenshots/Supplier-Fund.png)
+
+**Supplier Due &amp; Advances**
+
+![Supplier Due & Advances](screenshots/Supplier-Due-Advances.png)
+
+**Supplier Transaction History**
+
+![Supplier Transaction History](screenshots/Supplier-Transaction-History.png)
+
+**Supplier Report**
+
+![Supplier Report](screenshots/Supplier-Report.png)
 
 </details>
 
 <details>
-<summary><strong>Finance &amp; Accounting</strong> — 8 screenshots</summary>
+<summary><strong>Finance &amp; Accounting</strong> — 20 screenshots</summary>
 
-**Income**
+**Accounting Overview**
 
-![Income](screenshots/Income.png)
+![Accounting](screenshots/Accounting.png)
 
-**Expense**
+**Chart of Accounts**
 
-![Expense](screenshots/Expense.png)
+![Chart of Accounts](screenshots/Accounting-Chart-of-Accounts.png)
 
-**Transactions Log**
+**Accounting Journal**
 
-![Transactions Log](screenshots/Transactions_Log.png)
+![Accounting Journal](screenshots/Accounting-Journal.png)
+
+**General Ledger**
+
+![General Ledger](screenshots/Accounting-General%20Ledger.png)
+
+**Trial Balance**
+
+![Trial Balance](screenshots/Accounting-Trial-Balance.png)
+
+**Balance Sheet**
+
+![Balance Sheet](screenshots/Accounting-Balance-Sheet.png)
+
+**Profit &amp; Loss**
+
+![Profit & Loss](screenshots/Accounting-Profit-Loss.png)
+
+**Cash Flow**
+
+![Cash Flow](screenshots/Accounting-Cash-Flow.png)
+
+**Reconciliation**
+
+![Reconciliation](screenshots/Accounting-Reconciliation.png)
+
+**Incomes**
+
+![Incomes](screenshots/Incomes.png)
+
+**Income Report**
+
+![Income Report](screenshots/Income-Report.png)
+
+**Expenses**
+
+![Expenses](screenshots/Expenses.png)
+
+**Expense Report**
+
+![Expense Report](screenshots/Expense-Report.png)
 
 **Cashbook**
 
 ![Cashbook](screenshots/Cashbook.png)
 
-**Account Payable**
+**Accounts Payable**
 
-![Account Payable](screenshots/Account_Payable.png)
+![Accounts Payable](screenshots/Accounts-Payable.png)
 
-**Account Receivable**
+**Accounts Receivable**
 
-![Account Receivable](screenshots/Account_Receivable.png)
-
-**Currencies**
-
-![Currencies](screenshots/Currencies.png)
+![Accounts Receivable](screenshots/Accounts-Receivable.png)
 
 **Fixed Assets**
 
-![Fixed Assets](screenshots/Fixed_Assets.png)
+![Fixed Assets](screenshots/Fixed-Assets.png)
+
+**VAT Return 1**
+
+![VAT Return 1](screenshots/VAT-Return-1.png)
+
+**VAT Return 2**
+
+![VAT Return 2](screenshots/VAT-Return-2.png)
+
+**Transaction Log**
+
+![Transaction Log](screenshots/Transaction-Log.png)
 
 </details>
 
 <details>
-<summary><strong>Procurement &amp; Supply Chain</strong> — 3 screenshots</summary>
+<summary><strong>Procurement &amp; Supply Chain</strong> — 6 screenshots</summary>
 
 **Procurement Needs**
 
-![Procurement Needs](screenshots/Procurement_Needs.png)
+![Procurement Needs](screenshots/Procurement-Needs.png)
+
+**Purchase Orders**
+
+![Purchase Orders](screenshots/Purchase-Orders.png)
 
 **Create Purchase Order**
 
-![Create Purchase Order](screenshots/Create_Purchase_Order.png)
+![Create Purchase Order](screenshots/Create-Purchase-Order.png)
 
-**Shipments**
+**Add New Shipment**
 
-![Shipments](screenshots/Shipments.png)
+![Add New Shipment](screenshots/Add-New-Shipment.png)
+
+**Edit Shipment Return**
+
+![Edit Shipment Return](screenshots/Edit-Shipment-Return.png)
+
+**Shipping Zone**
+
+![Shipping Zone](screenshots/Shipping-Zone.png)
 
 </details>
 
 <details>
-<summary><strong>Manufacturing</strong> — 2 screenshots</summary>
+<summary><strong>Manufacturing</strong> — 4 screenshots</summary>
 
 **Bill of Materials**
 
-![Bill of Materials](screenshots/Bill_of_Materials.png)
+![Bill of Materials](screenshots/Bill-of-Materials.png)
 
-**Production Planning**
+**Productions**
 
-![Production Planning](screenshots/Production_Planning.png)
+![Productions](screenshots/Productions.png)
+
+**Create Production**
+
+![Create Production](screenshots/Create-Production.png)
+
+**Production Plannings**
+
+![Production Plannings](screenshots/Production-Plannings.png)
 
 </details>
 
 <details>
-<summary><strong>HRM</strong> — 3 screenshots</summary>
+<summary><strong>HRM</strong> — 4 screenshots</summary>
 
 **Employees**
 
 ![Employees](screenshots/Employees.png)
+
+**Employee Performance**
+
+![Employee Performance](screenshots/Employee-Performance.png)
 
 **Payrolls**
 
@@ -467,15 +624,11 @@ A few highlights first; expand any group for the full gallery.
 </details>
 
 <details>
-<summary><strong>Marketing &amp; Content</strong> — 2 screenshots</summary>
+<summary><strong>Marketing</strong> — 1 screenshot</summary>
 
 **Campaigns**
 
 ![Campaigns](screenshots/Campaigns.png)
-
-**Content**
-
-![Content](screenshots/Content.png)
 
 </details>
 
@@ -486,91 +639,75 @@ A few highlights first; expand any group for the full gallery.
 
 ![Reports](screenshots/Reports.png)
 
-**Supplier Report**
+**Sales Report**
 
-![Supplier Report](screenshots/Supplier_Report.png)
+![Sales Report](screenshots/Sales-Report.png)
 
 </details>
 
 <details>
-<summary><strong>Ecommerce Storefront</strong> — 9 screenshots</summary>
+<summary><strong>Ecommerce Storefront</strong> — 5 screenshots</summary>
 
-**Homepage**
+**Homepage — Hero &amp; Navigation**
 
-![Homepage](screenshots/Ecommerce/E_Commerce_Homepage.png)
+![Storefront Homepage 1](screenshots/Ecommerce-Homepage-1.png)
 
-**Featured Products**
+**Homepage — Featured Sections**
 
-![Featured Products](screenshots/Ecommerce/E_Commerce_Featured_Products.png)
-
-**New Arrivals**
-
-![New Arrivals](screenshots/Ecommerce/E_Commerce_New_Arrivals.png)
-
-**Homepage Footer**
-
-![Homepage Footer](screenshots/Ecommerce/Homepage_Footer.png)
+![Storefront Homepage 2](screenshots/Ecommerce-Homepage-2..png)
 
 **Product Listing**
 
-![Product Listing](screenshots/Ecommerce/Product_Listing.png)
+![Storefront Product Listing](screenshots/Ecommerce-Product-Listing.png)
 
 **Product Details**
 
-![Product Details](screenshots/Ecommerce/Product_Details.png)
+![Storefront Product Details](screenshots/Ecommerce-Product-Details.png)
 
-**Related Products**
+**AI Shopping Assistant**
 
-![Related Products](screenshots/Ecommerce/Related_Products.png)
-
-**Vendor List**
-
-![Vendor List](screenshots/Ecommerce/Vendor_List.png)
-
-**Vendor Page**
-
-![Vendor Page](screenshots/Ecommerce/Vendor_Page.png)
+![Storefront AI Assistant](screenshots/Ecommerce-AI-Assistant.png)
 
 </details>
 
 <details>
 <summary><strong>React POS</strong> — 9 screenshots</summary>
 
-**POS Terminal**
+**POS Dashboard**
 
-![POS](react-app/screenshots/POS.png)
+![React POS Dashboard](screenshots/React-POS-Dashboard.png)
 
 **Categories**
 
-![Categories](react-app/screenshots/Categories.png)
+![React POS Categories](screenshots/React-POS-Categories.png)
 
 **Customers**
 
-![Customers](react-app/screenshots/Customers.png)
+![React POS Customers](screenshots/React-POS-Customers.png)
 
 **Products**
 
-![Products](react-app/screenshots/Products.png)
+![React POS Products](screenshots/React-POS-Products.png)
 
 **Stocks**
 
-![Stocks](react-app/screenshots/Stocks.png)
+![React POS Stocks](screenshots/React-POS-Stocks.png)
 
 **Sales**
 
-![Sales](react-app/screenshots/Sales.png)
+![React POS Sales](screenshots/React-POS-Sales.png)
 
-**Incomes**
+**Income**
 
-![Incomes](react-app/screenshots/Incomes.png)
+![React POS Income](screenshots/React-POS-Income.png)
 
 **Expense**
 
-![Expense](react-app/screenshots/Expense.png)
+![React POS Expense](screenshots/React-POS-Expense.png)
 
 **Reports**
 
-![Reports](react-app/screenshots/Reports.png)
+![React POS Reports](screenshots/React-POS-Reports.png)
 
 </details>
 
