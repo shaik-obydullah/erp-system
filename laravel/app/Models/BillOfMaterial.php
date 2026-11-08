@@ -24,6 +24,11 @@ class BillOfMaterial extends Model
         return $this->belongsTo(Product::class, 'fk_product_id');
     }
 
+    public function unit()
+    {
+        return $this->belongsTo(Unit::class, 'unit');
+    }
+
     public function productionPlannings()
     {
         return $this->hasMany(ProductionPlanning::class, 'fk_bill_of_material_id');

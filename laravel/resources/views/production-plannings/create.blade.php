@@ -32,18 +32,18 @@
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="fk_bom_id">Bill of Material *</label>
-                    <select id="fk_bom_id" x-model="form.fk_bom_id" required>
+                    <label for="fk_bill_of_material_id">Bill of Material *</label>
+                    <select id="fk_bill_of_material_id" x-model="form.fk_bill_of_material_id" required>
                         <option value="">Select BOM</option>
                         @foreach($boms as $bom)
                             <option value="{{ $bom->id }}">{{ $bom->name }}</option>
                         @endforeach
                     </select>
-                    <span class="form-error" x-show="errors.fk_bom_id" x-text="errors.fk_bom_id"></span>
+                    <span class="form-error" x-show="errors.fk_bill_of_material_id" x-text="errors.fk_bill_of_material_id"></span>
                 </div>
                 <div class="form-group">
                     <label for="quantity">Quantity *</label>
-                    <input type="number" id="quantity" x-model="form.quantity" step="0.01" min="0" required>
+                    <input type="number" id="quantity" x-model="form.quantity" step="1" min="1" required>
                     <span class="form-error" x-show="errors.quantity" x-text="errors.quantity"></span>
                 </div>
             </div>
@@ -91,7 +91,7 @@
     function formHandler(url, method) {
         return {
             form: {
-                fk_bom_id: '',
+                fk_bill_of_material_id: '',
                 production_cost: '',
                 other_cost: '',
                 expected_profit: '',
@@ -119,7 +119,7 @@
                             'X-CSRF-TOKEN': this.csrfToken,
                             'Accept': 'application/json',
                         },
-                        body: JSON.stringify(this.form),
+                        body: JSON.stringify({ ...this.form, finalized: this.form.finalized ? 'yes' : 'no' }),
                     });
                     const data = await response.json();
                     if (response.ok) {

@@ -12,6 +12,30 @@
             </a>
         </div>
 
+        <div style="padding: 16px;">
+            <form method="GET" action="{{ route('shipment-returns.index') }}" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                <input type="text" name="search" value="{{ request('search') }}" class="form-input" placeholder="Search by remark..." style="flex: 1; min-width: 200px;">
+                <select name="status" class="form-input" style="max-width: 180px;">
+                    <option value="">All Status</option>
+                    <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>Pending</option>
+                    <option value="processed" {{ request('status') === 'processed' ? 'selected' : '' }}>Processed</option>
+                    <option value="completed" {{ request('status') === 'completed' ? 'selected' : '' }}>Completed</option>
+                    <option value="rejected" {{ request('status') === 'rejected' ? 'selected' : '' }}>Rejected</option>
+                </select>
+                <select name="return_reason" class="form-input" style="max-width: 180px;">
+                    <option value="">All Reasons</option>
+                    <option value="damaged" {{ request('return_reason') === 'damaged' ? 'selected' : '' }}>Damaged</option>
+                    <option value="incorrect_item" {{ request('return_reason') === 'incorrect_item' ? 'selected' : '' }}>Incorrect Item</option>
+                    <option value="excess_quantity" {{ request('return_reason') === 'excess_quantity' ? 'selected' : '' }}>Excess Quantity</option>
+                    <option value="other" {{ request('return_reason') === 'other' ? 'selected' : '' }}>Other</option>
+                </select>
+                <button type="submit" class="btn btn-primary">Filter</button>
+                @if(request()->hasAny(['search', 'status', 'return_reason']))
+                    <a href="{{ route('shipment-returns.index') }}" class="btn btn-ghost">Clear</a>
+                @endif
+            </form>
+        </div>
+
         <table>
             <thead>
                 <tr>

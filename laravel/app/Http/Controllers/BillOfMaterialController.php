@@ -40,7 +40,7 @@ class BillOfMaterialController extends Controller
         $validated = $request->validate([
             'fk_product_id' => 'required|exists:products,id',
             'name' => 'required|string|max:200',
-            'unit' => 'nullable|integer|min:0',
+            'unit' => 'nullable|exists:units,id',
             'quantity' => 'nullable|integer|min:0',
             'description' => 'nullable|string',
         ]);
@@ -55,6 +55,13 @@ class BillOfMaterialController extends Controller
         ]);
 
         ActivityLogger::created('Bill of Material', BillOfMaterial::latest('id')->first());
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Bill of materials created successfully.',
+                'redirect' => route('bill-of-materials.index'),
+            ]);
+        }
 
         return redirect()->route('bill-of-materials.index')
             ->with('success', 'Bill of materials created successfully.');
@@ -73,7 +80,7 @@ class BillOfMaterialController extends Controller
         $validated = $request->validate([
             'fk_product_id' => 'required|exists:products,id',
             'name' => 'required|string|max:200',
-            'unit' => 'nullable|integer|min:0',
+            'unit' => 'nullable|exists:units,id',
             'quantity' => 'nullable|integer|min:0',
             'description' => 'nullable|string',
         ]);
@@ -89,6 +96,13 @@ class BillOfMaterialController extends Controller
 
         ActivityLogger::updated('Bill of Material', $billOfMaterial, $billOfMaterial->toArray());
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Bill of materials updated successfully.',
+                'redirect' => route('bill-of-materials.index'),
+            ]);
+        }
+
         return redirect()->route('bill-of-materials.index')
             ->with('success', 'Bill of materials updated successfully.');
     }
@@ -98,6 +112,13 @@ class BillOfMaterialController extends Controller
         ActivityLogger::deleted('Bill of Material', $billOfMaterial);
         $billOfMaterial->update(['deleted_by' => auth('admin')->id()]);
         $billOfMaterial->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Bill of materials deleted successfully.',
+                'redirect' => route('bill-of-materials.index'),
+            ]);
+        }
 
         return redirect()->route('bill-of-materials.index')
             ->with('success', 'Bill of materials deleted successfully.');

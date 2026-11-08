@@ -3,7 +3,7 @@
 @section('title', 'Edit Production Planning')
 
 @section('content')
-<div class="card" x-data="formHandler('{{ route('production-plannings.update', $planning) }}', 'PUT')" x-init="init()">
+<div class="card" x-data="formHandler('{{ route('production-plannings.update', $productionPlanning) }}', 'PUT')" x-init="init()">
     <div class="card-header">
         <h2 class="card-title">Edit Production Planning</h2>
         <a href="{{ route('production-plannings.index') }}" class="btn btn-secondary">Back to Plannings</a>
@@ -33,18 +33,18 @@
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="fk_bom_id">Bill of Material *</label>
-                    <select id="fk_bom_id" x-model="form.fk_bom_id" required>
+                    <label for="fk_bill_of_material_id">Bill of Material *</label>
+                    <select id="fk_bill_of_material_id" x-model="form.fk_bill_of_material_id" required>
                         <option value="">Select BOM</option>
                         @foreach($boms as $bom)
-                            <option value="{{ $bom->id }}" {{ $planning->fk_bom_id == $bom->id ? 'selected' : '' }}>{{ $bom->name }}</option>
+                            <option value="{{ $bom->id }}" {{ $productionPlanning->fk_bill_of_material_id == $bom->id ? 'selected' : '' }}>{{ $bom->name }}</option>
                         @endforeach
                     </select>
-                    <span class="form-error" x-show="errors.fk_bom_id" x-text="errors.fk_bom_id"></span>
+                    <span class="form-error" x-show="errors.fk_bill_of_material_id" x-text="errors.fk_bill_of_material_id"></span>
                 </div>
                 <div class="form-group">
                     <label for="quantity">Quantity *</label>
-                    <input type="number" id="quantity" x-model="form.quantity" value="{{ old('quantity', $planning->quantity) }}" step="0.01" min="0" required>
+                    <input type="number" id="quantity" x-model="form.quantity" value="{{ old('quantity', $productionPlanning->quantity) }}" step="1" min="1" required>
                     <span class="form-error" x-show="errors.quantity" x-text="errors.quantity"></span>
                 </div>
             </div>
@@ -52,12 +52,12 @@
             <div class="form-row">
                 <div class="form-group">
                     <label for="production_cost">Production Cost *</label>
-                    <input type="number" id="production_cost" x-model="form.production_cost" value="{{ old('production_cost', $planning->production_cost) }}" step="0.01" min="0" required>
+                    <input type="number" id="production_cost" x-model="form.production_cost" value="{{ old('production_cost', $productionPlanning->production_cost) }}" step="0.01" min="0" required>
                     <span class="form-error" x-show="errors.production_cost" x-text="errors.production_cost"></span>
                 </div>
                 <div class="form-group">
                     <label for="other_cost">Other Cost</label>
-                    <input type="number" id="other_cost" x-model="form.other_cost" value="{{ old('other_cost', $planning->other_cost) }}" step="0.01" min="0">
+                    <input type="number" id="other_cost" x-model="form.other_cost" value="{{ old('other_cost', $productionPlanning->other_cost) }}" step="0.01" min="0">
                     <span class="form-error" x-show="errors.other_cost" x-text="errors.other_cost"></span>
                 </div>
             </div>
@@ -65,13 +65,13 @@
             <div class="form-row">
                 <div class="form-group">
                     <label for="expected_profit">Expected Profit</label>
-                    <input type="number" id="expected_profit" x-model="form.expected_profit" value="{{ old('expected_profit', $planning->expected_profit) }}" step="0.01" min="0">
+                    <input type="number" id="expected_profit" x-model="form.expected_profit" value="{{ old('expected_profit', $productionPlanning->expected_profit) }}" step="0.01" min="0">
                     <span class="form-error" x-show="errors.expected_profit" x-text="errors.expected_profit"></span>
                 </div>
                 <div class="form-group">
                     <label>Finalized</label>
                     <div style="display: flex; align-items: center; gap: 8px; padding-top: 8px;">
-                        <input type="checkbox" id="finalized" x-model="form.finalized" style="width: 18px; height: 18px;" {{ $planning->finalized ? 'checked' : '' }}>
+                        <input type="checkbox" id="finalized" x-model="form.finalized" style="width: 18px; height: 18px;">
                         <label for="finalized" style="margin: 0;">Yes, mark as finalized</label>
                     </div>
                 </div>
@@ -92,12 +92,12 @@
     function formHandler(url, method) {
         return {
             form: {
-                fk_bom_id: '{{ old('fk_bom_id', $planning->fk_bom_id) }}',
-                production_cost: '{{ old('production_cost', $planning->production_cost) }}',
-                other_cost: '{{ old('other_cost', $planning->other_cost) }}',
-                expected_profit: '{{ old('expected_profit', $planning->expected_profit) }}',
-                quantity: '{{ old('quantity', $planning->quantity) }}',
-                finalized: {{ $planning->finalized ? 'true' : 'false' }},
+                fk_bill_of_material_id: @js(old('fk_bill_of_material_id', $productionPlanning->fk_bill_of_material_id)),
+                production_cost: @js(old('production_cost', $productionPlanning->production_cost)),
+                other_cost: @js(old('other_cost', $productionPlanning->other_cost)),
+                expected_profit: @js(old('expected_profit', $productionPlanning->expected_profit)),
+                quantity: @js(old('quantity', $productionPlanning->quantity)),
+                finalized: {{ $productionPlanning->finalized === 'yes' ? 'true' : 'false' }},
             },
             errors: {},
             errorMessage: '',
@@ -121,7 +121,7 @@
                             'X-HTTP-Method-Override': method,
                             'Accept': 'application/json',
                         },
-                        body: JSON.stringify(this.form),
+                        body: JSON.stringify({ ...this.form, finalized: this.form.finalized ? 'yes' : 'no' }),
                     });
                     const data = await response.json();
                     if (response.ok) {

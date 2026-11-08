@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BillOfMaterial;
+use App\Models\Configuration;
 use App\Models\ProductionPlanning;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
@@ -13,13 +14,25 @@ class ProductionPlanningController extends Controller
     {
         $query = ProductionPlanning::with('billOfMaterial');
 
+        if ($search = $request->input('search')) {
+            $query->whereHas('billOfMaterial', function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%");
+            });
+        }
+
+        if (in_array($request->input('finalized'), ['yes', 'no'], true)) {
+            $query->where('finalized', $request->input('finalized'));
+        }
+
         $plannings = $query->orderBy('id', 'desc')->paginate(15)->withQueryString();
 
         if ($request->expectsJson()) {
             return response()->json($plannings);
         }
 
-        return view('production-plannings.index', compact('plannings'));
+        $currencySymbol = Configuration::get('currency_symbol', '$');
+
+        return view('production-plannings.index', compact('plannings', 'currencySymbol'));
     }
 
     public function create()
@@ -40,7 +53,7 @@ class ProductionPlanningController extends Controller
             'finalized' => 'required|in:yes,no',
         ]);
 
-        ProductionPlanning::create([
+        $planning = ProductionPlanning::create([
             'fk_bill_of_material_id' => $validated['fk_bill_of_material_id'],
             'production_cost' => $validated['production_cost'],
             'other_cost' => $validated['other_cost'],
@@ -50,7 +63,14 @@ class ProductionPlanningController extends Controller
             'created_by' => auth('admin')->id(),
         ]);
 
-        ActivityLogger::created('Production Planning', ProductionPlanning::latest('id')->first());
+        ActivityLogger::created('Production Planning', $planning);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Production planning created successfully.',
+                'redirect' => route('production-plannings.index'),
+            ]);
+        }
 
         return redirect()->route('production-plannings.index')
             ->with('success', 'Production planning created successfully.');
@@ -85,6 +105,13 @@ class ProductionPlanningController extends Controller
         ]);
 
         ActivityLogger::updated('Production Planning', $productionPlanning, $productionPlanning->toArray());
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Production planning updated successfully.',
+                'redirect' => route('production-plannings.index'),
+            ]);
+        }
 
         return redirect()->route('production-plannings.index')
             ->with('success', 'Production planning updated successfully.');

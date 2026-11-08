@@ -16,9 +16,8 @@
             <div>
                 <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-secondary);">Production Information</h3>
                 <div style="display: grid; gap: 8px;">
-                    <div style="display: flex; gap: 8px;"><span style="color: var(--text-secondary); min-width: 140px;">BOM Name:</span> <strong>{{ $production->bom->name ?? '—' }}</strong></div>
+                    <div style="display: flex; gap: 8px;"><span style="color: var(--text-secondary); min-width: 140px;">BOM Name:</span> <strong>{{ $production->billOfMaterial->name ?? '—' }}</strong></div>
                     <div style="display: flex; gap: 8px;"><span style="color: var(--text-secondary); min-width: 140px;">Quantity:</span> {{ $production->quantity }}</div>
-                    <div style="display: flex; gap: 8px;"><span style="color: var(--text-secondary); min-width: 140px;">Created:</span> {{ $production->created_at->format('d M Y H:i') }}</div>
                 </div>
             </div>
             <div>

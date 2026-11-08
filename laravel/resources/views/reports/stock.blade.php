@@ -94,29 +94,54 @@
     @endif
 </div>
 
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px;">
-    <div class="card">
-        <div class="card-header">
-            <h2 class="card-title">Stock by Category</h2>
+@php
+    $chartColors = ['#1a73e8', '#34a853', '#ea4335', '#fbbc04', '#46bdc6', '#ff6d01', '#ab47bc', '#00acc1', '#8d6e63'];
+@endphp
+
+<div class="card" style="margin-bottom: 28px;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap;">
+        <div>
+            <h2 class="card-title" style="margin-bottom: 4px;">Stock by Category</h2>
+            <p style="margin: 0; font-size: 13px; color: var(--text-secondary, #5f6368);">Stock value distribution across the top categories.</p>
         </div>
-        <div class="card-body">
-            <canvas id="categoryChart" height="100"></canvas>
+        <div style="text-align: right;">
+            <span style="display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary, #5f6368);">Total stock value</span>
+            <strong style="font-size: 22px; color: var(--text-primary, #202124);">{{ $currencySymbol }}{{ number_format($categoryTotalValue, 2) }}</strong>
         </div>
     </div>
-
-    <div class="card">
-        <div class="card-header">
-            <h2 class="card-title">Category Breakdown</h2>
-        </div>
-        <div class="card-body">
-            @forelse($stockByCategory as $category)
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border, #e0e0e0);">
-                    <span style="font-weight: 500;">{{ $category->name }}</span>
-                    <span class="badge badge-blue">{{ $category->items_count }} items</span>
-                </div>
-            @empty
-                <p style="color: var(--text-secondary, #5f6368); text-align: center; padding: 20px 0;">No categories found.</p>
-            @endforelse
+    <div class="card-body">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 32px; align-items: center;">
+            <div style="position: relative; height: 300px;">
+                <canvas id="categoryChart"></canvas>
+            </div>
+            <div>
+                @forelse($categoryChartRows as $index => $category)
+                    @php
+                        $categoryValue = (float) $category->total_value;
+                        $categoryPercent = $categoryTotalValue > 0 ? ($categoryValue / $categoryTotalValue) * 100 : 0;
+                        $categoryColor = $chartColors[$index % count($chartColors)];
+                    @endphp
+                    <div style="padding: 10px 0; border-bottom: 1px solid var(--border, #e0e0e0);">
+                        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 6px;">
+                            <span style="display: flex; align-items: center; gap: 8px; font-weight: 500;">
+                                <span style="width: 10px; height: 10px; border-radius: 50%; background: {{ $categoryColor }}; flex-shrink: 0;"></span>
+                                {{ $category->name }}
+                            </span>
+                            <span style="font-size: 13px; color: var(--text-secondary, #5f6368); font-variant-numeric: tabular-nums;">
+                                {{ $currencySymbol }}{{ number_format($categoryValue, 2) }} · {{ number_format($categoryPercent, 1) }}%
+                            </span>
+                        </div>
+                        <div style="height: 6px; border-radius: 999px; background: var(--border, #e0e0e0); overflow: hidden;">
+                            <div style="height: 100%; width: {{ min(100, $categoryPercent) }}%; border-radius: 999px; background: {{ $categoryColor }};"></div>
+                        </div>
+                        <div style="margin-top: 5px; font-size: 12px; color: var(--text-secondary, #5f6368);">
+                            {{ number_format($category->items_count) }} products · {{ number_format($category->total_quantity) }} units
+                        </div>
+                    </div>
+                @empty
+                    <p style="color: var(--text-secondary, #5f6368); text-align: center; padding: 20px 0;">No categories found.</p>
+                @endforelse
+            </div>
         </div>
     </div>
 </div>
@@ -167,39 +192,33 @@
         var ctx = document.getElementById('categoryChart');
         if (!ctx) return;
 
-        var labels = @json($categoryLabelsJson);
-        var values = @json($categoryValuesJson);
+        var labels = {!! $categoryLabelsJson !!};
+        var values = {!! $categoryValuesJson !!};
+        var currency = {!! json_encode($currencySymbol) !!};
+        var totalValue = values.reduce(function (a, b) { return a + Number(b); }, 0);
 
         var colors = [
             '#1a73e8', '#34a853', '#ea4335', '#fbbc04', '#46bdc6',
-            '#ff6d01', '#ab47bc', '#00acc1', '#8d6e63', '#546e7a'
+            '#ff6d01', '#ab47bc', '#00acc1', '#8d6e63'
         ];
 
         new Chart(ctx.getContext('2d'), {
-            type: 'pie',
+            type: 'doughnut',
             data: {
                 labels: labels,
                 datasets: [{
                     data: values,
                     backgroundColor: colors.slice(0, labels.length),
-                    borderWidth: 2,
-                    borderColor: '#ffffff'
+                    borderWidth: 0,
+                    hoverOffset: 6
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                cutout: '64%',
                 plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            padding: 16,
-                            font: { size: 12 },
-                            color: '#5f6368',
-                            usePointStyle: true,
-                            pointStyle: 'circle'
-                        }
-                    },
+                    legend: { display: false },
                     tooltip: {
                         backgroundColor: '#202124',
                         titleFont: { size: 13, weight: '500' },
@@ -208,14 +227,36 @@
                         cornerRadius: 8,
                         callbacks: {
                             label: function(context) {
-                                var total = context.dataset.data.reduce(function(a, b) { return a + b; }, 0);
-                                var percentage = ((context.parsed / total) * 100).toFixed(1);
-                                return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                                var percentage = totalValue > 0 ? ((Number(context.parsed) / totalValue) * 100).toFixed(1) : '0.0';
+                                var amount = Number(context.parsed).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                return ' ' + context.label + ': ' + currency + amount + ' (' + percentage + '%)';
                             }
                         }
                     }
                 }
-            }
+            },
+            plugins: [{
+                id: 'centerText',
+                afterDraw: function(chart) {
+                    var area = chart.chartArea;
+                    if (!area) return;
+
+                    var chartContext = chart.ctx;
+                    var x = (area.left + area.right) / 2;
+                    var y = (area.top + area.bottom) / 2;
+
+                    chartContext.save();
+                    chartContext.textAlign = 'center';
+                    chartContext.textBaseline = 'middle';
+                    chartContext.fillStyle = '#5f6368';
+                    chartContext.font = '600 11px system-ui, -apple-system, sans-serif';
+                    chartContext.fillText('TOTAL VALUE', x, y - 14);
+                    chartContext.fillStyle = '#202124';
+                    chartContext.font = '700 20px system-ui, -apple-system, sans-serif';
+                    chartContext.fillText(currency + totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }), x, y + 10);
+                    chartContext.restore();
+                }
+            }]
         });
     });
 </script>

@@ -12,6 +12,16 @@
         </a>
     </div>
 
+        <div style="padding: 16px;">
+            <form method="GET" action="{{ route('productions.index') }}" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                <input type="text" name="search" value="{{ request('search') }}" class="form-input" placeholder="Search by BOM name..." style="flex: 1; min-width: 200px;">
+                <button type="submit" class="btn btn-primary">Filter</button>
+                @if(request()->has('search'))
+                    <a href="{{ route('productions.index') }}" class="btn btn-ghost">Clear</a>
+                @endif
+            </form>
+        </div>
+
         <table>
             <thead>
                 <tr>
@@ -26,7 +36,7 @@
             <tbody>
                 @forelse($productions as $production)
                     <tr>
-                        <td><strong>{{ $production->bom->name ?? '—' }}</strong></td>
+                        <td><strong>{{ $production->billOfMaterial->name ?? '—' }}</strong></td>
                         <td>{{ $currencySymbol }}{{ number_format($production->production_cost, 2) }}</td>
                         <td>{{ $currencySymbol }}{{ number_format($production->other_cost, 2) }}</td>
                         <td style="color: var(--success, #22c55e);">{{ $currencySymbol }}{{ number_format($production->expected_profit, 2) }}</td>

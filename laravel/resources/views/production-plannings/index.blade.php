@@ -12,6 +12,21 @@
             </a>
         </div>
 
+        <div style="padding: 16px;">
+            <form method="GET" action="{{ route('production-plannings.index') }}" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                <input type="text" name="search" value="{{ request('search') }}" class="form-input" placeholder="Search by BOM name..." style="flex: 1; min-width: 200px;">
+                <select name="finalized" class="form-input" style="max-width: 180px;">
+                    <option value="">All Status</option>
+                    <option value="yes" {{ request('finalized') === 'yes' ? 'selected' : '' }}>Finalized</option>
+                    <option value="no" {{ request('finalized') === 'no' ? 'selected' : '' }}>Not Finalized</option>
+                </select>
+                <button type="submit" class="btn btn-primary">Filter</button>
+                @if(request()->hasAny(['search', 'finalized']))
+                    <a href="{{ route('production-plannings.index') }}" class="btn btn-ghost">Clear</a>
+                @endif
+            </form>
+        </div>
+
         <table>
             <thead>
                 <tr>
@@ -27,14 +42,14 @@
             <tbody>
                 @forelse($plannings as $planning)
                     <tr id="row-{{ $planning->id }}">
-                        <td><strong>{{ $planning->bom->name ?? '—' }}</strong></td>
+                        <td><strong>{{ $planning->billOfMaterial->name ?? '—' }}</strong></td>
                         <td>{{ $currencySymbol }}{{ number_format($planning->production_cost, 2) }}</td>
                         <td>{{ $currencySymbol }}{{ number_format($planning->other_cost, 2) }}</td>
                         <td style="color: var(--success, #22c55e);">{{ $currencySymbol }}{{ number_format($planning->expected_profit, 2) }}</td>
                         <td>{{ $planning->quantity }}</td>
                         <td>
-                            <span class="badge {{ $planning->finalized ? 'badge-green' : 'badge-orange' }}">
-                                {{ $planning->finalized ? 'Yes' : 'No' }}
+                            <span class="badge {{ $planning->finalized === 'yes' ? 'badge-green' : 'badge-orange' }}">
+                                {{ $planning->finalized === 'yes' ? 'Yes' : 'No' }}
                             </span>
                         </td>
                         <td>

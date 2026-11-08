@@ -13,6 +13,16 @@
             </a>
         </div>
 
+        <div style="padding: 16px;">
+            <form method="GET" action="{{ route('bill-of-materials.index') }}" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                <input type="text" name="search" value="{{ request('search') }}" class="form-input" placeholder="Search by BOM name..." style="flex: 1; min-width: 200px;">
+                <button type="submit" class="btn btn-primary">Filter</button>
+                @if(request()->has('search'))
+                    <a href="{{ route('bill-of-materials.index') }}" class="btn btn-ghost">Clear</a>
+                @endif
+            </form>
+        </div>
+
         <div x-show="successMessage" x-cloak class="alert alert-success show" style="margin: 16px 16px 0;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>

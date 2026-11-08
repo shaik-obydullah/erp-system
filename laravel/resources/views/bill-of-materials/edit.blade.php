@@ -3,7 +3,7 @@
 @section('title', 'Edit Bill of Material')
 
 @section('content')
-<div class="card" x-data="formHandler('{{ route('bill-of-materials.update', $bom) }}', 'PUT')" x-init="init()">
+<div class="card" x-data="formHandler('{{ route('bill-of-materials.update', $billOfMaterial) }}', 'PUT')" x-init="init()">
     <div class="card-header">
         <h2 class="card-title">Edit Bill of Material</h2>
         <a href="{{ route('bill-of-materials.index') }}" class="btn btn-secondary">Back to BOMs</a>
@@ -37,32 +37,32 @@
                     <select id="fk_product_id" x-model="form.fk_product_id" required>
                         <option value="">Select Product</option>
                         @foreach($products as $product)
-                            <option value="{{ $product->id }}" {{ $bom->fk_product_id == $product->id ? 'selected' : '' }}>{{ $product->name }}</option>
+                            <option value="{{ $product->id }}" {{ $billOfMaterial->fk_product_id == $product->id ? 'selected' : '' }}>{{ $product->name }}</option>
                         @endforeach
                     </select>
                     <span class="form-error" x-show="errors.fk_product_id" x-text="errors.fk_product_id"></span>
                 </div>
                 <div class="form-group">
                     <label for="name">Name *</label>
-                    <input type="text" id="name" x-model="form.name" value="{{ old('name', $bom->name) }}" required autofocus>
+                    <input type="text" id="name" x-model="form.name" value="{{ old('name', $billOfMaterial->name) }}" required autofocus>
                     <span class="form-error" x-show="errors.name" x-text="errors.name"></span>
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="fk_unit_id">Unit *</label>
-                    <select id="fk_unit_id" x-model="form.fk_unit_id" required>
+                    <label for="unit">Unit *</label>
+                    <select id="unit" x-model="form.unit" required>
                         <option value="">Select Unit</option>
                         @foreach($units as $unit)
-                            <option value="{{ $unit->id }}" {{ $bom->fk_unit_id == $unit->id ? 'selected' : '' }}>{{ $unit->name }}</option>
+                            <option value="{{ $unit->id }}" {{ $billOfMaterial->unit == $unit->id ? 'selected' : '' }}>{{ $unit->name }}</option>
                         @endforeach
                     </select>
-                    <span class="form-error" x-show="errors.fk_unit_id" x-text="errors.fk_unit_id"></span>
+                    <span class="form-error" x-show="errors.unit" x-text="errors.unit"></span>
                 </div>
                 <div class="form-group">
                     <label for="quantity">Quantity *</label>
-                    <input type="number" id="quantity" x-model="form.quantity" value="{{ old('quantity', $bom->quantity) }}" step="0.01" min="0" required>
+                    <input type="number" id="quantity" x-model="form.quantity" value="{{ old('quantity', $billOfMaterial->quantity) }}" step="1" min="0" required>
                     <span class="form-error" x-show="errors.quantity" x-text="errors.quantity"></span>
                 </div>
             </div>
@@ -70,7 +70,7 @@
             <div class="form-row">
                 <div class="form-group">
                     <label for="description">Description</label>
-                    <textarea id="description" x-model="form.description" rows="4">{{ old('description', $bom->description) }}</textarea>
+                    <textarea id="description" x-model="form.description" rows="4">{{ old('description', $billOfMaterial->description) }}</textarea>
                     <span class="form-error" x-show="errors.description" x-text="errors.description"></span>
                 </div>
             </div>
@@ -90,11 +90,11 @@
     function formHandler(url, method) {
         return {
             form: {
-                fk_product_id: '{{ old('fk_product_id', $bom->fk_product_id) }}',
-                name: '{{ old('name', $bom->name) }}',
-                fk_unit_id: '{{ old('fk_unit_id', $bom->fk_unit_id) }}',
-                quantity: '{{ old('quantity', $bom->quantity) }}',
-                description: '{{ old('description', $bom->description) }}',
+                fk_product_id: @js(old('fk_product_id', $billOfMaterial->fk_product_id)),
+                name: @js(old('name', $billOfMaterial->name)),
+                unit: @js(old('unit', $billOfMaterial->unit)),
+                quantity: @js(old('quantity', $billOfMaterial->quantity)),
+                description: @js(old('description', $billOfMaterial->description)),
             },
             errors: {},
             errorMessage: '',

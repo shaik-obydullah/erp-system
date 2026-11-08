@@ -43,7 +43,7 @@
                 </div>
                 <div class="form-group">
                     <label for="quantity">Quantity *</label>
-                    <input type="number" id="quantity" x-model="form.quantity" step="0.01" min="0" required>
+                    <input type="number" id="quantity" x-model="form.quantity" step="1" min="1" required>
                     <span class="form-error" x-show="errors.quantity" x-text="errors.quantity"></span>
                 </div>
             </div>

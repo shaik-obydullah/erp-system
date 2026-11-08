@@ -16,6 +16,12 @@ class ProductionController extends Controller
     {
         $query = Production::with('billOfMaterial');
 
+        if ($search = $request->input('search')) {
+            $query->whereHas('billOfMaterial', function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%");
+            });
+        }
+
         $productions = $query->orderBy('id', 'desc')->paginate(15)->withQueryString();
 
         if ($request->expectsJson()) {
@@ -64,6 +70,13 @@ class ProductionController extends Controller
 
         ActivityLogger::created('Production', $production);
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Production entry created successfully.',
+                'redirect' => route('productions.index'),
+            ]);
+        }
+
         return redirect()->route('productions.index')
             ->with('success', 'Production entry created successfully.');
     }
@@ -71,8 +84,9 @@ class ProductionController extends Controller
     public function show(Production $production)
     {
         $production->load('billOfMaterial.product');
+        $currencySymbol = Configuration::get('currency_symbol', '$');
 
-        return view('productions.show', compact('production'));
+        return view('productions.show', compact('production', 'currencySymbol'));
     }
 
     public function edit(Production $production)
@@ -129,6 +143,13 @@ class ProductionController extends Controller
         });
 
         ActivityLogger::updated('Production', $production, $production->toArray());
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Production entry updated successfully.',
+                'redirect' => route('productions.index'),
+            ]);
+        }
 
         return redirect()->route('productions.index')
             ->with('success', 'Production entry updated successfully.');

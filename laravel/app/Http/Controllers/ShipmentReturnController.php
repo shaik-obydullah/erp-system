@@ -24,6 +24,10 @@ class ShipmentReturnController extends Controller
             $query->where('status', $status);
         }
 
+        if ($reason = $request->input('return_reason')) {
+            $query->where('return_reason', $reason);
+        }
+
         $returns = $query->orderBy('id', 'desc')->paginate(15)->withQueryString();
 
         if ($request->expectsJson()) {

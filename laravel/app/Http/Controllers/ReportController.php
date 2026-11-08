@@ -292,6 +292,7 @@ class ReportController extends Controller
             ->withQueryString();
 
         $stockByCategory = Category::select('categories.name')
+            ->selectRaw('COUNT(DISTINCT products.id) as items_count')
             ->selectRaw('COALESCE(SUM(stocks.quantity), 0) as total_quantity')
             ->selectRaw('COALESCE(SUM(stocks.quantity * stocks.buy_price), 0) as total_value')
             ->leftJoin('products', 'products.fk_category_id', '=', 'categories.id')
@@ -304,8 +305,23 @@ class ReportController extends Controller
             ->orderByDesc('total_value')
             ->get();
 
-        $categoryLabelsJson = json_encode($stockByCategory->pluck('name')->toArray());
-        $categoryValuesJson = json_encode($stockByCategory->pluck('total_value')->toArray());
+        $categoryTotalValue = (float) $stockByCategory->sum('total_value');
+        $categoryChartRows = $stockByCategory->take(8);
+        $remainingCategories = $stockByCategory->slice(8);
+
+        if ($remainingCategories->isNotEmpty()) {
+            $categoryChartRows = $categoryChartRows->push((object) [
+                'name' => 'Other',
+                'items_count' => $remainingCategories->sum('items_count'),
+                'total_quantity' => $remainingCategories->sum('total_quantity'),
+                'total_value' => $remainingCategories->sum('total_value'),
+            ]);
+        }
+
+        $categoryLabelsJson = json_encode($categoryChartRows->pluck('name')->toArray());
+        $categoryValuesJson = json_encode(
+            $categoryChartRows->pluck('total_value')->map(fn ($value) => (float) $value)->toArray()
+        );
 
         $stockList = Stock::with('product')
             ->where('status', 'active')
@@ -315,7 +331,7 @@ class ReportController extends Controller
 
         return view('reports.stock', compact(
             'currencySymbol', 'totalStockValue',
-            'lowStockItems', 'stockByCategory',
+            'lowStockItems', 'stockByCategory', 'categoryChartRows', 'categoryTotalValue',
             'categoryLabelsJson', 'categoryValuesJson',
             'stockList',
         ));

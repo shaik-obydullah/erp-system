@@ -44,7 +44,7 @@
                 </div>
                 <div class="form-group">
                     <label for="quantity">Quantity *</label>
-                    <input type="number" id="quantity" x-model="form.quantity" value="{{ old('quantity', $production->quantity) }}" step="0.01" min="0" required>
+                    <input type="number" id="quantity" x-model="form.quantity" value="{{ old('quantity', $production->quantity) }}" step="1" min="1" required>
                     <span class="form-error" x-show="errors.quantity" x-text="errors.quantity"></span>
                 </div>
             </div>
@@ -89,11 +89,11 @@
     function formHandler(url, method) {
         return {
             form: {
-                fk_bill_of_material_id: '{{ old('fk_bill_of_material_id', $production->fk_bill_of_material_id) }}',
-                production_cost: '{{ old('production_cost', $production->production_cost) }}',
-                other_cost: '{{ old('other_cost', $production->other_cost) }}',
-                expected_profit: '{{ old('expected_profit', $production->expected_profit) }}',
-                quantity: '{{ old('quantity', $production->quantity) }}',
+                fk_bill_of_material_id: @js(old('fk_bill_of_material_id', $production->fk_bill_of_material_id)),
+                production_cost: @js(old('production_cost', $production->production_cost)),
+                other_cost: @js(old('other_cost', $production->other_cost)),
+                expected_profit: @js(old('expected_profit', $production->expected_profit)),
+                quantity: @js(old('quantity', $production->quantity)),
             },
             errors: {},
             errorMessage: '',
