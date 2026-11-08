@@ -44,7 +44,12 @@ AI-powered full-stack ERP and multi-vendor marketplace system featuring a Larave
 ## Live Demo
 
 - **Admin Panel:** [erp.obydullah.com](https://erp.obydullah.com)
-- **React POS:** [pos.obydullah.com](https://pos.obydullah.com)
+- **React POS:** [pos.obydullah.com](https://react-pos.obydullah.com)
+
+## Access Credentials
+
+- **Email:** [demo@obydullah.com]
+- **Password:** [11111111]
 
 ## Feature Highlights
 
@@ -64,37 +69,37 @@ AI-powered full-stack ERP and multi-vendor marketplace system featuring a Larave
 
 ## Tech Stack
 
-| Layer      | Technology                                       |
-| ---------- | ------------------------------------------------ |
-| Backend    | Laravel 13.17, PHP 8.3, Sanctum Auth             |
-| Frontend   | React 19, Vite 6, Tailwind CSS 3                 |
-| Storefront | Laravel Blade, Vue.js 3, Alpine.js 3             |
-| Database   | MariaDB 10.6 (77 migrated tables)                |
-| AI         | Ollama (qwen2.5:0.5b) — self-hosted LLM          |
-| BI         | Flask, scikit-learn (separate service)           |
-| Infra      | Docker, Nginx, Apache                            |
-| PDF        | jsPDF + jspdf-autotable                          |
-| Charts     | Chart.js 4 + react-chartjs-2                     |
+| Layer      | Technology                              |
+| ---------- | --------------------------------------- |
+| Backend    | Laravel 13.17, PHP 8.3, Sanctum Auth    |
+| Frontend   | React 19, Vite 6, Tailwind CSS 3        |
+| Storefront | Laravel Blade, Vue.js 3, Alpine.js 3    |
+| Database   | MariaDB 10.6 (77 migrated tables)       |
+| AI         | Ollama (qwen2.5:0.5b) — self-hosted LLM |
+| BI         | Flask, scikit-learn (separate service)  |
+| Infra      | Docker, Nginx, Apache                   |
+| PDF        | jsPDF + jspdf-autotable                 |
+| Charts     | Chart.js 4 + react-chartjs-2            |
 
 ## Key Modules
 
-| Module              | Description                                                                           |
-| ------------------- | ------------------------------------------------------------------------------------- |
-| **POS Terminal**    | Category browsing, cart, checkout, VAT/tax/discount, PDF invoices                     |
-| **Product Catalog** | Categories, brands, units, sizes, colors, image upload                                |
-| **Inventory**       | Multi-warehouse stock with batch/lot tracking                                         |
-| **Sales**           | Full lifecycle — sale creation, returns, invoice generation                           |
-| **Finance**         | Income/expense tracking, double-entry transactions, cashbook, multi-currency, receivables/payables, fixed assets |
+| Module              | Description                                                                                                                                                                         |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **POS Terminal**    | Category browsing, cart, checkout, VAT/tax/discount, PDF invoices                                                                                                                   |
+| **Product Catalog** | Categories, brands, units, sizes, colors, image upload                                                                                                                              |
+| **Inventory**       | Multi-warehouse stock with batch/lot tracking                                                                                                                                       |
+| **Sales**           | Full lifecycle — sale creation, returns, invoice generation                                                                                                                         |
+| **Finance**         | Income/expense tracking, double-entry transactions, cashbook, multi-currency, receivables/payables, fixed assets                                                                    |
 | **Accounting**      | Journal entries & lines, 26-account chart, ledger, trial balance, P&L, balance sheet, cash flow, reconciliation, fiscal periods, opening balances, automated posting, UK VAT return |
-| **VAT**             | Stock-level VAT codes/rates, VAT-inclusive pricing, per-line extraction, 9-box return reconciled to the ledger |
-| **Data Tools**      | CSV import/export (products, customers, suppliers, catalog lookups, party transactions), barcode sheets, product media uploads |
-| **Procurement**     | Need → Purchase Order → Shipment → Returns pipeline, shipping zones/methods, landed shipment costs |
-| **Manufacturing**   | Bill of Materials, production planning, cost tracking                                 |
-| **HRM**             | Employees, payroll, task management                                                   |
-| **Ecommerce**       | Multi-vendor storefront with cart, checkout, customer/supplier portals, reviews, newsletter subscriptions |
-| **RBAC**            | 4 seeded roles, 127 permissions across 34 groups                                      |
-| **AI**              | Product descriptions, inventory insights, sales forecasting, pricing, support chatbot |
-| **Reporting**       | Sales trends, income vs expenses, profit analysis, annual performance charts          |
+| **VAT**             | Stock-level VAT codes/rates, VAT-inclusive pricing, per-line extraction, 9-box return reconciled to the ledger                                                                      |
+| **Data Tools**      | CSV import/export (products, customers, suppliers, catalog lookups, party transactions), barcode sheets, product media uploads                                                      |
+| **Procurement**     | Need → Purchase Order → Shipment → Returns pipeline, shipping zones/methods, landed shipment costs                                                                                  |
+| **Manufacturing**   | Bill of Materials, production planning, cost tracking                                                                                                                               |
+| **HRM**             | Employees, payroll, task management                                                                                                                                                 |
+| **Ecommerce**       | Multi-vendor storefront with cart, checkout, customer/supplier portals, reviews, newsletter subscriptions                                                                           |
+| **RBAC**            | 4 seeded roles, 127 permissions across 34 groups                                                                                                                                    |
+| **AI**              | Product descriptions, inventory insights, sales forecasting, pricing, support chatbot                                                                                               |
+| **Reporting**       | Sales trends, income vs expenses, profit analysis, annual performance charts                                                                                                        |
 
 ## Screenshots
 
@@ -639,38 +644,38 @@ Base path `/api/v1` (see `laravel/routes/api.php`) — 33 route definitions (3 p
 
 ### Protected Endpoints (`auth:sanctum`)
 
-| Method | Endpoint                        | Purpose                                 |
-| ------ | ------------------------------- | --------------------------------------- |
-| POST   | `/logout`                       | Revoke current token                    |
-| GET    | `/sync/pull`                    | Pull changes for offline/mobile clients |
-| POST   | `/sync/push`                    | Push local changes from offline clients |
-| POST   | `/configuration`                | System settings for POS                 |
-| POST   | `/dashboard`                    | Category tree for POS                   |
-| POST   | `/category-product/{id}`        | In-stock items for a category           |
-| POST   | `/customer`                     | Customer list                           |
-| POST   | `/save-customer`                | Create customer                         |
-| PUT    | `/update-customer/{id}`         | Update customer                         |
-| POST   | `/category`                     | Category list                           |
-| POST   | `/save-category`                | Create category                         |
-| PUT    | `/update-category/{id}`         | Update category                         |
-| GET    | `/product`                      | Product list                            |
-| POST   | `/save-product`                 | Create product                          |
-| POST   | `/update-product/{id}`          | Update product                          |
-| GET    | `/stock`                        | Stock list                              |
-| POST   | `/save-stock`                   | Create stock                            |
-| GET    | `/sale`                         | Sales list                              |
-| POST   | `/select-sale/{id}`             | Sale detail                             |
-| POST   | `/save-sale`                    | Checkout                                |
-| POST   | `/income`                       | Income list                             |
-| POST   | `/save-income`                  | Create income                           |
-| POST   | `/expense`                      | Expense list                            |
-| POST   | `/save-expense`                 | Create expense                          |
-| POST   | `/report`                       | YTD vs last-year financial report       |
-| POST   | `/ai/product-description`       | Generate product description            |
-| POST   | `/ai/product-search`            | Natural-language product search         |
-| POST   | `/ai/inventory-insights`        | Inventory risk & reorder insights       |
-| POST   | `/ai/sales-forecast`            | 12-month revenue forecast               |
-| POST   | `/ai/price-suggestion`          | Price range & strategy advice           |
+| Method | Endpoint                  | Purpose                                 |
+| ------ | ------------------------- | --------------------------------------- |
+| POST   | `/logout`                 | Revoke current token                    |
+| GET    | `/sync/pull`              | Pull changes for offline/mobile clients |
+| POST   | `/sync/push`              | Push local changes from offline clients |
+| POST   | `/configuration`          | System settings for POS                 |
+| POST   | `/dashboard`              | Category tree for POS                   |
+| POST   | `/category-product/{id}`  | In-stock items for a category           |
+| POST   | `/customer`               | Customer list                           |
+| POST   | `/save-customer`          | Create customer                         |
+| PUT    | `/update-customer/{id}`   | Update customer                         |
+| POST   | `/category`               | Category list                           |
+| POST   | `/save-category`          | Create category                         |
+| PUT    | `/update-category/{id}`   | Update category                         |
+| GET    | `/product`                | Product list                            |
+| POST   | `/save-product`           | Create product                          |
+| POST   | `/update-product/{id}`    | Update product                          |
+| GET    | `/stock`                  | Stock list                              |
+| POST   | `/save-stock`             | Create stock                            |
+| GET    | `/sale`                   | Sales list                              |
+| POST   | `/select-sale/{id}`       | Sale detail                             |
+| POST   | `/save-sale`              | Checkout                                |
+| POST   | `/income`                 | Income list                             |
+| POST   | `/save-income`            | Create income                           |
+| POST   | `/expense`                | Expense list                            |
+| POST   | `/save-expense`           | Create expense                          |
+| POST   | `/report`                 | YTD vs last-year financial report       |
+| POST   | `/ai/product-description` | Generate product description            |
+| POST   | `/ai/product-search`      | Natural-language product search         |
+| POST   | `/ai/inventory-insights`  | Inventory risk & reorder insights       |
+| POST   | `/ai/sales-forecast`      | 12-month revenue forecast               |
+| POST   | `/ai/price-suggestion`    | Price range & strategy advice           |
 
 ## AI Features
 
@@ -781,34 +786,34 @@ docker compose exec erp_ollama ollama pull qwen2.5:0.5b
 
 ### Services
 
-| Service         | Port  | URL                    |
-| --------------- | ----- | ---------------------- |
-| Laravel (Nginx) | 8084  | http://localhost:8084  |
-| Laravel (Vite)  | 5174  | http://localhost:5174  |
-| React POS       | 3060  | http://localhost:3060  |
-| phpMyAdmin      | 8083  | http://localhost:8083  |
-| MariaDB         | 3309  | localhost:3309         |
-| Ollama AI       | 11435 | localhost:11435        |
+| Service         | Port  | URL                   |
+| --------------- | ----- | --------------------- |
+| Laravel (Nginx) | 8084  | http://localhost:8084 |
+| Laravel (Vite)  | 5174  | http://localhost:5174 |
+| React POS       | 3060  | http://localhost:3060 |
+| phpMyAdmin      | 8083  | http://localhost:8083 |
+| MariaDB         | 3309  | localhost:3309        |
+| Ollama AI       | 11435 | localhost:11435       |
 
 ### Configuration
 
 Key variables in `laravel/.env`:
 
-| Variable | Recommended (Docker) | Purpose |
-| -------- | -------------------- | ------- |
-| `APP_URL` | `http://localhost` | Public base URL |
-| `DB_CONNECTION` | `mysql` | Database driver (the `.env.example` default is `sqlite`) |
-| `DB_HOST` | `erp_db` | MariaDB service name on the Docker network |
-| `DB_PORT` | `3306` | MariaDB port inside Docker |
-| `DB_DATABASE` | `laravel_db` | Database name |
-| `DB_USERNAME` | `laravel` | Database user |
-| `DB_PASSWORD` | `secret` | Database password (change in production) |
-| `OLLAMA_URL` | `http://erp_ollama:11434` | Ollama API base URL |
-| `AI_MODEL` | `qwen2.5:0.5b` | Model used for generative AI (tiny default for low-spec machines) |
-| `BI_API_URL` | `http://bi_nginx:80/api/v1` | BI service base URL |
-| `BI_API_KEY` | — | Must match the BI service's `BI_API_KEY` |
-| `ACCOUNTING_GL_ENABLED` | `true` | Pause or resume automatic ledger postings |
-| `ACCOUNTING_GL_ENFORCED` | `false` | Block operations when ledger posting fails |
+| Variable                 | Recommended (Docker)        | Purpose                                                           |
+| ------------------------ | --------------------------- | ----------------------------------------------------------------- |
+| `APP_URL`                | `http://localhost`          | Public base URL                                                   |
+| `DB_CONNECTION`          | `mysql`                     | Database driver (the `.env.example` default is `sqlite`)          |
+| `DB_HOST`                | `erp_db`                    | MariaDB service name on the Docker network                        |
+| `DB_PORT`                | `3306`                      | MariaDB port inside Docker                                        |
+| `DB_DATABASE`            | `laravel_db`                | Database name                                                     |
+| `DB_USERNAME`            | `laravel`                   | Database user                                                     |
+| `DB_PASSWORD`            | `secret`                    | Database password (change in production)                          |
+| `OLLAMA_URL`             | `http://erp_ollama:11434`   | Ollama API base URL                                               |
+| `AI_MODEL`               | `qwen2.5:0.5b`              | Model used for generative AI (tiny default for low-spec machines) |
+| `BI_API_URL`             | `http://bi_nginx:80/api/v1` | BI service base URL                                               |
+| `BI_API_KEY`             | —                           | Must match the BI service's `BI_API_KEY`                          |
+| `ACCOUNTING_GL_ENABLED`  | `true`                      | Pause or resume automatic ledger postings                         |
+| `ACCOUNTING_GL_ENFORCED` | `false`                     | Block operations when ledger posting fails                        |
 
 Run `php artisan key:generate` after copying the env file; `APP_KEY` must be set before the app boots.
 
@@ -860,7 +865,6 @@ For the React app, `.env` sets `VITE_API_URL=/api/v1` for local dev (Vite proxie
 77 migrated tables (85 migration files; 78 total in the live database including the `migrations` table) organized into modules: **Auth** (admins, customers, suppliers, roles, permissions, sessions, tokens), **Catalog** (products, categories, brands, sizes, colors, units, reviews, flash_sales), **Inventory** (stocks, warehouses, stock_adjustments), **Sales** (sales, sale_details, sale_returns, cart, cart_details), **Finance & Accounting** (transactions, cashbook, incomes, expenses, payable, receivable, balances, currencies, accounts, journal_entries, journal_lines, fiscal_periods, opening_balances, fixed_assets), **Procurement** (needs, purchase_orders, shipments, shipment_returns, shipment_costs, shipping_zones, shipping_methods), **Manufacturing** (bill_of_materials, production_plannings, productions), **HRM** (employees, payrolls, task_management), **System** (activities, notifications, configurations, contents, campaigns, newsletter_subscribers). Framework tables (`cache`, `jobs`, `sessions`, password resets, personal access tokens) sit alongside these domain tables.
 
 - Most tables use soft deletes and track `created_by` / `updated_by` / `deleted_by` where applicable.
-- A development database dump lives at [`u181095087_erp.sql`](u181095087_erp.sql).
 
 See [laravel/README.md](laravel/README.md#database-schema) for the full schema.
 
