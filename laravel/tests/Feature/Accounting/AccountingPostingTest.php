@@ -13,7 +13,10 @@ use App\Models\Expense;
 use App\Models\FiscalPeriod;
 use App\Models\Income;
 use App\Models\JournalEntry;
+use App\Models\JournalLine;
+use App\Models\Need;
 use App\Models\Permission;
+use App\Models\PurchaseOrder;
 use App\Models\Role;
 use App\Models\Sale;
 use App\Models\SaleReturn;
@@ -228,8 +231,8 @@ class AccountingPostingTest extends TestCase
         $expense = $this->makeExpense(40, 'Rent');
         $poster->expense($expense);
 
-        $totalDebit = (float) \App\Models\JournalLine::sum('debit');
-        $totalCredit = (float) \App\Models\JournalLine::sum('credit');
+        $totalDebit = (float) JournalLine::sum('debit');
+        $totalCredit = (float) JournalLine::sum('credit');
 
         $this->assertSame(round($totalDebit, 2), round($totalCredit, 2));
 
@@ -382,13 +385,14 @@ class AccountingPostingTest extends TestCase
         }
     }
 
-    public function test_reconciliation_matches_party_balances_and_flags_unassigned_receivables(): void
+    public function test_reconciliation_matches_document_dues_and_flags_unassigned_receivables(): void
     {
         $customer = Customer::create([
             'name' => 'Ledger Customer',
             'email' => 'ledger-customer@example.com',
             'password' => 'password',
-            'balance' => -250,
+            // Advances live in the balance column and must not be treated as dues.
+            'balance' => 500,
             'status' => 'active',
         ]);
 
@@ -421,6 +425,39 @@ class AccountingPostingTest extends TestCase
         $this->assertSame(250.0, $summary['customer_receivable']);
         $this->assertTrue($summary['customer_matched']);
         $this->assertSame(500.0, $summary['unassigned_receivable']);
+
+        $supplier = Supplier::create([
+            'name' => 'Ledger Supplier',
+            'email' => 'ledger-supplier@example.com',
+            'password' => 'password',
+            // An advance must not be mistaken for a payable.
+            'balance' => 400,
+            'status' => 'active',
+        ]);
+
+        $need = Need::create([
+            'description' => 'Test purchase need',
+            'date_identified' => now()->toDateString(),
+        ]);
+
+        $order = PurchaseOrder::create([
+            'fk_need_id' => $need->id,
+            'fk_supplier_id' => $supplier->id,
+            'order_number' => 'PO-'.uniqid(),
+            'total_amount' => 300.00,
+            'net_amount' => 300.00,
+            'vat_amount' => 0.00,
+            'due_amount' => 300.00,
+        ]);
+
+        app(AccountingPoster::class)->purchaseOrder($order);
+
+        $summary = app(Reconciliation::class)->summary();
+
+        $this->assertSame(300.0, $summary['supplier_due']);
+        $this->assertSame(300.0, $summary['supplier_payable']);
+        $this->assertTrue($summary['supplier_matched']);
+        $this->assertSame(0.0, $summary['unassigned_payable']);
     }
 
     private function makeSale(array $overrides = []): Sale

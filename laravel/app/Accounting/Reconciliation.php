@@ -4,15 +4,14 @@ namespace App\Accounting;
 
 use App\Models\Account;
 use App\Models\Cashbook;
-use App\Models\Customer;
 use App\Models\JournalLine;
-use App\Models\Supplier;
-use Illuminate\Database\Eloquent\Builder;
+use App\Models\PurchaseOrder;
+use App\Models\Sale;
 
 /**
- * Compares the simple layer (cashbook, party balances) with the double-entry
- * ledger. Party balances are split by sign because a positive customer balance
- * is an advance while a negative one is an amount the customer owes us.
+ * Compares the simple layer (cashbook, document dues) with the double-entry
+ * ledger. Party balance columns hold customer/supplier advances, not amounts
+ * owed, so dues are taken from the sale and purchase order documents.
  */
 class Reconciliation
 {
@@ -24,8 +23,8 @@ class Reconciliation
         $cashbookNet = round((float) Cashbook::sum('in_amount') - (float) Cashbook::sum('out_amount'), 2);
         $cashAccount = $this->accountBalance('cash');
 
-        $customerDue = $this->partyDue(Customer::query());
-        $supplierDue = $this->partyDue(Supplier::query());
+        $customerDue = $this->customerDue();
+        $supplierDue = $this->supplierDue();
 
         $customerReceivable = $this->partyAccountBalance('accounts_receivable', 'customer');
         $supplierPayable = $this->partyAccountBalance('accounts_payable', 'supplier');
@@ -78,7 +77,7 @@ class Reconciliation
 
     /**
      * Balance of party-attributed lines on a control account. This is the
-     * subledger total that should match the sum of party balances.
+     * subledger total that should match the sum of party dues.
      */
     public function partyAccountBalance(string $systemKey, string $partyType): float
     {
@@ -101,10 +100,22 @@ class Reconciliation
         return round($account->normal_balance === 'debit' ? $debit - $credit : $credit - $debit, 2);
     }
 
-    private function partyDue(Builder $query): float
+    private function customerDue(): float
     {
-        // Negative customer/supplier balances represent amounts owed by/to the
-        // party; positive balances are advances and are reconciled separately.
-        return round(abs((float) $query->where('balance', '<', 0)->sum('balance')), 2);
+        // A sale with no customer is unassigned and is reported separately, so
+        // only customer-linked dues belong in the party subledger total.
+        return round((float) Sale::query()
+            ->whereNull('deleted_at')
+            ->whereNotNull('fk_user_id')
+            ->where('sale_due', '>', 0)
+            ->sum('sale_due'), 2);
+    }
+
+    private function supplierDue(): float
+    {
+        return round((float) PurchaseOrder::query()
+            ->whereNull('deleted_at')
+            ->where('due_amount', '>', 0)
+            ->sum('due_amount'), 2);
     }
 }
