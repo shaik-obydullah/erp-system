@@ -286,7 +286,7 @@ function productForm() {
             var self = this;
             var existing = this.existingImages.map(function(img, i) {
                 return {
-                    url: '{{ asset("uploads/products/") }}/' + img,
+                    url: '{{ asset("uploads/") }}/' + img,
                     name: img,
                     isNew: false,
                     key: 'existing-' + i,
