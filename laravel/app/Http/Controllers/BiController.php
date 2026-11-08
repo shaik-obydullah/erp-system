@@ -7,17 +7,20 @@ use Illuminate\Support\Facades\Http;
 
 class BiController extends Controller
 {
-    private string $biApi = 'http://bi_flask:5000/api';
-
     private function bi(string $method, string $endpoint, array $data = []): array
     {
         try {
+            $url = rtrim((string) config('services.bi.url'), '/').$endpoint;
+            $client = Http::timeout(30)
+                ->acceptJson()
+                ->withHeaders(['X-API-Key' => (string) config('services.bi.key')]);
+
             $response = match (strtoupper($method)) {
-                'GET' => Http::timeout(30)->get("{$this->biApi}{$endpoint}"),
-                'POST' => Http::timeout(30)->withJson($data)->post("{$this->biApi}{$endpoint}"),
-                default => Http::timeout(30)->get("{$this->biApi}{$endpoint}"),
+                'GET' => $client->get($url),
+                'POST' => $client->asJson()->post($url, $data),
+                default => $client->get($url),
             };
-            return $response->json();
+            return $response->json() ?? [];
         } catch (\Exception $e) {
             return ['status' => 'error', 'message' => $e->getMessage()];
         }

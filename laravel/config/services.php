@@ -40,4 +40,9 @@ return [
         'model' => env('AI_MODEL', 'llama3.2'),
     ],
 
+    'bi' => [
+        'url' => env('BI_API_URL', 'http://bi_flask:5000/api'),
+        'key' => env('BI_API_KEY'),
+    ],
+
 ];
