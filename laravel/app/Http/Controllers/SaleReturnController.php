@@ -9,6 +9,7 @@ use App\Models\SaleDetail;
 use App\Models\SaleReturn;
 use App\Models\Stock;
 use App\Services\ActivityLogger;
+use App\Services\SaleIncomeTracker;
 use App\Services\VatCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -203,6 +204,10 @@ class SaleReturnController extends Controller
                     'grand_total' => max(0, $sale->grand_total - $saleReturn->refund_amount),
                     'updated_by' => $adminId,
                 ]);
+
+                // Keep the income mirror net of every approved return while the
+                // original saleIncome transaction and journal entry stay intact.
+                app(SaleIncomeTracker::class)->sync($sale, $adminId);
             }
         });
 

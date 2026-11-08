@@ -44,7 +44,7 @@ class PosVatTest extends TestCase
             ],
             'discount' => 12.00,
             'shipping' => 6.00,
-            'paid_amount' => 200.00,
+            'paid_amount' => 284.00,
         ]);
 
         $response->assertOk();
@@ -56,6 +56,8 @@ class PosVatTest extends TestCase
         $this->assertSame(244.66, (float) $sale->net_price);
         $this->assertSame(39.34, (float) $sale->vat_amount);
         $this->assertSame(0.00, (float) $sale->tax_amount);
+        $this->assertSame(284.00, (float) $sale->paid_amount);
+        $this->assertSame(0.00, (float) $sale->sale_due);
 
         $standardLine = SaleDetail::where('fk_sale_id', $sale->id)
             ->where('fk_stock_id', $standardStock->id)
@@ -90,8 +92,8 @@ class PosVatTest extends TestCase
             ],
         ])->all();
 
-        $this->assertSame(200.00, $lines['cash']['debit']);
-        $this->assertSame(84.00, $lines['accounts_receivable']['debit']);
+        $this->assertSame(284.00, $lines['cash']['debit']);
+        $this->assertArrayNotHasKey('accounts_receivable', $lines);
         $this->assertSame(244.66, $lines['sales_revenue']['credit']);
         $this->assertSame(39.34, $lines['sales_tax_payable']['credit']);
     }

@@ -96,10 +96,21 @@
         </thead>
         <tbody>
             @forelse($incomes as $income)
+                @php
+                    $saleId = $income->table_name === 'sales' ? $income->transaction?->fk_reference_id : null;
+                    $refunded = $saleId && isset($returnsBySale[$saleId]) ? (float) $returnsBySale[$saleId] : 0.0;
+                @endphp
                 <tr>
                     <td><strong>{{ $income->id }}</strong></td>
                     <td>{{ $income->transaction->date ?? '—' }}</td>
-                    <td>{{ $income->description ?? '—' }}</td>
+                    <td>
+                        {{ $income->description ?? '—' }}
+                        @if($refunded > 0)
+                            <span class="badge badge-orange" style="margin-left: 6px;" title="This income is shown net of approved sale returns">
+                                Net of {{ $currencySymbol }}{{ number_format($refunded, 2) }} returns
+                            </span>
+                        @endif
+                    </td>
                     <td>{{ $currencySymbol }}{{ number_format($income->amount, 2) }}</td>
                 </tr>
             @empty

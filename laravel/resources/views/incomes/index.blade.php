@@ -30,12 +30,21 @@
             </thead>
             <tbody>
                 @forelse($incomes as $income)
+                    @php
+                        $saleId = $income->table_name === 'sales' ? $income->transaction?->fk_reference_id : null;
+                        $refunded = $saleId && isset($returnsBySale[$saleId]) ? (float) $returnsBySale[$saleId] : 0.0;
+                    @endphp
                     <tr>
                         <td>{{ $income->id }}</td>
                         <td>
                             {{ $income->description }}
                             @if(isset($sourceLabels[$income->table_name]))
                                 <span class="badge badge-blue" style="margin-left: 6px;">{{ $sourceLabels[$income->table_name] }}</span>
+                            @endif
+                            @if($refunded > 0)
+                                <span class="badge badge-orange" style="margin-left: 6px;" title="This income is shown net of approved sale returns">
+                                    Net of {{ $currencySymbol }}{{ number_format($refunded, 2) }} returns
+                                </span>
                             @endif
                         </td>
                         <td style="color: var(--success, #22c55e); font-weight: 600;">{{ $currencySymbol }}{{ number_format($income->amount, 2) }}</td>

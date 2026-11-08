@@ -9,6 +9,7 @@ use App\Models\Expense;
 use App\Models\Income;
 use App\Models\Product;
 use App\Models\Sale;
+use App\Models\SaleReturn;
 use App\Models\Stock;
 use App\Models\Supplier;
 use App\Models\Transaction;
@@ -175,6 +176,7 @@ class ReportController extends Controller
         $endDate = $request->input('end_date', $now->copy()->endOfMonth()->toDateString());
 
         $query = Income::query()
+            ->with('transaction')
             ->select('incomes.*')
             ->join('transactions', 'incomes.fk_transaction_id', '=', 'transactions.id')
             ->whereBetween('transactions.date', [$startDate, $endDate]);
@@ -211,9 +213,15 @@ class ReportController extends Controller
             ->paginate(20)
             ->withQueryString();
 
+        $returnsBySale = SaleReturn::query()
+            ->whereIn('status', ['approved', 'completed'])
+            ->selectRaw('fk_sale_id, SUM(refund_amount) as refunded')
+            ->groupBy('fk_sale_id')
+            ->pluck('refunded', 'fk_sale_id');
+
         return view('reports.income', compact(
             'currencySymbol', 'startDate', 'endDate',
-            'totalIncome', 'incomes',
+            'totalIncome', 'incomes', 'returnsBySale',
             'monthlyIncomeJson', 'chartLabelsJson',
         ));
     }

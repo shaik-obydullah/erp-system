@@ -6,6 +6,7 @@ use App\Accounting\AccountingPoster;
 use App\Models\Cashbook;
 use App\Models\Configuration;
 use App\Models\Income;
+use App\Models\SaleReturn;
 use App\Models\Transaction;
 use App\Services\ActivityLogger;
 use App\Services\VatCalculator;
@@ -29,7 +30,13 @@ class IncomeController extends Controller
 
         $currencySymbol = Configuration::get('currency_symbol', '$');
 
-        return view('incomes.index', compact('incomes', 'currencySymbol'));
+        $returnsBySale = SaleReturn::query()
+            ->whereIn('status', ['approved', 'completed'])
+            ->selectRaw('fk_sale_id, SUM(refund_amount) as refunded')
+            ->groupBy('fk_sale_id')
+            ->pluck('refunded', 'fk_sale_id');
+
+        return view('incomes.index', compact('incomes', 'currencySymbol', 'returnsBySale'));
     }
 
     public function create()
