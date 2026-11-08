@@ -39,13 +39,23 @@ class VatReturnController extends Controller
             ->whereBetween('transactions.date', [$startDate, $endDate]);
 
         $returns = DB::table('sale_returns')
+            ->join('journal_entries', 'sale_returns.journal_entry_id', '=', 'journal_entries.id')
             ->whereNull('sale_returns.deleted_at')
+            ->whereNull('journal_entries.deleted_at')
             ->whereIn('sale_returns.status', ['approved', 'completed'])
-            ->whereBetween('sale_returns.created_at', [$startDate.' 00:00:00', $endDate.' 23:59:59']);
+            // Use the accounting date so returns land in the same period as the
+            // ledger reversal. sale_returns has no timestamps, so created_at is
+            // null for rows created through the app.
+            ->whereBetween('journal_entries.date', [$startDate, $endDate]);
 
         $expenses = DB::table('expenses')
             ->join('transactions', 'expenses.fk_transaction_id', '=', 'transactions.id')
             ->whereNull('expenses.deleted_at')
+            ->where(function ($query) {
+                // Sale return refunds reverse output VAT; they are not inputs.
+                $query->whereNull('expenses.table_name')
+                    ->orWhere('expenses.table_name', '!=', 'sale_returns');
+            })
             ->whereBetween('transactions.date', [$startDate, $endDate]);
 
         $purchases = DB::table('purchase_orders')
@@ -192,9 +202,15 @@ class VatReturnController extends Controller
                 ];
             }
 
-            foreach ((clone $returns)->orderBy('created_at')->get() as $return) {
+            foreach ((clone $returns)->orderBy('journal_entries.date')->get([
+                'journal_entries.date as return_date',
+                'sale_returns.id',
+                'sale_returns.net_amount',
+                'sale_returns.vat_amount',
+                'sale_returns.refund_amount',
+            ]) as $return) {
                 $rows[] = [
-                    'date' => substr((string) $return->created_at, 0, 10),
+                    'date' => $return->return_date,
                     'reference' => 'Return #'.$return->id,
                     'description' => 'Sale return / credit note',
                     'net' => -1 * (float) $return->net_amount,
@@ -246,7 +262,7 @@ class VatReturnController extends Controller
      */
     private function rateBreakdown(string $startDate, string $endDate): array
     {
-        return DB::table('sale_details')
+        $sales = DB::table('sale_details')
             ->join('sales', 'sale_details.fk_sale_id', '=', 'sales.id')
             ->join('transactions', function ($join) {
                 $join->on('sales.id', '=', 'transactions.fk_reference_id')
@@ -260,15 +276,59 @@ class VatReturnController extends Controller
             ->selectRaw('COALESCE(SUM(sale_details.vat_amount), 0) as vat')
             ->selectRaw('COALESCE(SUM(sale_details.gross_amount), 0) as gross')
             ->groupBy('sale_details.vat_code', 'sale_details.vat_rate')
-            ->orderBy('sale_details.vat_rate')
-            ->get()
-            ->map(fn ($row) => [
+            ->get();
+
+        $returns = DB::table('sale_returns')
+            ->join('journal_entries', 'sale_returns.journal_entry_id', '=', 'journal_entries.id')
+            ->whereNull('sale_returns.deleted_at')
+            ->whereNull('journal_entries.deleted_at')
+            ->whereIn('sale_returns.status', ['approved', 'completed'])
+            ->whereBetween('journal_entries.date', [$startDate, $endDate])
+            ->select('sale_returns.vat_code', 'sale_returns.vat_rate')
+            ->selectRaw('COALESCE(SUM(sale_returns.net_amount), 0) as net')
+            ->selectRaw('COALESCE(SUM(sale_returns.vat_amount), 0) as vat')
+            ->selectRaw('COALESCE(SUM(sale_returns.refund_amount), 0) as gross')
+            ->groupBy('sale_returns.vat_code', 'sale_returns.vat_rate')
+            ->get();
+
+        $rows = [];
+
+        foreach ($sales as $row) {
+            $rows[$this->rateKey($row->vat_code, $row->vat_rate)] = [
                 'code' => $row->vat_code,
                 'rate' => (float) $row->vat_rate,
                 'net' => (float) $row->net,
                 'vat' => (float) $row->vat,
                 'gross' => (float) $row->gross,
-            ])
-            ->all();
+            ];
+        }
+
+        // Returns reduce output VAT, so net them against the matching rate.
+        foreach ($returns as $row) {
+            $key = $this->rateKey($row->vat_code, $row->vat_rate);
+
+            if (! isset($rows[$key])) {
+                $rows[$key] = [
+                    'code' => $row->vat_code,
+                    'rate' => (float) $row->vat_rate,
+                    'net' => 0.0,
+                    'vat' => 0.0,
+                    'gross' => 0.0,
+                ];
+            }
+
+            $rows[$key]['net'] = round($rows[$key]['net'] - (float) $row->net, 2);
+            $rows[$key]['vat'] = round($rows[$key]['vat'] - (float) $row->vat, 2);
+            $rows[$key]['gross'] = round($rows[$key]['gross'] - (float) $row->gross, 2);
+        }
+
+        usort($rows, fn (array $a, array $b) => $a['rate'] <=> $b['rate']);
+
+        return array_values($rows);
+    }
+
+    private function rateKey(?string $code, ?float $rate): string
+    {
+        return ($code ?? 'default').'|'.number_format((float) $rate, 2, '.', '');
     }
 }

@@ -196,6 +196,95 @@ class VatPostingTest extends TestCase
         $this->assertEquals(0.00, $response->json('reconciliation.input.difference'));
     }
 
+    public function test_vat_return_nets_approved_returns_and_excludes_their_refund_mirror(): void
+    {
+        $admin = Admin::factory()->create();
+        $role = Role::create(['name' => 'vat-accountant']);
+        $admin->roles()->attach($role);
+        $role->permissions()->attach(Permission::create(['name' => 'dashboard.view']));
+
+        $sale = $this->makeSale();
+        $sale->update([
+            'net_price' => 100.00,
+            'vat_amount' => 20.00,
+            'grand_total' => 120.00,
+            'paid_amount' => 120.00,
+            'sale_due' => 0,
+        ]);
+
+        $stock = $this->makeStock();
+
+        SaleDetail::create([
+            'fk_sale_id' => $sale->id,
+            'fk_stock_id' => $stock->id,
+            'stock_name' => 'VAT Product',
+            'sale_stock' => 1,
+            'subtotal' => 120.00,
+            'vat_code' => 'standard',
+            'vat_rate' => 20.00,
+            'net_amount' => 100.00,
+            'vat_amount' => 20.00,
+            'gross_amount' => 120.00,
+        ]);
+
+        Transaction::create([
+            'date' => now()->toDateString(),
+            'type' => Transaction::TYPE_SALE_INCOME,
+            'fk_reference_id' => $sale->id,
+            'amount' => 120.00,
+            'paid_amount' => 120.00,
+            'due_amount' => 0,
+        ]);
+
+        app(AccountingPoster::class)->sale($sale, 120.00, 0, 0);
+
+        $return = SaleReturn::create([
+            'fk_sale_id' => $sale->id,
+            'fk_stock_id' => $stock->id,
+            'quantity' => 1,
+            'refund_amount' => 60.00,
+            'vat_code' => 'standard',
+            'vat_rate' => 20.00,
+            'net_amount' => 50.00,
+            'vat_amount' => 10.00,
+            'reason' => 'customer_request',
+            'status' => 'approved',
+        ]);
+
+        app(AccountingPoster::class)->saleReturn($return, $sale);
+
+        $response = $this->actingAs($admin, 'admin')
+            ->getJson(route('reports.vat-return', [
+                'start_date' => now()->startOfQuarter()->toDateString(),
+                'end_date' => now()->endOfQuarter()->toDateString(),
+            ]));
+
+        $response->assertOk();
+
+        $boxes = $response->json('boxes');
+
+        $this->assertEquals(10.00, $boxes[1]['value']);
+        $this->assertEquals(10.00, $boxes[3]['value']);
+        // The refund mirror is not an input, so it must not be reclaimed.
+        $this->assertEquals(0.00, $boxes[4]['value']);
+        $this->assertEquals(10.00, $boxes[5]['value']);
+        $this->assertEquals(50.00, $boxes[6]['value']);
+        $this->assertEquals(0.00, $boxes[7]['value']);
+
+        $this->assertEquals(10.00, $response->json('reconciliation.output.report'));
+        $this->assertEquals(10.00, $response->json('reconciliation.output.ledger'));
+        $this->assertEquals(0.00, $response->json('reconciliation.output.difference'));
+        $this->assertEquals(0.00, $response->json('reconciliation.input.report'));
+        $this->assertEquals(0.00, $response->json('reconciliation.input.ledger'));
+        $this->assertEquals(0.00, $response->json('reconciliation.input.difference'));
+
+        $breakdown = $response->json('rate_breakdown');
+        $this->assertCount(1, $breakdown);
+        $this->assertEquals(50.00, $breakdown[0]['net']);
+        $this->assertEquals(10.00, $breakdown[0]['vat']);
+        $this->assertEquals(60.00, $breakdown[0]['gross']);
+    }
+
     private function makeSale(): Sale
     {
         return Sale::create([
