@@ -52,7 +52,7 @@ AI-powered full-stack ERP and multi-vendor marketplace system featuring a Larave
 - **Two POS terminals** — an in-admin Blade POS and a standalone React 19 terminal, both writing to one transactional ledger. The API also exposes pull/push sync endpoints for offline or mobile clients.
 - **Multi-vendor ecommerce** — storefront, cart, checkout (billing + shipping), customer portal, supplier portal, reviews, flash sales, and newsletter subscriptions.
 - **Self-hosted AI (zero API cost)** — product descriptions, natural-language search, inventory insights, sales forecast, price suggestions, and a support chatbot powered by Ollama (llama3.2). Health checks verify the configured model is actually installed, not just that Ollama is reachable.
-- **ML Business Intelligence** — optional Flask service with KMeans clustering, IsolationForest anomaly detection, recommendations, association-rule combos, and forecasting, consumed through `BiController`.
+- **ML Business Intelligence** — a separate [Flask/scikit-learn BI service](https://github.com/shaik-obydullah/bi-system) with KMeans clustering, IsolationForest anomaly detection, recommendations, Apriori combos, and linear-regression/Prophet forecasting, consumed through `BiController`.
 - **Full double-entry accounting** — journal entries and lines, a 26-account chart of accounts, ledger, trial balance, profit & loss, balance sheet, cash flow, reconciliation, fiscal periods, opening balances, and a UK 9-box VAT return reconciled against the ledger.
 - **Automated ledger posting** — every operational flow (POS/storefront sale, purchase order, sale return, stock adjustment, shipment landed cost, payroll, production, fixed asset, campaign spend, and customer/supplier fund) posts a balanced journal entry through `AccountingPoster`; `accounting:backfill` replays legacy rows idempotently and `accounting:verify` runs nightly.
 - **End-to-end UK VAT** — stock-level VAT codes/rates, VAT-inclusive pricing, per-line extraction on POS/storefront/purchases/expenses/returns, and a 9-box VAT return reconciled to the ledger.
@@ -119,7 +119,7 @@ The system is a **monolithic backend with decoupled frontends**, replacing five-
 | **React 19 POS**                     | Standalone POS terminal (SPA)    | Cashiers                                       |
 | **MariaDB**                          | Relational database (77 tables)  | Laravel                                        |
 | **Ollama (llama3.2)**                | Self-hosted LLM inference        | Laravel (via HTTP `/api/chat`)                 |
-| **Flask BI**                         | ML analytics microservice        | Laravel (via HTTP proxy)                       |
+| **Flask BI**                         | Separate ML analytics service ([bi-system](https://github.com/shaik-obydullah/bi-system)) | Laravel (via HTTP proxy) |
 | **phpMyAdmin**                       | DB admin UI (dev only)           | Developers                                     |
 | **Nginx**                            | Reverse proxy + static server    | Public traffic                                 |
 
@@ -130,7 +130,7 @@ The system is a **monolithic backend with decoupled frontends**, replacing five-
 | React POS → Laravel API    | HTTPS + Bearer token (`auth:sanctum`)  | POS → Backend     |
 | Laravel → MariaDB          | PDO/MySQL                              | Backend → DB      |
 | Laravel → Ollama           | HTTP `POST /api/chat`, `GET /api/tags` | Backend → AI      |
-| Laravel → Flask BI         | HTTP `:5000/api/*`                     | Backend → BI      |
+| Laravel → Flask BI         | HTTP `bi_nginx:80/api/v1/*` + `X-API-Key` | Backend → BI   |
 | Admin/Storefront → Laravel | HTTPS + session cookie                 | Browser → Backend |
 
 > **Note:** Ollama and Flask BI are not exposed through the public web server; only the Laravel backend reaches them over the internal Docker network. Ollama's host port (`11435`) is bound for local development only. The React POS talks exclusively to the Laravel API.
@@ -183,16 +183,18 @@ Single gateway `app/Services/OllamaService.php` → `http://erp_ollama:11434` wi
 
 ### BI Layer (Flask)
 
-`BiController` proxies to a separately deployed Python/Flask service at `bi_flask:5000` (30 s timeout). The Laravel controller and admin views are included in this repository; the Flask service itself is deployed independently and is **not** part of the default `docker-compose.yml`. Admin views live under `/bi/*` behind the admin guard (`auth:admin` + `active.admin`); if the BI service is unavailable they render empty states rather than failing.
+`BiController` proxies to a separately deployed Python/Flask service maintained in the [shaik-obydullah/bi-system](https://github.com/shaik-obydullah/bi-system) repository (30 s timeout). The Flask app, Nginx proxy, scikit-learn/Prophet pipelines, and trained models live there; this repository contains the Laravel proxy, admin views, and `BI_API_URL` / `BI_API_KEY` config. The service is **not** part of the default `docker-compose.yml`; it runs internal-only (`bi_nginx:80` → `bi_flask:5000`) on the `erp-system_default` Docker network, and every request requires the `X-API-Key` header. Admin views live under `/bi/*` behind the admin guard (`auth:admin` + `active.admin`); if the BI service is unavailable they render empty states rather than failing.
 
-| Method | Endpoint                    | Analytics                                                                                   |
+| Method | Endpoint (`/api/v1`)        | Analytics                                                                                   |
 | ------ | --------------------------- | ------------------------------------------------------------------------------------------- |
 | POST   | `/analyze`                  | Employee performance (KMeans + IsolationForest + score)                                     |
-| GET    | `/product-analysis`         | Product performance tiers                                                                   |
-| GET    | `/sales-forecast`           | Next-month forecast + confidence interval                                                   |
-| GET    | `/product-combos`           | Frequently-bought-together analysis                                                         |
-| POST   | `/recommendations/products` | 6 strategies (popular, trending, content-based, collaborative, similar-users, personalized) |
-| GET    | `/prophet-forecast`         | Prophet forecast with confidence intervals                                                  |
+| GET    | `/product-analysis`         | Product performance tiers (KMeans + weighted scoring)                                       |
+| GET    | `/sales-forecast`           | Next-month linear-regression forecast + confidence interval                                 |
+| GET    | `/product-combos`           | Apriori association-rule market-basket analysis                                             |
+| POST   | `/recommendations/products` | 6 strategies (popular, trending, content-based KNN, collaborative, similar users, personalized) |
+| GET    | `/prophet-forecast`         | Facebook Prophet forecast with seasonality, trend, and confidence intervals                 |
+
+Forecast payloads are cached (`FORECAST_CACHE_TTL`, default 6 h); the BI service exposes `POST /api/v1/internal/refresh` for scheduled recomputation and `GET /api/v1/internal/cache-status` to report cache age. Configure `BI_API_URL` (e.g. `http://bi_nginx:80/api/v1`) and `BI_API_KEY` in `laravel/.env`.
 
 ### Data Layer
 
@@ -559,6 +561,8 @@ erp-system/
 
 See [laravel/README.md](laravel/README.md) and [react-app/README.md](react-app/README.md) for detailed documentation.
 
+The Business Intelligence service is maintained separately in [shaik-obydullah/bi-system](https://github.com/shaik-obydullah/bi-system); this repository contains the Laravel proxy and admin views that consume it.
+
 ## Module Documentation
 
 The complete documentation is available as a single page, covering every module with schema, models, routes, API surface, business flows, permissions, and screenshots:
@@ -635,12 +639,14 @@ Base path `/api/v1` (see `laravel/routes/api.php`) — 33 route definitions (3 p
 | POST                | `/ai/product-description`                                       | Generate product description            |
 | POST                | `/ai/product-search`                                            | Natural-language product search         |
 | POST                | `/ai/inventory-insights`                                        | Inventory risk & reorder insights       |
-| POST                | `/ai/sales-forecast`                                            | 3-month revenue forecast                |
+| POST                | `/ai/sales-forecast`                                            | 12-month revenue forecast               |
 | POST                | `/ai/price-suggestion`                                          | Price range & strategy advice           |
 
 ## AI Features
 
-All AI is self-hosted via `App\Services\OllamaService` (`POST {OLLAMA_URL}/api/chat`). Env vars: `OLLAMA_URL` (default `http://erp_ollama:11434`) and `AI_MODEL` (default `llama3.2`). All methods return `null` when Ollama is down — **callers must handle null and degrade gracefully**; the React UI should disable AI widgets based on `GET /ai/status`. The status check verifies the configured model is present in `GET /api/tags`, so a running Ollama with no pulled model correctly reports unavailable.
+All **generative** AI is self-hosted via `App\Services\OllamaService` (`POST {OLLAMA_URL}/api/chat`). Env vars: `OLLAMA_URL` (default `http://erp_ollama:11434`) and `AI_MODEL` (default `llama3.2`). All methods return `null` when Ollama is down — **callers must handle null and degrade gracefully**; the React UI should disable AI widgets based on `GET /ai/status`. The status check verifies the configured model is present in `GET /api/tags`, so a running Ollama with no pulled model correctly reports unavailable.
+
+> **Scope:** this section covers the in-app generative AI copilot (Ollama). The deterministic ML/analytics layer is a separate project — see [Business Intelligence](#business-intelligence) and the [bi-system repository](https://github.com/shaik-obydullah/bi-system).
 
 | Feature              | OllamaService Method           | Input                               |
 | -------------------- | ------------------------------ | ----------------------------------- |
@@ -653,16 +659,18 @@ All AI is self-hosted via `App\Services\OllamaService` (`POST {OLLAMA_URL}/api/c
 
 ## Business Intelligence
 
-A separately deployed Python/Flask service (referenced as `bi_flask:5000`) provides ML analytics, consumed by `BiController` on the admin panel (`/bi`, `/bi/employees`, `/bi/products`, `/bi/recommendations`, `/bi/forecast`, `/bi/prophet-forecast`, `/bi/combos`). The Laravel proxy and Blade views are part of this repository; the Flask service itself is external and is not included in `docker-compose.yml`. When it is not running, the BI pages fall back to empty states.
+The deterministic ML layer is a **separate project**, [shaik-obydullah/bi-system](https://github.com/shaik-obydullah/bi-system), built with Flask, scikit-learn, and Facebook Prophet. It connects read-only to the ERP MariaDB database and is consumed by `BiController` on the admin panel (`/bi`, `/bi/employees`, `/bi/products`, `/bi/recommendations`, `/bi/forecast`, `/bi/prophet-forecast`, `/bi/combos`). The Laravel proxy and Blade views are part of this repository; the Flask app, Nginx config, ML models, and in-depth write-ups live in the BI repository.
 
-| Endpoint                             | Technique                                                                                       |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| `POST /api/analyze`                  | KMeans (n=3) + IsolationForest employee performance clustering                                  |
-| `GET /api/product-analysis`          | KMeans product performance tiers                                                                |
-| `GET /api/sales-forecast`            | Linear regression forecast with confidence interval                                             |
-| `POST /api/recommendations/products` | 6 strategies (popular, trending, content-based KNN, collaborative, similar users, personalized) |
-| `GET /api/product-combos`            | Apriori association-rule combos                                                                 |
-| `GET /api/prophet-forecast`          | Period-based time-series forecast                                                               |
+The service is internal-only (`bi_nginx:80` → `bi_flask:5000`) on the shared `erp-system_default` Docker network and is **not** included in this repository's `docker-compose.yml`. Every request requires the `X-API-Key` header; set `BI_API_URL` (e.g. `http://bi_nginx:80/api/v1`) and `BI_API_KEY` in the ERP environment. Forecast payloads are cached (`FORECAST_CACHE_TTL`, default 6 h); the BI service exposes `POST /api/v1/internal/refresh` for scheduled recomputation and `GET /api/v1/internal/cache-status` to report cache age. When the service is unavailable, the BI pages fall back to empty states.
+
+| Method | Endpoint                           | Analytics                                                                                       |
+| ------ | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
+| POST   | `/api/v1/analyze`                  | KMeans (n=3) + IsolationForest employee performance evaluation                                  |
+| GET    | `/api/v1/product-analysis`         | KMeans + weighted scoring product performance tiers                                             |
+| GET    | `/api/v1/sales-forecast`           | Linear-regression next-month forecast with confidence interval                                  |
+| GET    | `/api/v1/product-combos`           | Apriori association-rule market-basket analysis                                                 |
+| POST   | `/api/v1/recommendations/products` | 6 strategies (popular, trending, content-based KNN, collaborative, similar users, personalized) |
+| GET    | `/api/v1/prophet-forecast`         | Facebook Prophet forecast with seasonality, trend, and confidence intervals                     |
 
 ## Financial Integrity
 

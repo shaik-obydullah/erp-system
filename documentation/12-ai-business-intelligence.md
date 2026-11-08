@@ -72,9 +72,9 @@ There are **no** `/ai/chat` or `/ai/forecast` endpoints.
 
 ## 4. BI Layer (Flask)
 
-`BiController` proxies to the Flask service at `http://bi_flask:5000/api` with a 30-second timeout. Admin routes (inside the `auth:admin` group, no extra permission middleware):
+`BiController` proxies to the Flask service configured by `BI_API_URL` (default `http://bi_flask:5000/api`; the BI repository recommends `http://bi_nginx:80/api/v1`) with a 30-second timeout and an `X-API-Key` header. Admin routes (inside the `auth:admin` group, no extra permission middleware):
 
-| Route | Flask endpoint | Purpose |
+| Route | Flask endpoint (`/api/v1`) | Purpose |
 |---|---|---|
 | `GET /bi` | `POST /analyze`, `GET /product-analysis`, `GET /sales-forecast`, `GET /product-combos` | BI dashboard |
 | `GET /bi/employees` | `POST /analyze` | Employee analysis |
@@ -84,7 +84,7 @@ There are **no** `/ai/chat` or `/ai/forecast` endpoints.
 | `GET /bi/prophet-forecast` | `GET /prophet-forecast?periods=N` | Prophet forecast (default 12 periods) |
 | `GET /bi/combos` | `GET /product-combos` | Frequently bought-together combos |
 
-The Flask BI app lives under `M_Sc_Project/erpbi/`; the Laravel side is only a thin, error-tolerant proxy (`{status: error, message}` on failure).
+Forecast payloads are cached (`FORECAST_CACHE_TTL`, default 6 h); the BI service exposes `POST /internal/refresh` for scheduled recomputation and `GET /internal/cache-status` to report cache age. The Flask BI app lives in the separate [shaik-obydullah/bi-system](https://github.com/shaik-obydullah/bi-system) repository (`flask-app/`); the Laravel side is only a thin, error-tolerant proxy (`{status: error, message}` on failure).
 
 ## 5. Analytical Reports
 
@@ -136,6 +136,6 @@ The Flask BI app lives under `M_Sc_Project/erpbi/`; the Laravel side is only a t
 - AI controller: `laravel/app/Http/Controllers/Api/AiController.php`
 - AI service: `laravel/app/Services/OllamaService.php`
 - BI controller: `laravel/app/Http/Controllers/BiController.php`
-- BI Flask app: `M_Sc_Project/erpbi/`
+- BI Flask app: [shaik-obydullah/bi-system](https://github.com/shaik-obydullah/bi-system) (`flask-app/`)
 - Reports: `laravel/app/Http/Controllers/{ReportController,VatReturnController}.php` and `laravel/resources/views/reports/`
 - Config: `laravel/config/services.php` (`ollama.url`, `ollama.model`), `AI_MODEL` env
