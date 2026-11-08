@@ -33,14 +33,14 @@
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="fk_purchase_order_id">Purchase Order *</label>
-                    <select id="fk_purchase_order_id" x-model="form.fk_purchase_order_id" required>
+                    <label for="fk_po_id">Purchase Order *</label>
+                    <select id="fk_po_id" x-model="form.fk_po_id" required>
                         <option value="">Select PO</option>
                         @foreach($purchaseOrders as $po)
-                            <option value="{{ $po->id }}" {{ $shipmentReturn->fk_purchase_order_id == $po->id ? 'selected' : '' }}>{{ $po->order_number }}</option>
+                            <option value="{{ $po->id }}" {{ $shipmentReturn->fk_po_id == $po->id ? 'selected' : '' }}>{{ $po->order_number }}</option>
                         @endforeach
                     </select>
-                    <span class="form-error" x-show="errors.fk_purchase_order_id" x-text="errors.fk_purchase_order_id"></span>
+                    <span class="form-error" x-show="errors.fk_po_id" x-text="errors.fk_po_id"></span>
                 </div>
                 <div class="form-group">
                     <label for="invoice_amount">Invoice Amount *</label>
@@ -52,7 +52,12 @@
             <div class="form-row">
                 <div class="form-group">
                     <label for="return_reason">Return Reason *</label>
-                    <textarea id="return_reason" x-model="form.return_reason" rows="3" required>{{ old('return_reason', $shipmentReturn->return_reason) }}</textarea>
+                    <select id="return_reason" x-model="form.return_reason" required>
+                        <option value="damaged" {{ $shipmentReturn->return_reason == 'damaged' ? 'selected' : '' }}>Damaged</option>
+                        <option value="incorrect_item" {{ $shipmentReturn->return_reason == 'incorrect_item' ? 'selected' : '' }}>Incorrect item</option>
+                        <option value="excess_quantity" {{ $shipmentReturn->return_reason == 'excess_quantity' ? 'selected' : '' }}>Excess quantity</option>
+                        <option value="other" {{ $shipmentReturn->return_reason == 'other' ? 'selected' : '' }}>Other</option>
+                    </select>
                     <span class="form-error" x-show="errors.return_reason" x-text="errors.return_reason"></span>
                 </div>
             </div>
@@ -62,7 +67,8 @@
                     <label for="status">Status *</label>
                     <select id="status" x-model="form.status" required>
                         <option value="pending" {{ $shipmentReturn->status == 'pending' ? 'selected' : '' }}>Pending</option>
-                        <option value="approved" {{ $shipmentReturn->status == 'approved' ? 'selected' : '' }}>Approved</option>
+                        <option value="processed" {{ $shipmentReturn->status == 'processed' ? 'selected' : '' }}>Processed</option>
+                        <option value="completed" {{ $shipmentReturn->status == 'completed' ? 'selected' : '' }}>Completed</option>
                         <option value="rejected" {{ $shipmentReturn->status == 'rejected' ? 'selected' : '' }}>Rejected</option>
                     </select>
                     <span class="form-error" x-show="errors.status" x-text="errors.status"></span>
@@ -92,7 +98,7 @@
     function formHandler(url, method) {
         return {
             form: {
-                fk_purchase_order_id: '{{ old('fk_purchase_order_id', $shipmentReturn->fk_purchase_order_id) }}',
+                fk_po_id: '{{ old('fk_po_id', $shipmentReturn->fk_po_id) }}',
                 invoice_amount: '{{ old('invoice_amount', $shipmentReturn->invoice_amount) }}',
                 return_reason: '{{ old('return_reason', $shipmentReturn->return_reason) }}',
                 status: '{{ old('status', $shipmentReturn->status) }}',

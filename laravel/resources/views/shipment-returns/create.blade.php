@@ -32,14 +32,14 @@
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="fk_purchase_order_id">Purchase Order *</label>
-                    <select id="fk_purchase_order_id" x-model="form.fk_purchase_order_id" required>
+                    <label for="fk_po_id">Purchase Order *</label>
+                    <select id="fk_po_id" x-model="form.fk_po_id" required>
                         <option value="">Select PO</option>
                         @foreach($purchaseOrders as $po)
                             <option value="{{ $po->id }}">{{ $po->order_number }}</option>
                         @endforeach
                     </select>
-                    <span class="form-error" x-show="errors.fk_purchase_order_id" x-text="errors.fk_purchase_order_id"></span>
+                    <span class="form-error" x-show="errors.fk_po_id" x-text="errors.fk_po_id"></span>
                 </div>
                 <div class="form-group">
                     <label for="invoice_amount">Invoice Amount *</label>
@@ -51,7 +51,12 @@
             <div class="form-row">
                 <div class="form-group">
                     <label for="return_reason">Return Reason *</label>
-                    <textarea id="return_reason" x-model="form.return_reason" rows="3" required></textarea>
+                    <select id="return_reason" x-model="form.return_reason" required>
+                        <option value="damaged">Damaged</option>
+                        <option value="incorrect_item">Incorrect item</option>
+                        <option value="excess_quantity">Excess quantity</option>
+                        <option value="other">Other</option>
+                    </select>
                     <span class="form-error" x-show="errors.return_reason" x-text="errors.return_reason"></span>
                 </div>
             </div>
@@ -61,7 +66,8 @@
                     <label for="status">Status *</label>
                     <select id="status" x-model="form.status" required>
                         <option value="pending">Pending</option>
-                        <option value="approved">Approved</option>
+                        <option value="processed">Processed</option>
+                        <option value="completed">Completed</option>
                         <option value="rejected">Rejected</option>
                     </select>
                     <span class="form-error" x-show="errors.status" x-text="errors.status"></span>
@@ -95,7 +101,7 @@
     function formHandler(url, method) {
         return {
             form: {
-                fk_purchase_order_id: '',
+                fk_po_id: '',
                 invoice_amount: '',
                 return_reason: '',
                 status: 'pending',

@@ -31,8 +31,8 @@
                         <td>{{ $currencySymbol }}{{ number_format($return->invoice_amount, 2) }}</td>
                         <td>{{ $return->return_reason }}</td>
                         <td>
-                            <span class="badge {{ $return->status === 'approved' ? 'badge-green' : ($return->status === 'pending' ? 'badge-orange' : 'badge-red') }}">
-                                {{ ucfirst($return->status) }}
+                            <span class="badge {{ in_array($return->status, ['processed', 'completed'], true) ? 'badge-green' : ($return->status === 'pending' ? 'badge-orange' : 'badge-red') }}">
+                                {{ ucwords(str_replace('_', ' ', $return->status)) }}
                             </span>
                         </td>
                         <td>
