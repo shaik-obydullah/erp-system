@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Configuration;
 use App\Models\Transaction;
+use App\Services\VatCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,8 @@ use Illuminate\Support\Facades\DB;
  */
 class VatReturnController extends Controller
 {
+    public function __construct(private readonly VatCalculator $vat) {}
+
     public function index(Request $request)
     {
         $now = Carbon::now();
@@ -258,73 +261,178 @@ class VatReturnController extends Controller
     /**
      * Output VAT breakdown by VAT rate for the period.
      *
+     * Sales use the stored vat_breakdown because it is the authoritative split
+     * for the whole document, including shipping and other non-stock lines.
+     * Approved returns are then subtracted at their own rate, and non-sale
+     * income (which also carries output VAT) is added.
+     *
      * @return array<int, array<string, mixed>>
      */
     private function rateBreakdown(string $startDate, string $endDate): array
     {
-        $sales = DB::table('sale_details')
-            ->join('sales', 'sale_details.fk_sale_id', '=', 'sales.id')
+        $sales = DB::table('sales')
             ->join('transactions', function ($join) {
                 $join->on('sales.id', '=', 'transactions.fk_reference_id')
                     ->where('transactions.type', Transaction::TYPE_SALE_INCOME);
             })
-            ->whereNull('sale_details.deleted_at')
             ->whereNull('sales.deleted_at')
             ->whereBetween('transactions.date', [$startDate, $endDate])
-            ->select('sale_details.vat_code', 'sale_details.vat_rate')
-            ->selectRaw('COALESCE(SUM(sale_details.net_amount), 0) as net')
-            ->selectRaw('COALESCE(SUM(sale_details.vat_amount), 0) as vat')
-            ->selectRaw('COALESCE(SUM(sale_details.gross_amount), 0) as gross')
-            ->groupBy('sale_details.vat_code', 'sale_details.vat_rate')
-            ->get();
+            ->get([
+                'sales.id',
+                'sales.vat_breakdown',
+                'sales.net_price',
+                'sales.vat_amount',
+                'sales.grand_total',
+            ]);
 
+        $rows = [];
+
+        foreach ($sales as $sale) {
+            $bands = $this->decodeBreakdown($sale->vat_breakdown);
+
+            if (empty($bands)) {
+                // Legacy sales may predate the stored breakdown. Fall back to
+                // the sale totals and infer the rate from the net/VAT split.
+                $bands = [[
+                    'code' => null,
+                    'rate' => null,
+                    'net' => (float) $sale->net_price,
+                    'vat' => (float) $sale->vat_amount,
+                    'gross' => (float) $sale->grand_total,
+                ]];
+            }
+
+            foreach ($bands as $band) {
+                $this->mergeBand(
+                    $rows,
+                    $band['code'] ?? null,
+                    isset($band['rate']) ? (float) $band['rate'] : null,
+                    (float) ($band['net'] ?? 0),
+                    (float) ($band['vat'] ?? 0),
+                    (float) ($band['gross'] ?? 0),
+                );
+            }
+        }
+
+        // Approved returns reduce output VAT, so net them against the matching rate.
         $returns = DB::table('sale_returns')
             ->join('journal_entries', 'sale_returns.journal_entry_id', '=', 'journal_entries.id')
             ->whereNull('sale_returns.deleted_at')
             ->whereNull('journal_entries.deleted_at')
             ->whereIn('sale_returns.status', ['approved', 'completed'])
             ->whereBetween('journal_entries.date', [$startDate, $endDate])
-            ->select('sale_returns.vat_code', 'sale_returns.vat_rate')
-            ->selectRaw('COALESCE(SUM(sale_returns.net_amount), 0) as net')
-            ->selectRaw('COALESCE(SUM(sale_returns.vat_amount), 0) as vat')
-            ->selectRaw('COALESCE(SUM(sale_returns.refund_amount), 0) as gross')
-            ->groupBy('sale_returns.vat_code', 'sale_returns.vat_rate')
-            ->get();
+            ->get([
+                'sale_returns.vat_code',
+                'sale_returns.vat_rate',
+                'sale_returns.net_amount',
+                'sale_returns.vat_amount',
+                'sale_returns.refund_amount',
+            ]);
 
-        $rows = [];
-
-        foreach ($sales as $row) {
-            $rows[$this->rateKey($row->vat_code, $row->vat_rate)] = [
-                'code' => $row->vat_code,
-                'rate' => (float) $row->vat_rate,
-                'net' => (float) $row->net,
-                'vat' => (float) $row->vat,
-                'gross' => (float) $row->gross,
-            ];
+        foreach ($returns as $return) {
+            $this->mergeBand(
+                $rows,
+                $return->vat_code,
+                $return->vat_rate !== null ? (float) $return->vat_rate : null,
+                -1 * (float) $return->net_amount,
+                -1 * (float) $return->vat_amount,
+                -1 * (float) $return->refund_amount,
+            );
         }
 
-        // Returns reduce output VAT, so net them against the matching rate.
-        foreach ($returns as $row) {
-            $key = $this->rateKey($row->vat_code, $row->vat_rate);
+        // Other income is part of box 1/6 too, so include it by VAT rate.
+        $incomes = DB::table('incomes')
+            ->join('transactions', 'incomes.fk_transaction_id', '=', 'transactions.id')
+            ->whereNull('incomes.deleted_at')
+            ->where(function ($query) {
+                $query->whereNull('incomes.table_name')
+                    ->orWhere('incomes.table_name', '!=', 'sales');
+            })
+            ->whereBetween('transactions.date', [$startDate, $endDate])
+            ->get([
+                'incomes.vat_code',
+                'incomes.vat_rate',
+                'incomes.net_amount',
+                'incomes.vat_amount',
+                'incomes.amount',
+            ]);
 
-            if (! isset($rows[$key])) {
-                $rows[$key] = [
-                    'code' => $row->vat_code,
-                    'rate' => (float) $row->vat_rate,
-                    'net' => 0.0,
-                    'vat' => 0.0,
-                    'gross' => 0.0,
-                ];
-            }
-
-            $rows[$key]['net'] = round($rows[$key]['net'] - (float) $row->net, 2);
-            $rows[$key]['vat'] = round($rows[$key]['vat'] - (float) $row->vat, 2);
-            $rows[$key]['gross'] = round($rows[$key]['gross'] - (float) $row->gross, 2);
+        foreach ($incomes as $income) {
+            $this->mergeBand(
+                $rows,
+                $income->vat_code,
+                $income->vat_rate !== null ? (float) $income->vat_rate : null,
+                (float) $income->net_amount,
+                (float) $income->vat_amount,
+                (float) $income->amount,
+            );
         }
 
         usort($rows, fn (array $a, array $b) => $a['rate'] <=> $b['rate']);
 
         return array_values($rows);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function decodeBreakdown(mixed $breakdown): array
+    {
+        if (is_string($breakdown)) {
+            $breakdown = json_decode($breakdown, true);
+        }
+
+        return is_array($breakdown) ? $breakdown : [];
+    }
+
+    /**
+     * Merge a net/VAT/gross band into the rate rows, normalising legacy rows
+     * that have no code or rate.
+     *
+     * @param  array<string, array<string, mixed>>  $rows
+     */
+    private function mergeBand(
+        array &$rows,
+        ?string $code,
+        ?float $rate,
+        float $net,
+        float $vat,
+        float $gross
+    ): void {
+        [$code, $rate] = $this->normaliseBand($code, $rate, $net, $vat);
+        $key = $this->rateKey($code, $rate);
+
+        if (! isset($rows[$key])) {
+            $rows[$key] = [
+                'code' => $code,
+                'rate' => $rate,
+                'net' => 0.0,
+                'vat' => 0.0,
+                'gross' => 0.0,
+            ];
+        }
+
+        $rows[$key]['net'] = round($rows[$key]['net'] + $net, 2);
+        $rows[$key]['vat'] = round($rows[$key]['vat'] + $vat, 2);
+        $rows[$key]['gross'] = round($rows[$key]['gross'] + $gross, 2);
+    }
+
+    /**
+     * @return array{0: string, 1: float}
+     */
+    private function normaliseBand(?string $code, ?float $rate, float $net, float $vat): array
+    {
+        if ($rate === null) {
+            $rate = $net != 0.0 ? round(($vat / $net) * 100, 2) : 0.0;
+        }
+
+        $rate = round(max(0, $rate), 2);
+
+        if ($code === null || $code === '') {
+            $code = $this->vat->codeForRate($rate);
+        }
+
+        return [$code, $rate];
     }
 
     private function rateKey(?string $code, ?float $rate): string

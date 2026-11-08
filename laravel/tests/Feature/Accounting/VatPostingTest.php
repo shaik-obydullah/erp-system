@@ -205,11 +205,15 @@ class VatPostingTest extends TestCase
 
         $sale = $this->makeSale();
         $sale->update([
-            'net_price' => 100.00,
-            'vat_amount' => 20.00,
-            'grand_total' => 120.00,
-            'paid_amount' => 120.00,
+            'net_price' => 110.00,
+            'vat_amount' => 22.00,
+            'grand_total' => 132.00,
+            'paid_amount' => 132.00,
             'sale_due' => 0,
+            'shipping_cost' => 12.00,
+            'vat_breakdown' => [
+                ['code' => 'standard', 'label' => 'Standard rate (20%)', 'rate' => 20, 'net' => 110.00, 'vat' => 22.00, 'gross' => 132.00],
+            ],
         ]);
 
         $stock = $this->makeStock();
@@ -231,12 +235,15 @@ class VatPostingTest extends TestCase
             'date' => now()->toDateString(),
             'type' => Transaction::TYPE_SALE_INCOME,
             'fk_reference_id' => $sale->id,
-            'amount' => 120.00,
-            'paid_amount' => 120.00,
+            'amount' => 132.00,
+            'paid_amount' => 132.00,
             'due_amount' => 0,
         ]);
 
-        app(AccountingPoster::class)->sale($sale, 120.00, 0, 0);
+        app(AccountingPoster::class)->sale($sale, 132.00, 0, 0);
+
+        $otherIncome = $this->makeIncome(120.00, 100.00, 20.00, 'Other output');
+        app(AccountingPoster::class)->income($otherIncome);
 
         $return = SaleReturn::create([
             'fk_sale_id' => $sale->id,
@@ -263,16 +270,16 @@ class VatPostingTest extends TestCase
 
         $boxes = $response->json('boxes');
 
-        $this->assertEquals(10.00, $boxes[1]['value']);
-        $this->assertEquals(10.00, $boxes[3]['value']);
+        $this->assertEquals(32.00, $boxes[1]['value']);
+        $this->assertEquals(32.00, $boxes[3]['value']);
         // The refund mirror is not an input, so it must not be reclaimed.
         $this->assertEquals(0.00, $boxes[4]['value']);
-        $this->assertEquals(10.00, $boxes[5]['value']);
-        $this->assertEquals(50.00, $boxes[6]['value']);
+        $this->assertEquals(32.00, $boxes[5]['value']);
+        $this->assertEquals(160.00, $boxes[6]['value']);
         $this->assertEquals(0.00, $boxes[7]['value']);
 
-        $this->assertEquals(10.00, $response->json('reconciliation.output.report'));
-        $this->assertEquals(10.00, $response->json('reconciliation.output.ledger'));
+        $this->assertEquals(32.00, $response->json('reconciliation.output.report'));
+        $this->assertEquals(32.00, $response->json('reconciliation.output.ledger'));
         $this->assertEquals(0.00, $response->json('reconciliation.output.difference'));
         $this->assertEquals(0.00, $response->json('reconciliation.input.report'));
         $this->assertEquals(0.00, $response->json('reconciliation.input.ledger'));
@@ -280,9 +287,9 @@ class VatPostingTest extends TestCase
 
         $breakdown = $response->json('rate_breakdown');
         $this->assertCount(1, $breakdown);
-        $this->assertEquals(50.00, $breakdown[0]['net']);
-        $this->assertEquals(10.00, $breakdown[0]['vat']);
-        $this->assertEquals(60.00, $breakdown[0]['gross']);
+        $this->assertEquals(160.00, $breakdown[0]['net']);
+        $this->assertEquals(32.00, $breakdown[0]['vat']);
+        $this->assertEquals(192.00, $breakdown[0]['gross']);
     }
 
     private function makeSale(): Sale
