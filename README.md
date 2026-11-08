@@ -44,7 +44,7 @@ AI-powered full-stack ERP and multi-vendor marketplace system featuring a Larave
 ## Live Demo
 
 - **Admin Panel:** [erp.obydullah.com](https://erp.obydullah.com)
-- **React POS:** [pos.obydullah.com](https://react-pos.obydullah.com)
+- **React POS:** [react-pos.obydullah.com](https://react-pos.obydullah.com)
 
 ## Access Credentials
 
