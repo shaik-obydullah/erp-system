@@ -142,11 +142,15 @@ src/
 
 ### Environment Setup
 
-Create `.env`:
+Create `.env` for local dev:
 ```bash
-VITE_API_URL=http://localhost:8082/api/v1              # Local dev
-VITE_API_URL_PRODUCTION=https://erp.obydullah.com/api/v1  # Production
+VITE_API_URL=/api/v1
 ```
+Vite proxies `/api` to `erp_nginx` (see `vite.config.js`). Production builds use `production/react-app/.env.production`:
+```bash
+VITE_API_URL=https://erp.obydullah.com/api/v1
+```
+There is no `VITE_API_URL_PRODUCTION` variable.
 
 ### Development
 ```bash

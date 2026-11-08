@@ -600,7 +600,7 @@ Four independent guards, never mixed:
 | `supplier` | Supplier portal     | Session              | `auth:supplier`, `active.supplier`           |
 | `api`      | React POS           | Sanctum bearer token | `auth:sanctum`                               |
 
-- **RBAC:** roles → permissions via `role_permissions` (many-to-many). Permission names follow `<module>.<action>` (e.g. `products.view`, `sales.edit`). The `permission` middleware aborts with 403 if the admin lacks any listed permission. There is no hard-coded bypass — `super-admin` simply holds all 127 permissions.
+- **RBAC:** roles → permissions via `role_permissions` (many-to-many). Permission names follow `<module>.<action>` (e.g. `products.view`, `sales.edit`). The `permission` middleware uses `hasAnyPermission()`, so it passes when the admin holds **at least one** of the listed permissions and aborts with 403 only when none match. There is no hard-coded bypass — `super-admin` simply holds all 127 permissions.
 - **Seeded roles:** `super-admin` (all 127 permissions), `admin` (all except `roles.delete`), `manager` (30 operational permissions), `cashier` (9 POS-focused permissions).
 - **Audit trail:** `App\Services\ActivityLogger` records logins, failed logins, and CRUD mutations with IP and before/after data.
 - ⚠️ New admin routes **must** be wrapped in a `permission:` middleware; the admin group only checks `auth:admin` + `active.admin`, so any active admin can reach an unprotected route.
@@ -792,7 +792,7 @@ php artisan accounting:backfill
 php artisan accounting:verify
 ```
 
-For the React app, `.env` uses `VITE_API_URL` for dev and `VITE_API_URL_PRODUCTION` for production builds.
+For the React app, `.env` sets `VITE_API_URL=/api/v1` for local dev (Vite proxies `/api` to `erp_nginx`). Production builds use `production/react-app/.env.production`, which sets `VITE_API_URL=https://erp.obydullah.com/api/v1`. There is no `VITE_API_URL_PRODUCTION` variable.
 
 ## Database
 
