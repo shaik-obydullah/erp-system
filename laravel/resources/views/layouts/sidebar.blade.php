@@ -129,7 +129,7 @@
         </div>
 
         <!-- Finance Dropdown -->
-        <div class="nav-dropdown" x-data="{ open: {{ request()->routeIs('cashbook.*') || request()->routeIs('incomes.*') || request()->routeIs('expenses.*') || request()->routeIs('payables.*') || request()->routeIs('receivables.*') || request()->routeIs('fixed-assets.*') || request()->routeIs('transactions.*') || request()->routeIs('currencies.*') ? 'true' : 'false' }} }" :class="{ 'open': open }">
+        <div class="nav-dropdown" x-data="{ open: {{ request()->routeIs('cashbook.*') || request()->routeIs('incomes.*') || request()->routeIs('expenses.*') || request()->routeIs('payables.*') || request()->routeIs('receivables.*') || request()->routeIs('fixed-assets.*') || request()->routeIs('transactions.*') ? 'true' : 'false' }} }" :class="{ 'open': open }">
             <button class="nav-item nav-dropdown-toggle" @click="open = !open">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                 Finance
@@ -142,7 +142,6 @@
                 <a href="{{ route('payables.index') }}" class="nav-dropdown-item {{ request()->routeIs('payables.*') ? 'active' : '' }}">Accounts Payable</a>
                 <a href="{{ route('receivables.index') }}" class="nav-dropdown-item {{ request()->routeIs('receivables.*') ? 'active' : '' }}">Accounts Receivable</a>
                 <a href="{{ route('fixed-assets.index') }}" class="nav-dropdown-item {{ request()->routeIs('fixed-assets.*') ? 'active' : '' }}">Fixed Assets</a>
-                <a href="{{ route('currencies.index') }}" class="nav-dropdown-item {{ request()->routeIs('currencies.*') ? 'active' : '' }}">Currencies</a>
                 <a href="{{ route('transactions.index') }}" class="nav-dropdown-item {{ request()->routeIs('transactions.*') ? 'active' : '' }}">Transaction Log</a>
             </div>
         </div>
