@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\Stock;
 use App\Models\Sale;
 use App\Models\SaleDetail;
+use App\Models\Transaction;
 use App\Services\OllamaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -115,15 +116,19 @@ class AiController extends Controller
         $twelveMonthsAgo = Carbon::now()->subMonths(12)->startOfMonth();
 
         // The sales table has no timestamps; the sale date lives on the
-        // linked sale-income transaction.
+        // linked sale-income transaction. Collapse the transactions to one
+        // row per sale before joining so a sale can never be counted twice
+        // if a future flow posts more than one sale-income row for it.
+        $saleDates = Transaction::query()
+            ->where('type', Transaction::TYPE_SALE_INCOME)
+            ->whereNull('deleted_at')
+            ->where('date', '>=', $twelveMonthsAgo)
+            ->selectRaw('fk_reference_id as sale_id, MIN(date) as sale_date')
+            ->groupBy('fk_reference_id');
+
         $salesHistory = Sale::where('status', 'completed')
-            ->whereHas('transaction', function ($q) use ($twelveMonthsAgo) {
-                $q->where('date', '>=', $twelveMonthsAgo);
-            })
-            ->join('transactions', 'transactions.fk_reference_id', '=', 'sales.id')
-            ->where('transactions.type', \App\Models\Transaction::TYPE_SALE_INCOME)
-            ->whereNull('transactions.deleted_at')
-            ->selectRaw('DATE_FORMAT(transactions.date, "%Y-%m") as month, SUM(sales.grand_total) as total')
+            ->joinSub($saleDates, 'sale_dates', 'sale_dates.sale_id', '=', 'sales.id')
+            ->selectRaw('DATE_FORMAT(sale_dates.sale_date, "%Y-%m") as month, SUM(sales.grand_total) as total')
             ->groupBy('month')
             ->orderBy('month')
             ->get()
