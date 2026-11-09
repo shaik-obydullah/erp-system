@@ -200,6 +200,39 @@ A few highlights first; expand any group for the full gallery.
 </details>
 
 <details>
+<summary><strong>AI Copilot</strong> — 7 screenshots</summary>
+
+**AI Product Description (Create Product)**
+
+![AI Create Product](screenshots/AI-Create-Product.png)
+
+**AI Inventory Insights (Stocks)**
+
+![AI Stock Insights](screenshots/AI-Stock-Insights.png)
+
+**AI Price Suggestion (Stock Pricing)**
+
+![AI Suggest Price](screenshots/AI-Suggest-Price.png)
+
+**AI Product Search**
+
+![AI Product Search](screenshots/AI-Product-Search.png)
+
+**React POS — AI Inventory Insights**
+
+![AI POS Inventory Insights](screenshots/AI-POS-Inventory-Insights.png)
+
+**React POS — AI Price Suggestion**
+
+![AI POS Price Suggestion](screenshots/AI-POS-Price-Suggestion.png)
+
+**AI Sales Forecast**
+
+![AI Sales Forecast](screenshots/AI-Sales-Forecast.png)
+
+</details>
+
+<details>
 <summary><strong>Catalog Management</strong> — 7 screenshots</summary>
 
 **All Products**

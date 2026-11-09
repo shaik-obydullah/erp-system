@@ -139,3 +139,35 @@ Forecast payloads are cached (`FORECAST_CACHE_TTL`, default 6 h); the BI service
 - BI Flask app: [shaik-obydullah/bi-system](https://github.com/shaik-obydullah/bi-system) (`flask-app/`)
 - Reports: `laravel/app/Http/Controllers/{ReportController,VatReturnController}.php` and `laravel/resources/views/reports/`
 - Config: `laravel/config/services.php` (`ollama.url`, `ollama.model`), `AI_MODEL` env
+
+## 10. Screenshots
+
+The screenshots below show the AI copilot features in the admin panel and the React POS. All generative features run on the local `qwen2.5:0.5b` model.
+
+**AI product description (Create Product)**
+
+![AI Create Product](../screenshots/AI-Create-Product.png)
+
+**AI inventory insights (Stocks)**
+
+![AI Stock Insights](../screenshots/AI-Stock-Insights.png)
+
+**AI price suggestion (Stock Pricing)**
+
+![AI Suggest Price](../screenshots/AI-Suggest-Price.png)
+
+**AI product search**
+
+![AI Product Search](../screenshots/AI-Product-Search.png)
+
+**React POS — AI inventory insights**
+
+![AI POS Inventory Insights](../screenshots/AI-POS-Inventory-Insights.png)
+
+**React POS — AI price suggestion**
+
+![AI POS Price Suggestion](../screenshots/AI-POS-Price-Suggestion.png)
+
+**AI sales forecast**
+
+![AI Sales Forecast](../screenshots/AI-Sales-Forecast.png)
