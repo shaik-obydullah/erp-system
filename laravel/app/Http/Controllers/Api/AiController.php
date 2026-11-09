@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Stock;
 use App\Models\Sale;
+use App\Models\SaleDetail;
 use App\Services\OllamaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -48,10 +49,10 @@ class AiController extends Controller
         ]);
 
         $products = Product::select('id', 'name', 'sku', 'fk_category_id')
-            ->with('stocks', function ($q) {
+            ->with(['stocks' => function ($q) {
                 $q->select('fk_product_id', 'sale_price', 'quantity')
                     ->where('status', 'active');
-            })
+            }])
             ->with('category:id,name')
             ->get()
             ->map(function ($product) {
@@ -113,9 +114,16 @@ class AiController extends Controller
     {
         $twelveMonthsAgo = Carbon::now()->subMonths(12)->startOfMonth();
 
+        // The sales table has no timestamps; the sale date lives on the
+        // linked sale-income transaction.
         $salesHistory = Sale::where('status', 'completed')
-            ->where('created_at', '>=', $twelveMonthsAgo)
-            ->selectRaw('DATE_FORMAT(created_at, "%Y-%m") as month, SUM(grand_total) as total')
+            ->whereHas('transaction', function ($q) use ($twelveMonthsAgo) {
+                $q->where('date', '>=', $twelveMonthsAgo);
+            })
+            ->join('transactions', 'transactions.fk_reference_id', '=', 'sales.id')
+            ->where('transactions.type', \App\Models\Transaction::TYPE_SALE_INCOME)
+            ->whereNull('transactions.deleted_at')
+            ->selectRaw('DATE_FORMAT(transactions.date, "%Y-%m") as month, SUM(sales.grand_total) as total')
             ->groupBy('month')
             ->orderBy('month')
             ->get()
@@ -134,6 +142,27 @@ class AiController extends Controller
                 'total' => (float) ($salesMap[$month] ?? 0),
             ];
         })->toArray();
+
+        // A 0.5B model cannot forecast from one month of data without
+        // inventing numbers, so answer deterministically until there is
+        // enough history for a meaningful forecast.
+        $monthsWithSales = collect($formattedHistory)
+            ->filter(fn ($row) => $row['total'] > 0)
+            ->values();
+
+        if ($monthsWithSales->count() < 3) {
+            $latest = $monthsWithSales->last();
+            $forecast = $latest
+                ? 'Not enough sales history for an AI forecast: only '
+                    . $monthsWithSales->count()
+                    . ' month(s) contain completed sales. Latest month ('
+                    . $latest['month'] . '): $' . number_format($latest['total'], 2)
+                    . '. A reliable 3-month forecast needs at least 3 months of data. '
+                    . 'Next steps: align stock with recent demand and run a promotion to build more history.'
+                : 'No completed sales were found in the last 12 months, so a forecast cannot be generated yet.';
+
+            return response()->json(['forecast' => $forecast]);
+        }
 
         $forecast = $this->ai->salesForecast($formattedHistory);
 
@@ -160,9 +189,9 @@ class AiController extends Controller
                     $query->orWhere('name', 'like', "%{$keyword}%");
                 }
             })
-            ->with('stocks', function ($q) {
+            ->with(['stocks' => function ($q) {
                 $q->where('status', 'active');
-            })
+            }])
             ->limit(5)
             ->get()
             ->map(function ($product) {
@@ -196,21 +225,28 @@ class AiController extends Controller
             'product_id' => 'required|exists:products,id',
         ]);
 
-        $product = Product::with('stocks', function ($q) {
+        $product = Product::with(['stocks' => function ($q) {
             $q->where('status', 'active');
-        })->findOrFail($validated['product_id']);
+        }])->findOrFail($validated['product_id']);
 
         $activeStock = $product->stocks->first();
         $currentPrice = $activeStock ? (float) $activeStock->sale_price : 0;
 
-        $recentSales = Sale::where('status', 'completed')
-            ->whereHas('details', function ($q) use ($product) {
-                $q->whereHas('stock', function ($sq) use ($product) {
-                    $sq->where('fk_product_id', $product->id);
-                });
+        // The sales table has no timestamps; use the linked sale-income
+        // transaction date. Aggregate the product's unit price from its sale
+        // line (subtotal / quantity) rather than the whole-sale total.
+        $recentSaleIds = Sale::where('status', 'completed')
+            ->whereHas('transaction', function ($q) {
+                $q->where('date', '>=', Carbon::now()->subMonths(3));
             })
-            ->where('created_at', '>=', Carbon::now()->subMonths(3))
-            ->selectRaw('AVG(grand_total) as avg_price, MIN(grand_total) as min_price, MAX(grand_total) as max_price')
+            ->select('id');
+
+        $recentSales = SaleDetail::whereIn('fk_sale_id', $recentSaleIds)
+            ->whereHas('stock', function ($sq) use ($product) {
+                $sq->where('fk_product_id', $product->id);
+            })
+            ->where('sale_stock', '>', 0)
+            ->selectRaw('AVG(subtotal / sale_stock) as avg_price, MIN(subtotal / sale_stock) as min_price, MAX(subtotal / sale_stock) as max_price')
             ->first();
 
         $competitorPrices = [];

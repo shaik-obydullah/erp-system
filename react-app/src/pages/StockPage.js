@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { FaPlus, FaSearch, FaChevronLeft, FaChevronRight } from "react-icons/fa";
-import { fetchStocks } from "../api/axios";
+import { fetchStocks, fetchInventoryInsights } from "../api/axios";
 import { useConfig } from "../contexts/ConfigContext";
 import Modal from "../components/Modal";
 import AddStock from "./AddStock";
@@ -61,6 +61,8 @@ export default function StockPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [addModal, setAddModal] = useState(false);
+  const [insights, setInsights] = useState(null);
+  const [insightsBusy, setInsightsBusy] = useState(false);
 
   const loadStocks = useCallback(async () => {
     setLoading(true);
@@ -84,14 +86,46 @@ export default function StockPage() {
     setPage(1);
   }, [search]);
 
+  const loadInsights = async () => {
+    setInsightsBusy(true);
+    try {
+      const { insights } = await fetchInventoryInsights();
+      setInsights(insights);
+    } catch (e) {
+      setInsights(e.message || "AI unavailable");
+    } finally {
+      setInsightsBusy(false);
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Stocks</h1>
-        <button onClick={() => setAddModal(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
-          <FaPlus /> Add Stock
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={loadInsights}
+            disabled={insightsBusy}
+            className="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-60 text-gray-700 px-4 py-2 rounded-lg transition"
+          >
+            {insightsBusy ? "Thinking…" : "AI insights"}
+          </button>
+          <button onClick={() => setAddModal(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
+            <FaPlus /> Add Stock
+          </button>
+        </div>
       </div>
+
+      {insights && (
+        <div className="bg-white rounded-lg shadow p-4 mb-4">
+          <h2 className="font-semibold text-gray-800 mb-2">
+            AI inventory insights
+          </h2>
+          <pre className="text-sm text-gray-700 whitespace-pre-wrap">
+            {insights}
+          </pre>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="p-4 border-b">

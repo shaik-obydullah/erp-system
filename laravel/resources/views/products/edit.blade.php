@@ -213,7 +213,14 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="description">Description</label>
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                        <label for="description">Description</label>
+                        <button type="button" class="btn btn-secondary btn-sm"
+                                @click="generateDescription()" :disabled="aiBusy">
+                            <span x-show="!aiBusy">Generate with AI</span>
+                            <span x-show="aiBusy">Generating…</span>
+                        </button>
+                    </div>
                     <textarea id="description" x-model="form.description"></textarea>
                     <span class="form-error" x-show="errors.description" x-text="errors.description"></span>
                 </div>
@@ -273,6 +280,7 @@ function productForm() {
         newImageFiles: [],
         imagePreviews: [],
         dragOver: false,
+        aiBusy: false,
 
         get availableSubcategories() {
             if (!this.form.fk_category_id) return [];
@@ -400,6 +408,35 @@ function productForm() {
                 var newIndex = index - existingCount;
                 this.imagePreviews.splice(newIndex, 1);
                 this.newImageFiles.splice(newIndex, 1);
+            }
+        },
+
+        async generateDescription() {
+            if (!this.form.name.trim()) {
+                this.errorMessage = 'Enter a product name first.';
+                return;
+            }
+
+            this.aiBusy = true;
+            this.errorMessage = '';
+
+            try {
+                const category = this.categoriesData.find(
+                    (c) => String(c.id) === String(this.form.fk_category_id)
+                );
+
+                const { description } = await window.aiPost('/api/ai/product-description', {
+                    name: this.form.name,
+                    category: category ? category.name : '',
+                    specs: $('#description').summernote('code'),
+                });
+
+                this.form.description = description;
+                $('#description').summernote('code', description);
+            } catch (e) {
+                this.errorMessage = e.message;
+            } finally {
+                this.aiBusy = false;
             }
         },
 

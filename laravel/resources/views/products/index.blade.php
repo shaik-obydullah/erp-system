@@ -62,6 +62,16 @@
             </form>
         </div>
 
+        <div style="padding: 0 16px 16px; max-width:760px;">
+            <div style="display:flex; gap:8px;">
+                <input id="ai-search" class="form-input"
+                       placeholder="e.g. cheap red cotton shirt under 500">
+                <button type="button" id="ai-search-btn" class="btn btn-secondary">Ask AI</button>
+            </div>
+            <div id="ai-search-out" class="alert alert-info"
+                 style="display:none; white-space:pre-wrap; margin-top:12px;"></div>
+        </div>
+
         <table>
             <thead>
                 <tr>
@@ -186,3 +196,33 @@
 </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.getElementById('ai-search-btn')?.addEventListener('click', async () => {
+    const query = document.getElementById('ai-search').value.trim();
+    const out = document.getElementById('ai-search-out');
+    if (!query) return;
+
+    out.style.display = 'block';
+    out.textContent = 'Thinking…';
+
+    try {
+        const data = await window.aiPost('/api/ai/product-search', { query });
+        const answer = data.response || '';
+
+        // The endpoint returns the full catalog in `products`; keep only names
+        // the model actually mentions so the list matches the answer.
+        const matched = (data.products || [])
+            .filter((p) => answer.toLowerCase().includes(String(p.name).toLowerCase()))
+            .slice(0, 8)
+            .map((p) => `• ${p.name} — ${p.price} (stock ${p.stock})`)
+            .join('\n');
+
+        out.textContent = matched ? `${answer}\n\n${matched}` : answer;
+    } catch (err) {
+        out.textContent = err.message;
+    }
+});
+</script>
+@endpush

@@ -149,6 +149,10 @@
                         <label for="sale_price">Sale Price <span class="required">*</span></label>
                         <input type="number" id="sale_price" x-model="form.sale_price" step="0.01" min="0" placeholder="0.00" required>
                         <span class="form-hint">Selling price per unit, entered VAT-inclusive.</span>
+                        <button type="button" id="ai-price" class="btn btn-secondary btn-sm" style="margin-top:8px;">
+                            Suggest price
+                        </button>
+                        <div id="ai-price-out" class="form-hint" style="white-space:pre-wrap; margin-top:6px;"></div>
                         <span class="form-error" x-show="errors.sale_price" x-text="errors.sale_price"></span>
                     </div>
                 </div>
@@ -298,3 +302,26 @@
     }
 </script>
 @endsection
+
+@push('scripts')
+<script>
+document.getElementById('ai-price')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const out = document.getElementById('ai-price-out');
+
+    btn.disabled = true;
+    out.textContent = 'Thinking…';
+
+    try {
+        const { suggestion } = await window.aiPost('/api/ai/price-suggestion', {
+            product_id: {{ (int) $stock->fk_product_id }},
+        });
+        out.textContent = suggestion;
+    } catch (err) {
+        out.textContent = err.message;
+    } finally {
+        btn.disabled = false;
+    }
+});
+</script>
+@endpush

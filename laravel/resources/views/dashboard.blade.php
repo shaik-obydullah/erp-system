@@ -150,6 +150,19 @@
                 </div>
             </div>
 
+            <!-- AI Sales Forecast -->
+            <div style="padding: 0 32px 32px;">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3 class="chart-title">AI sales forecast</h3>
+                        <button type="button" id="ai-forecast" class="btn btn-secondary btn-sm">
+                            Generate forecast
+                        </button>
+                    </div>
+                    <pre id="ai-forecast-body" style="white-space:pre-wrap; margin:0; font-family:inherit;">Click “Generate forecast” to analyse the last 12 months of completed sales.</pre>
+                </div>
+            </div>
+
             <!-- Tables -->
             <div class="tables-grid">
                 <div class="table-card">
@@ -271,6 +284,39 @@
                         plugins: { legend: { position: 'right', labels: { usePointStyle: true, pointStyle: 'circle', padding: 16, font: { size: 12 } } } }
                     }
                 });
+            });
+        </script>
+        <script>
+            window.aiPost = async function (url, body = {}) {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    },
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.error || data.message || 'AI request failed');
+                return data;
+            };
+
+            document.getElementById('ai-forecast')?.addEventListener('click', async (e) => {
+                const btn = e.currentTarget;
+                const body = document.getElementById('ai-forecast-body');
+
+                btn.disabled = true;
+                body.textContent = 'Thinking…';
+
+                try {
+                    const { forecast } = await window.aiPost('/api/ai/sales-forecast');
+                    body.textContent = forecast;
+                } catch (err) {
+                    body.textContent = err.message;
+                } finally {
+                    btn.disabled = false;
+                }
             });
         </script>
     </body>

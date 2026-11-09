@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ActivityController;
+use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\ConfigController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerDueController;
@@ -622,6 +623,18 @@ Route::middleware(['auth:admin', 'active.admin'])->prefix('api')->group(function
     Route::post('/notifications/mark-all-seen', [NotificationController::class, 'markAllSeen']);
     Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
     Route::post('/notifications', [NotificationController::class, 'store']);
+
+    // AI (Ollama) — session-authenticated, same controller as the API
+    Route::post('/ai/product-description', [AiController::class, 'productDescription'])
+        ->middleware('permission:products.save');
+    Route::post('/ai/product-search', [AiController::class, 'productSearch'])
+        ->middleware('permission:products.view');
+    Route::post('/ai/inventory-insights', [AiController::class, 'inventoryInsights'])
+        ->middleware('permission:stocks.view');
+    Route::post('/ai/sales-forecast', [AiController::class, 'salesForecast'])
+        ->middleware('permission:dashboard.view');
+    Route::post('/ai/price-suggestion', [AiController::class, 'priceSuggestion'])
+        ->middleware('permission:stocks.edit');
 });
 
 require __DIR__.'/auth.php';

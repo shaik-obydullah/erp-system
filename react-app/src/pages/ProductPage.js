@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { FaPlus, FaEdit, FaSearch, FaChevronLeft, FaChevronRight, FaImage } from "react-icons/fa";
 import { toast } from "react-toastify";
-import { fetchProducts, updateProduct, fetchCategories } from "../api/axios";
+import { fetchProducts, updateProduct, fetchCategories, fetchPriceSuggestion } from "../api/axios";
 import { useConfig } from "../contexts/ConfigContext";
 import Modal from "../components/Modal";
 import AddProduct from "./AddProduct";
@@ -69,6 +69,10 @@ export default function ProductPage() {
   const [editImage, setEditImage] = useState(null);
   const [editImagePreview, setEditImagePreview] = useState("");
   const [editLoading, setEditLoading] = useState(false);
+
+  const [priceFor, setPriceFor] = useState(null);
+  const [priceSuggestion, setPriceSuggestion] = useState("");
+  const [priceBusy, setPriceBusy] = useState(false);
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
@@ -149,6 +153,22 @@ export default function ProductPage() {
     return match?.name || "-";
   };
 
+  const loadPriceSuggestion = async (product) => {
+    setPriceFor(product);
+    setPriceSuggestion("");
+    setPriceBusy(true);
+    try {
+      const { suggestion } = await fetchPriceSuggestion({
+        product_id: product.id,
+      });
+      setPriceSuggestion(suggestion);
+    } catch (e) {
+      setPriceSuggestion(e.message || "AI unavailable");
+    } finally {
+      setPriceBusy(false);
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -200,6 +220,7 @@ export default function ProductPage() {
                         <td className="px-6 py-4 text-gray-600">{categoryNameFor(p)}</td>
                         <td className="px-6 py-4"><StatusBadge status={p.status} /></td>
                         <td className="px-6 py-4 text-right">
+                          <button onClick={() => loadPriceSuggestion(p)} className="text-purple-600 hover:text-purple-800 mr-3" title="AI price suggestion">AI price</button>
                           <button onClick={() => handleEdit(p)} className="text-blue-600 hover:text-blue-800 mr-3"><FaEdit /></button>
                         </td>
                       </tr>
@@ -273,6 +294,24 @@ export default function ProductPage() {
             </div>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        open={!!priceFor}
+        onClose={() => {
+          setPriceFor(null);
+          setPriceSuggestion("");
+        }}
+        title={`AI price suggestion${priceFor ? ` — ${priceFor.name}` : ""}`}
+        maxWidth="max-w-lg"
+      >
+        {priceBusy ? (
+          <p className="text-gray-500">Thinking…</p>
+        ) : (
+          <pre className="text-sm text-gray-700 whitespace-pre-wrap">
+            {priceSuggestion}
+          </pre>
+        )}
       </Modal>
 
       <Modal

@@ -76,6 +76,22 @@
                 });
             });
         </script>
+        <script>
+            window.aiPost = async function (url, body = {}) {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    },
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.error || data.message || 'AI request failed');
+                return data;
+            };
+        </script>
         @yield('scripts')
         @stack('scripts')
     </body>

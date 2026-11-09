@@ -34,6 +34,15 @@
             </form>
         </div>
 
+        <div style="padding: 0 16px 16px;">
+            <button type="button" id="ai-insights" class="btn btn-secondary">AI insights</button>
+            <div id="ai-insights-panel" class="card" style="display:none; margin-top:12px;">
+                <div style="padding:16px;">
+                    <pre id="ai-insights-body" style="white-space:pre-wrap; margin:0;"></pre>
+                </div>
+            </div>
+        </div>
+
         <table>
             <thead>
                 <tr>
@@ -106,3 +115,26 @@
     </div>
 
 @endsection
+
+@push('scripts')
+<script>
+document.getElementById('ai-insights')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const panel = document.getElementById('ai-insights-panel');
+    const body = document.getElementById('ai-insights-body');
+
+    btn.disabled = true;
+    panel.style.display = 'block';
+    body.textContent = 'Thinking…';
+
+    try {
+        const { insights } = await window.aiPost('/api/ai/inventory-insights');
+        body.textContent = insights;
+    } catch (err) {
+        body.textContent = err.message;
+    } finally {
+        btn.disabled = false;
+    }
+});
+</script>
+@endpush
