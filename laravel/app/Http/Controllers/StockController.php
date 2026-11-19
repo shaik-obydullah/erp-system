@@ -194,7 +194,11 @@ class StockController extends Controller
 
     public function priceIncreaseForm()
     {
-        $categories = Category::where('status', 'active')->orderBy('name')->get();
+        $categories = Category::whereNull('fk_category_id')
+            ->where('status', 'active')
+            ->with(['children' => fn ($query) => $query->where('status', 'active')->orderBy('name')])
+            ->orderBy('name')
+            ->get();
 
         return view('stocks.price-increase', compact('categories'));
     }
@@ -214,7 +218,8 @@ class StockController extends Controller
 
         DB::transaction(function () use ($categoryIds, $percentage, $adminId, &$updated) {
             Stock::whereHas('product', function ($query) use ($categoryIds) {
-                $query->whereIn('fk_category_id', $categoryIds);
+                $query->whereIn('fk_category_id', $categoryIds)
+                    ->orWhereIn('fk_subcategory_id', $categoryIds);
             })->chunkById(200, function ($stocks) use ($percentage, $adminId, &$updated) {
                 foreach ($stocks as $stock) {
                     $stock->update([

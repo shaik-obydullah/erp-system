@@ -72,6 +72,52 @@ class CategoryPriceIncreaseTest extends TestCase
         $this->assertSame(300.0, (float) $unrelated->fresh()->sale_price);
     }
 
+    public function test_selecting_a_subcategory_updates_only_products_tagged_with_it(): void
+    {
+        $admin = $this->adminWith('stocks.edit');
+        $parent = $this->category('Electronics');
+        $mobile = Category::create(['name' => 'Mobile', 'fk_category_id' => $parent->id, 'status' => 'active']);
+        $laptop = Category::create(['name' => 'Laptop', 'fk_category_id' => $parent->id, 'status' => 'active']);
+
+        $mobileStock = $this->stock($parent, 100, 'active', $mobile);
+        $laptopStock = $this->stock($parent, 200, 'active', $laptop);
+        $withoutSubcategory = $this->stock($parent, 300, 'active');
+
+        $this->actingAs($admin, 'admin')->postJson(route('stocks.price-increase.store'), [
+            'fk_category_id' => $mobile->id,
+            'percentage' => 10,
+        ])->assertOk()->assertJsonFragment([
+            'message' => 'Sale prices in Mobile increased by 10% across 1 stock record(s).',
+        ]);
+
+        $this->assertSame(110.0, (float) $mobileStock->fresh()->sale_price);
+        $this->assertSame(200.0, (float) $laptopStock->fresh()->sale_price);
+        $this->assertSame(300.0, (float) $withoutSubcategory->fresh()->sale_price);
+    }
+
+    public function test_selecting_parent_also_updates_products_tagged_with_its_subcategories(): void
+    {
+        $admin = $this->adminWith('stocks.edit');
+        $parent = $this->category('Electronics');
+        $mobile = Category::create(['name' => 'Mobile', 'fk_category_id' => $parent->id, 'status' => 'active']);
+        $accessories = Category::create(['name' => 'Accessories', 'fk_category_id' => $mobile->id, 'status' => 'active']);
+
+        $mobileStock = $this->stock($parent, 100, 'active', $mobile);
+        $accessoriesStock = $this->stock($parent, 50, 'active', $accessories);
+        $unrelated = $this->stock($this->category('Furniture'), 200, 'active');
+
+        $this->actingAs($admin, 'admin')->postJson(route('stocks.price-increase.store'), [
+            'fk_category_id' => $parent->id,
+            'percentage' => 10,
+        ])->assertOk()->assertJsonFragment([
+            'message' => 'Sale prices in Electronics increased by 10% across 2 stock record(s).',
+        ]);
+
+        $this->assertSame(110.0, (float) $mobileStock->fresh()->sale_price);
+        $this->assertSame(55.0, (float) $accessoriesStock->fresh()->sale_price);
+        $this->assertSame(200.0, (float) $unrelated->fresh()->sale_price);
+    }
+
     public function test_negative_percentage_decreases_prices_without_going_below_zero(): void
     {
         $admin = $this->adminWith('stocks.edit');
@@ -144,12 +190,13 @@ class CategoryPriceIncreaseTest extends TestCase
         return Category::create(['name' => $name, 'status' => 'active']);
     }
 
-    private function stock(Category $category, float $salePrice, string $status): Stock
+    private function stock(Category $category, float $salePrice, string $status, ?Category $subcategory = null): Stock
     {
         $product = Product::create([
             'name' => 'Price Test Product '.uniqid(),
             'url_slug' => 'price-test-'.uniqid(),
             'fk_category_id' => $category->id,
+            'fk_subcategory_id' => $subcategory?->id,
             'status' => 'active',
         ]);
 

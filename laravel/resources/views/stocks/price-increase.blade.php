@@ -36,20 +36,25 @@
                     </div>
                     <div>
                         <h3 class="section-title">Price adjustment</h3>
-                        <p class="section-hint">Select a category and the percentage to apply to its stock sale prices.</p>
+                        <p class="section-hint">Select a category or subcategory and the percentage to apply to its stock sale prices.</p>
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="fk_category_id">Category <span class="required">*</span></label>
+                        <label for="fk_category_id">Category / Subcategory <span class="required">*</span></label>
                         <select id="fk_category_id" x-model="form.fk_category_id" required>
                             <option value="">Select Category</option>
                             @foreach($categories as $category)
-                                <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                <optgroup label="{{ $category->name }}">
+                                    <option value="{{ $category->id }}">{{ $category->name }} (all)</option>
+                                    @foreach($category->children as $child)
+                                        <option value="{{ $child->id }}">&nbsp;&nbsp;{{ $child->name }}</option>
+                                    @endforeach
+                                </optgroup>
                             @endforeach
                         </select>
-                        <span class="form-hint">All stock records of products in this category and its subcategories will be updated.</span>
+                        <span class="form-hint">Selecting a category updates its subcategories too; selecting a subcategory updates only products tagged with it.</span>
                         <span class="form-error" x-show="errors.fk_category_id" x-text="errors.fk_category_id"></span>
                     </div>
                     <div class="form-group">
