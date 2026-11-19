@@ -305,6 +305,12 @@ Route::middleware(['auth:admin', 'active.admin'])->group(function () {
     Route::post('/stocks', [StockController::class, 'store'])
         ->middleware('permission:stocks.save')
         ->name('stocks.store');
+    Route::get('/stocks/price-increase', [StockController::class, 'priceIncreaseForm'])
+        ->middleware('permission:stocks.edit')
+        ->name('stocks.price-increase.create');
+    Route::post('/stocks/price-increase', [StockController::class, 'priceIncrease'])
+        ->middleware('permission:stocks.edit')
+        ->name('stocks.price-increase.store');
     Route::get('/stocks/{stock}/edit', [StockController::class, 'edit'])
         ->middleware('permission:stocks.edit')
         ->name('stocks.edit');

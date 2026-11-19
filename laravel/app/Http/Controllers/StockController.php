@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Accounting\AccountingPoster;
+use App\Models\Category;
 use App\Models\Configuration;
 use App\Models\Product;
 use App\Models\Stock;
@@ -189,5 +190,89 @@ class StockController extends Controller
 
         return redirect()->route('stocks.index')
             ->with('success', 'Stock updated successfully.');
+    }
+
+    public function priceIncreaseForm()
+    {
+        $categories = Category::where('status', 'active')->orderBy('name')->get();
+
+        return view('stocks.price-increase', compact('categories'));
+    }
+
+    public function priceIncrease(Request $request)
+    {
+        $validated = $request->validate([
+            'fk_category_id' => 'required|exists:categories,id',
+            'percentage' => 'required|numeric|min:-100|max:100',
+        ]);
+
+        $category = Category::findOrFail($validated['fk_category_id']);
+        $categoryIds = $this->categoryIdsIncludingChildren($category->id);
+        $percentage = (float) $validated['percentage'];
+        $adminId = auth('admin')->id();
+        $updated = 0;
+
+        DB::transaction(function () use ($categoryIds, $percentage, $adminId, &$updated) {
+            Stock::whereHas('product', function ($query) use ($categoryIds) {
+                $query->whereIn('fk_category_id', $categoryIds);
+            })->chunkById(200, function ($stocks) use ($percentage, $adminId, &$updated) {
+                foreach ($stocks as $stock) {
+                    $stock->update([
+                        'sale_price' => max(0, round(((float) $stock->sale_price) * (1 + $percentage / 100), 2)),
+                        'updated_by' => $adminId,
+                    ]);
+
+                    $updated++;
+                }
+            });
+        });
+
+        $direction = $percentage >= 0 ? 'increased' : 'decreased';
+        $message = $updated > 0
+            ? "Sale prices in {$category->name} {$direction} by ".abs($percentage)."% across {$updated} stock record(s)."
+            : "No stock records found for category {$category->name}.";
+
+        ActivityLogger::log(
+            'Category Price Update',
+            $updated > 0 ? 'success' : 'error',
+            $message
+        );
+
+        if ($request->expectsJson()) {
+            if ($updated === 0) {
+                return response()->json(['message' => $message], 422);
+            }
+
+            return response()->json([
+                'message' => $message,
+                'redirect' => route('stocks.index'),
+            ]);
+        }
+
+        return redirect()->route('stocks.index')
+            ->with($updated > 0 ? 'success' : 'error', $message);
+    }
+
+    /**
+     * Return the selected category plus all of its descendant category IDs.
+     */
+    private function categoryIdsIncludingChildren(int $categoryId): array
+    {
+        $ids = [$categoryId];
+        $next = [$categoryId];
+
+        while (! empty($next)) {
+            $children = Category::whereIn('fk_category_id', $next)->pluck('id')->all();
+            $newIds = array_values(array_diff($children, $ids));
+
+            if (empty($newIds)) {
+                break;
+            }
+
+            $ids = array_merge($ids, $newIds);
+            $next = $newIds;
+        }
+
+        return $ids;
     }
 }

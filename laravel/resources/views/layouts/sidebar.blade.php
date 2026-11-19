@@ -96,6 +96,7 @@
             <div class="nav-dropdown-menu">
                 <a href="{{ route('stocks.index') }}" class="nav-dropdown-item {{ request()->routeIs('stocks.index') || request()->routeIs('stocks.edit') ? 'active' : '' }}">All Stocks</a>
                 <a href="{{ route('stocks.create') }}" class="nav-dropdown-item {{ request()->routeIs('stocks.create') ? 'active' : '' }}">Add Stock</a>
+                <a href="{{ route('stocks.price-increase.create') }}" class="nav-dropdown-item {{ request()->routeIs('stocks.price-increase.*') ? 'active' : '' }}">Category Price Increase</a>
                 <div style="border-top: 1px solid var(--border); margin: 4px 0;"></div>
                 <a href="{{ route('stock-adjustments.index') }}" class="nav-dropdown-item {{ request()->routeIs('stock-adjustments.*') ? 'active' : '' }}">Stock Adjustments</a>
             </div>
